@@ -1,0 +1,21 @@
+{
+  "name": "mystay-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.mjs",
+    "start": "node src/server.mjs",
+    "mock-pms": "node src/mock-pms/server.mjs",
+    "mock-pms:watch": "node --watch src/mock-pms/server.mjs",
+    "dev:worker:notifications": "node --watch src/workers/notifications-worker.mjs",
+    "worker:notifications": "node src/workers/notifications-worker.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/db.mjs migrate",
+    "db:seed": "node scripts/db.mjs seed",
+    "db:reset": "node scripts/db.mjs reset"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}

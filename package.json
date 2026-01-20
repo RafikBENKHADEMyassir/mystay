@@ -1,0 +1,41 @@
+{
+  "name": "mystay",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "admin",
+    "backend"
+  ],
+  "devDependencies": {
+    "drizzle-kit": "^0.31.8",
+    "drizzle-orm": "^0.45.1"
+  },
+  "scripts": {
+    "dev": "npm -w frontend run dev",
+    "dev:all": "bash ./dev.sh",
+    "dev:mock:opera": "node mock-servers/opera-mock.mjs",
+    "dev:mock:spabooker": "node mock-servers/spabooker-mock.mjs",
+    "build": "npm -w frontend run build",
+    "start": "npm -w frontend run start",
+    "lint": "npm -w frontend run lint",
+    "test": "npm -w frontend run test",
+    "test:watch": "npm -w frontend run test:watch",
+    "dev:frontend": "npm -w frontend run dev",
+    "build:frontend": "npm -w frontend run build",
+    "start:frontend": "npm -w frontend run start",
+    "lint:frontend": "npm -w frontend run lint",
+    "dev:admin": "npm -w admin run dev",
+    "build:admin": "npm -w admin run build",
+    "start:admin": "npm -w admin run start",
+    "lint:admin": "npm -w admin run lint",
+    "dev:backend": "npm -w backend run dev",
+    "start:backend": "npm -w backend run start",
+    "dev:worker:notifications": "npm -w backend run dev:worker:notifications",
+    "worker:notifications": "npm -w backend run worker:notifications",
+    "db:generate": "npm -w backend run db:generate",
+    "db:migrate": "npm -w backend run db:migrate",
+    "db:seed": "npm -w backend run db:seed",
+    "db:reset": "npm -w backend run db:reset"
+  }
+}

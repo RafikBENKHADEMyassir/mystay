@@ -1,0 +1,340 @@
+🌐 Expérience Utilisateur – MyStay Web App (voyageur)
+
+⸻
+
+🧳 1. Avant le séjour
+
+Objectif : préparer le voyage et simplifier le check-in.
+
+🔹 Étape 1 : Invitation & Connexion
+	•	Le voyageur reçoit un email ou SMS de l’hôtel avec un lien “Accéder à votre espace MyStay”.
+	•	En un clic, il ouvre la web app MyStay (PWA) sans téléchargement.
+	•	Il peut :
+	•	Se connecter avec son identifiant hôtel,
+	•	Ou s’inscrire (scan pièce d’identité + ajout carte bancaire sécurisée).
+
+🔹 Étape 2 : Page d’accueil personnalisée
+	•	L’accueil affiche :
+	•	Nom de l’hôtel, dates du séjour, numéro de chambre (si attribué),
+	•	Actions rapides : clé digitale (si activée), code Wi-Fi, plan de l’hôtel, contact réception.
+	•	L’hôtel peut ajouter une bannière de bienvenue personnalisée (“Bienvenue Mme Dupont !”).
+
+🔹 Étape 3 : Check-in digital
+	•	L’utilisateur complète son check-in en ligne :
+	•	Vérifie ses informations,
+	•	Signe électroniquement les conditions,
+	•	Scanne sa carte d’identité,
+	•	Saisit ou valide son empreinte de carte bancaire.
+	•	Le tout prend moins de 2 minutes.
+	•	Il reçoit ensuite la confirmation immédiate du PMS et éventuellement une clé digitale.
+
+⸻
+
+🏨 2. Pendant le séjour
+
+Objectif : centraliser toutes les interactions hôtelières dans une seule interface fluide.
+
+⸻
+
+🏠 Accueil & Navigation
+	•	Une bottom navigation permanente (Home, Messages, Agenda, Profil) permet d’accéder à tout moment aux principaux modules.
+	•	Un drawer latéral donne accès à : Concierge, Housekeeping, Spa, Restaurant, Room Service, Réception, etc.
+
+⸻
+
+📅 Agenda Intelligent
+	•	L’onglet “Agenda” affiche automatiquement :
+	•	Les réservations du séjour (spa, restaurant, transferts…),
+	•	Les événements spéciaux de l’hôtel (apéritif, concert, atelier),
+	•	Les horaires de check-in/out.
+	•	Il est synchronisé en temps réel avec le PMS.
+
+⸻
+
+🛎️ Concierge (Chat + Quick Actions)
+	•	Le client clique sur “Concierge” :
+	•	Il peut poser une question via chat instantané (ex. “Pouvez-vous réserver un taxi à 18h ?”).
+	•	Si le concierge est hors ligne, l’IA prend le relais (FAQ intelligente).
+	•	Le concierge répond en direct, et l’utilisateur reçoit une notification temps réel.
+	•	Il peut laisser un pourboire digital après l’interaction.
+
+⸻
+
+🧹 Housekeeping
+	•	Depuis “Ménage”, le client :
+	•	Peut activer / désactiver le service,
+	•	Demander des articles spécifiques (serviettes, oreillers, nettoyage complet),
+	•	Suivre l’état de la demande (“En cours”, “Terminé”),
+	•	Évaluer le service à la fin.
+
+⸻
+
+🍽️ Restaurants
+	•	En un clic sur “Restaurant” :
+	•	Le client parcourt les menus digitaux avec photos, prix, allergènes.
+	•	Peut réserver une table (date, heure, nombre de personnes).
+	•	Peut commander en chambre via le Room Service intégré.
+	•	Peut chatter directement avec le restaurant pour des demandes spéciales.
+
+⸻
+
+🛎️ Room Service
+	•	Le menu digital affiche les plats disponibles.
+	•	Le client :
+	•	Ajoute les plats dans un panier,
+	•	Valide sa commande avec paiement (Stripe / Apple Pay),
+	•	Suit la préparation en temps réel (ex. “Préparation → Livraison en cours → Livré”),
+	•	Laisse un feedback à la fin (note + commentaire + pourboire).
+
+⸻
+
+💆 Spa & Gym
+	•	Dans “Spa & Gym” :
+	•	Le voyageur consulte le catalogue des soins / cours (massages, yoga, coach…),
+	•	Réserve un créneau (date, praticien, type de soin),
+	•	Reçoit une confirmation instantanée,
+	•	Peut laisser une évaluation après la séance.
+
+⸻
+
+💬 Chat global
+	•	Accessible en bas de chaque écran.
+	•	Centralise :
+	•	Concierge,
+	•	Réception,
+	•	Room Service,
+	•	Spa,
+	•	et même le support MyStay.
+	•	L’utilisateur voit l’historique complet de ses échanges (stocké côté hôtel).
+
+⸻
+
+🔔 Notifications temps réel
+	•	Le client reçoit :
+	•	Confirmation de ses réservations,
+	•	Suivi des demandes housekeeping / room service,
+	•	Rappels d’événements à venir,
+	•	Messages personnalisés (promo spa, happy hour…).
+
+⸻
+
+📲 Profil
+	•	Accessible depuis le menu principal :
+	•	Informations personnelles (nom, langue, préférences),
+	•	Historique de séjours et factures,
+	•	Moyens de paiement enregistrés,
+	•	Paramètres de notifications,
+	•	Possibilité de laisser un avis global sur le séjour.
+
+⸻
+
+🧾 3. Fin de séjour
+
+Objectif : simplifier le départ et capter le feedback client.
+
+🔹 Check-out digital
+	•	Le jour du départ, le client reçoit une notification automatique :
+“Votre check-out est prêt. Voulez-vous régler votre facture ?”
+	•	Il consulte sa facture détaillée, valide le paiement (CB / Apple Pay), et reçoit le PDF par email.
+	•	La clé digitale se désactive automatiquement.
+
+⸻
+
+🔹 Feedback & fidélisation
+	•	L’app affiche une page finale :
+	•	“Comment évaluez-vous votre séjour ? ⭐⭐⭐⭐⭐”
+	•	“Souhaitez-vous rejoindre le programme fidélité MyStay ?”
+	•	L’hôtel récupère ces données pour enrichir ses analyses de satisfaction et de comportement client.
+
+🏨 Expérience Utilisateur – Côté Départements Hôteliers
+
+L’interface hôtelière MyStay est composée de dashboards spécialisés pour chaque département, connectés au PMS et synchronisés en temps réel avec l’activité des clients.
+
+⸻
+
+🧾 1. Réception
+
+Point de contact central — gère l’arrivée, le départ et la supervision du séjour.
+
+💻 Interface
+	•	Dashboard “Front Desk” avec :
+	•	Liste des arrivées / départs du jour (synchro PMS)
+	•	Statut de chaque chambre (occupée, libre, ménage en cours)
+	•	Notifications temps réel (check-in en ligne, clé activée, paiement validé)
+	•	Filtrage par client / numéro de chambre / statut
+
+🔧 Actions possibles
+	•	Valider ou modifier un check-in digital (document d’identité, carte bancaire, signature)
+	•	Traiter un check-out digital
+	•	Envoyer / régénérer une clé digitale
+	•	Ouvrir un chat direct avec un client
+	•	Ajouter une note interne visible par d’autres départements (ex. “Allergie gluten”)
+	•	Envoyer un message de bienvenue automatisé
+	•	Suivre les paiements et factures électroniques
+
+📈 Données visibles
+	•	Identité du client
+	•	Statut de séjour (dates, chambre)
+	•	Moyen de paiement
+	•	Historique des interactions
+	•	Feedbacks du client après séjour
+
+⸻
+
+🛎️ 2. Concierge
+
+Service de personnalisation et d’assistance aux clients pendant le séjour.
+
+💻 Interface
+	•	Dashboard “Concierge Hub” avec :
+	•	Liste des chats clients en cours
+	•	Filtrage par urgence ou type de demande (transfert, restaurant, activité…)
+	•	Historique complet des conversations et actions effectuées
+	•	Outils rapides (réserver un taxi, un spa, une table…)
+
+🔧 Actions possibles
+	•	Répondre en chat instantané
+	•	Créer une réservation externe (via API ou manuellement)
+	•	Envoyer des propositions automatiques (via IA MyStay)
+	•	Transférer la conversation à un autre service
+	•	Consulter le profil du client (préférences, historique, feedback)
+	•	Recevoir des pourboires digitaux
+
+📈 Données visibles
+	•	Nombre de chats actifs
+	•	Temps moyen de réponse
+	•	Taux de satisfaction
+	•	Historique des interactions client
+
+⸻
+
+🧹 3. Housekeeping
+
+Pilotage du ménage, des demandes et de l’état des chambres.
+
+💻 Interface
+	•	Dashboard “Housekeeping Board” :
+	•	Vue en grille de toutes les chambres avec leur statut :
+	•	🟩 Prête
+	•	🟨 En cours
+	•	🟥 À nettoyer
+	•	Liste des demandes clients (oreillers, serviettes, nettoyage)
+	•	Assignation automatique des tâches par employé
+
+🔧 Actions possibles
+	•	Marquer une chambre comme “en cours” ou “terminée”
+	•	Recevoir une notification instantanée lors d’une demande client
+	•	Confirmer la prise en charge via un bouton rapide
+	•	Envoyer un message automatisé (“Votre demande est en cours”)
+	•	Joindre une photo avant/après (optionnel)
+	•	Signaler un problème technique à la maintenance via MyStay
+
+📈 Données visibles
+	•	Nombre de chambres à traiter
+	•	Temps moyen de traitement
+	•	Taux de satisfaction housekeeping
+	•	Performance individuelle (employé, étage, zone)
+
+⸻
+
+🍽️ 4. Restaurant & Room Service
+
+Gestion des menus digitaux, des réservations et des commandes en chambre.
+
+💻 Interface
+	•	Dashboard “F&B Manager” :
+	•	Mise à jour des menus (plats, prix, allergènes, photos)
+	•	Liste des réservations de tables
+	•	Liste des commandes Room Service
+	•	Suivi en temps réel : “Reçue → En préparation → En livraison → Livrée”
+
+🔧 Actions possibles
+	•	Confirmer / refuser une commande
+	•	Modifier un plat ou une disponibilité
+	•	Marquer une commande comme “livrée”
+	•	Gérer les réservations de tables et les no-show
+	•	Discuter avec le client via chat intégré
+	•	Proposer des recommandations personnalisées (IA, upsell)
+
+📈 Données visibles
+	•	Nombre de commandes du jour
+	•	Délai moyen de préparation
+	•	Note moyenne post-repas
+	•	Revenus totaux F&B (Food & Beverage)
+
+⸻
+
+💆 5. Spa & Gym
+
+Gestion des réservations, disponibilité du personnel et feedbacks clients.
+
+💻 Interface
+	•	Dashboard “Wellness Manager” :
+	•	Planning des rendez-vous (vue calendrier)
+	•	Statut des praticiens (disponible / en séance)
+	•	Feedbacks clients par soin
+
+🔧 Actions possibles
+	•	Créer, déplacer ou annuler une réservation
+	•	Affecter un praticien à un créneau
+	•	Modifier le catalogue de soins (prix, durée, description)
+	•	Confirmer la réalisation d’un soin
+	•	Lire et répondre au feedback client
+	•	Envoyer une offre de fidélisation après un soin
+
+📈 Données visibles
+	•	Taux de remplissage spa / gym
+	•	Notes moyennes des soins
+	•	Revenus par praticien
+	•	Répartition des soins par type
+
+⸻
+
+👩‍💼 6. Management / Direction
+
+Vision globale de la performance, de la satisfaction et des opérations.
+
+💻 Interface
+	•	Dashboard “Manager Analytics” :
+	•	Vue d’ensemble des KPIs :
+	•	Taux de satisfaction global
+	•	Temps moyen de réponse
+	•	Occupation chambres
+	•	Revenu par département
+	•	Graphiques dynamiques (hebdo, mensuel, service par service)
+	•	Alertes en temps réel sur anomalies (ex. délais trop longs, insatisfaction)
+	•	Accès aux fiches clients pour analyses marketing
+
+🔧 Actions possibles
+	•	Visualiser la performance du personnel
+	•	Exporter les statistiques (Excel, PDF)
+	•	Lancer des campagnes push ciblées (ex. promo spa aux clients en séjour)
+	•	Consulter les commentaires négatifs et planifier des actions correctives
+	•	Configurer les rapports automatiques (quotidiens / hebdomadaires)
+
+📈 Données visibles
+	•	Données consolidées multi-départements
+	•	Classement des employés par performance
+	•	Répartition des revenus
+	•	Analyse des tendances et prévisions IA
+
+⸻
+
+🔄 7. Interactions inter-départements
+
+Le cœur de MyStay est sa communication transversale.
+
+🔗 Fonctionnalités partagées :
+	•	Messagerie interne entre services (chat + tags de tâches)
+	•	Assignation automatique de demandes selon le type
+	•	Historique global de chaque client visible par tous
+	•	Notifications synchronisées (concierge → housekeeping → réception)
+	•	Système de priorisation (ex. “Urgent” pour les chambres VIP)
+
+⸻
+
+🧠 8. Fonctionnalités intelligentes pour le staff
+	•	IA assistante interne : réponses rapides aux questions fréquentes clients (“Wi-Fi”, “heures du spa”).
+	•	Analyse de sentiment : détecte les messages clients négatifs pour alerter un manager.
+	•	Prédiction de charge de travail : suggère des renforts housekeeping ou restaurant en cas de pic.
+	•	Rapports automatiques : envoyés chaque matin au manager avec les indicateurs clés du jour.

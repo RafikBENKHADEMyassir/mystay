@@ -1,0 +1,2 @@
+ALTER TABLE "hotel_integrations" ADD COLUMN "spa_provider" text DEFAULT 'none' NOT NULL;--> statement-breakpoint
+ALTER TABLE "hotel_integrations" ADD COLUMN "spa_config" jsonb DEFAULT '{}'::jsonb NOT NULL;

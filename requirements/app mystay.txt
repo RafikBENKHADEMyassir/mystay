@@ -1,0 +1,676 @@
+User Stories – Application MyStay
+1. Authentification – Clients d’hôtel
+User Story
+Le client de l’hôtel peut s’authentifier à l’aide de ses informations de réservation afin d’accéder à son séjour et à
+l’ensemble des services proposés par l’établissement.
+L’application lui propose deux possibilités :
+• Lorsqu’il choisit Sign Up, il doit renseigner ses informations personnelles (nom, prénom, email, numéro de
+téléphone), fournir une pièce d’identité (photo), enregistrer une carte bancaire de manière sécurisée, et
+créer un identifiant avec mot de passe. Une fois son compte validé, il saisit son numéro de confirmation
+de réservation, ce qui associe directement sa réservation à l’hôtel et lui ouvre l’accès aux services
+personnalisés liés à son séjour.
+• Lorsqu’il choisit Log In, il se connecte avec son identifiant et son mot de passe déjà créés. L’application
+associe alors automatiquement son compte à sa réservation existante et aEiche ses informations de
+séjour (chambre réservée, dates, services disponibles).
+Même sans réservation, le client peut créer un compte et accéder à la plateforme pour explorer ses
+fonctionnalités, découvrir les hôtels partenaires, consulter les services génériques et préparer un futur séjour.
+Acceptance Criteria (AC)
+• Le client reçoit un email de confirmation lors de son inscription.
+• La réservation est validée uniquement si le numéro de confirmation correspond à une base de données
+hôtelière connectée.
+• L’authentification est ouverte à tout utilisateur, mais les fonctionnalités spécifiques liées à un séjour ne
+sont accessibles qu’après validation d’une réservation.
+• Sans réservation, le client peut parcourir la liste des hôtels partenaires et anticiper son futur voyage avec
+nos hôtels partenaires.
+Flow
+• Page d’accueil → deux options : Sign Up ou Log In.
+• Sign Up :
+o Champs requis → Nom, Prénom, Email, Téléphone, Carte d’identité (upload photo), Carte bancaire
+(paiement sécurisé), création d’un identifiant + mot de passe.
+o Une fois le compte créé → l’utilisateur doit saisir son numéro de confirmation de réservation, ce
+qui le renvoie directement vers sa réservation associée et l’ensemble des services de l’hôtel.
+• Log In : identifiant + mot de passe.
+• Une fois connecté → l’app associe automatiquement la réservation avec l’hôtel et aEiche la chambre et les
+services disponibles.
+Acceptance Criteria (AC)
+• L’utilisateur reçoit un email de confirmation lors de l’inscription.
+• La réservation est validée uniquement si le numéro de confirmation correspond à une base de données
+hôtelière connectée.
+• L’authentification est ouverte à tout utilisateur, mais les fonctionnalités spécifiques liées à un séjour ne
+sont accessibles qu’après validation d’une réservation.
+• Sans réservation, l’utilisateur peut parcourir la liste des hôtels partenaires pour anticiper son futur voyage.
+2. Interface Hôtels & Employés
+User Story
+L’hôtel (manager ou employé) dispose d’une interface dédiée, connectée automatiquement aux réservations
+existantes, afin de gérer la communication avec les clients, leurs demandes et les services en temps réel.
+Lorsqu’un hôtel devient partenaire de l’application, son espace est automatiquement personnalisé à son image :
+• L’interface reflète l’identité visuelle de l’établissement (logos, couleurs oEicielles, photos de l’hôtel).
+• Pour le client, l’expérience est perçue comme une application exclusive de l’hôtel, bien que propulsée par
+la plateforme MyStay.
+Flow
+• Lorsqu’un client réserve une chambre en dehors de l’application (ex : site oEiciel de l’hôtel, Booking.com,
+Expedia…), la réservation est automatiquement transmise via une intégration API ou par synchronisation
+PMS/CRS.
+• Le client reçoit alors un email de bienvenue contenant un lien ou un QR code l’invitant à télécharger et
+activer l’application MyStay.
+• Une fois connecté avec son numéro de confirmation de réservation, le client est directement associé à
+l’hôtel et à son espace personnalisé.
+• Côté hôtel :
+o Dashboard hôtel accessible aux employés via un login sécurisé.
+o Chaque département (Concierge, Réception, Housekeeping, Spa & Gym, Room Service) dispose
+d’un espace dédié pour suivre et traiter les demandes clients.
+o Notifications en temps réel lorsqu’un client envoie un message ou une requête.
+o Historique complet des interactions par client.
+Acceptance Criteria (AC)
+• Chaque réservation eEectuée via un canal externe génère automatiquement une invitation par mail au
+client pour rejoindre l’application.
+• L’interface est personnalisée selon l’identité visuelle de l’hôtel (logos, couleurs, photos, contenus
+spécifiques).
+• Les hôtels disposent d’une interface multi-départements avec droits d’accès personnalisés.
+• Les employés peuvent répondre via chat ou valider des actions (ex : check-in digital, ajout d’oreillers,
+réservation spa).
+• Toutes les interactions sont centralisées dans un dashboard hôtel unique.
+• Les managers peuvent suivre la satisfaction et la performance (temps de réponse, demandes traitées,
+feedbacks clients).
+3. Accueil & Navigation – Clients
+User Story
+Le client de l’hôtel accède à une page d’accueil personnalisée dès l’ouverture de l’application. Cette page lui
+présente immédiatement les informations essentielles de son séjour (chambre réservée, dates, occupants, hôtel)
+et lui permet d’accéder, via un menu clair et structuré, à tous les services de l’établissement. L’objectif est d’oErir
+une navigation fluide, intuitive et centralisée.
+Parcours utilisateur
+1. Ouverture de l’application → Home
+• La page d’accueil aEiche le visuel principal de la chambre réservée, en haute définition, avec un
+carrousel si plusieurs photos sont disponibles.
+• Un bandeau fixe présente les informations du séjour :
+o Dates de check-in / check-out.
+o Nombre d’adultes et d’enfants.
+o Numéro et type de chambre.
+o Nom de l’hôtel.
+o Lien “Voir ma réservation” permettant d’accéder à un récapitulatif détaillé.
+• Sous le visuel, des actions rapides sont proposées sous forme de boutons/“chips” :
+o Clé digitale de chambre (NFC / QR code).
+o Connexion Wi-Fi (aEichage du réseau + mot de passe).
+o Contrôle de chambre (si l’hôtel dispose d’objets connectés : lumière, température, rideaux).
+o Arrivée anticipée (early check-in si disponible).
+o Départ tardif (late check-out).
+o Itinéraire (carte interactive avec localisation de l’hôtel et lien vers Maps).
+2. Navigation principale
+Le client peut accéder aux services via un menu latéral (Drawer), ouvert par un swipe depuis la gauche ou un
+bouton menu.
+Le Drawer liste les sections principales :
+• Concierge → contact direct avec le concierge (chat, recommandations, réservations).
+• Réception → check-in / check-out digital, communication avec la réception.
+• Housekeeping → gestion du ménage (planification, demandes spécifiques, icônes rapides).
+• Room Service → consultation du menu digital, commandes, suivi en temps réel.
+• Spa & Gym → catalogue des soins, réservations via Spa Booker, horaires et chat.
+• Restaurants de l’hôtel → liste des restaurants, menus, réservation de tables.
+• Fidélité & pourboires → suivi des points accumulés, statut (Silver/Gold/Platinum), historique des
+pourboires donnés.
+• Aide & support → FAQ interactive, chatbot IA, numéros utiles (ex. urgence, service client hôtel).
+3. Barre d’onglets en bas (Bottom Navigation)
+Pour les services les plus utilisés, une barre d’onglets fixe est présente en bas de l’écran, permettant un accès
+rapide et permanent :
+• Home → retour direct à la page d’accueil.
+• Messages → liste des conversations avec chaque département de l’hôtel.
+• Agenda → calendrier des activités, réservations et services confirmés (restaurant, spa, housekeeping, etc.).
+• (Optionnel selon la version : accès direct au profil ou à la clé digitale).
+• Mon Compte / Profil → gestion des informations personnelles, carte d’identité, moyens de paiement,
+préférences.
+Acceptance Criteria (AC)
+• L’accueil aEiche toujours les informations de séjour en temps réel (modifications synchronisées avec le
+PMS).
+• La navigation doit être fluide, intuitive et cohérente sur toutes les sections.
+• Les actions rapides (clé, Wi-Fi, itinéraire) doivent être accessibles en un seul clic.
+• Le Drawer doit pouvoir être personnalisé par l’hôtel (ordre des sections, ajout de services spécifiques).
+• La barre d’onglets doit rester visible et permettre un accès rapide aux fonctionnalités clés.
+4. Concierge
+User Story
+Le client de l’hôtel peut contacter le service de conciergerie directement via l’application, afin de poser des
+questions, recevoir des recommandations personnalisées et réserver des activités, restaurants ou services
+extérieurs. L’objectif est de remplacer l’appel téléphonique ou le passage physique au desk, par un canal digital
+simple et fluide.
+Parcours utilisateur
+1. Accès au service
+• Le client accède à l’onglet Concierge depuis le Drawer principal ou la barre des messages.
+• La page d’accueil du module aEiche :
+o La photo et le nom du concierge de garde.
+o Les horaires de disponibilité (ex. 8h–22h).
+o Le bouton “Contacter” permettant d’ouvrir la messagerie instantanée.
+2. Messagerie (Chat Concierge)
+• Le client peut envoyer des messages textuels ou des photos (exemple : envoyer une capture de billets,
+partager une adresse).
+• Des quick actions sont disponibles en raccourci pour accélérer les demandes fréquentes :
+o Réserver un restaurant.
+o Organiser un transfert aéroport.
+o Demander des recommandations d’activités.
+o Réserver un billet (spectacle, musée, événement).
+• Le concierge reçoit immédiatement la demande sur son interface employé.
+3. Confirmation des actions
+• Chaque action du concierge est confirmée par écrit dans le chat.
+• Le client reçoit une notification push pour chaque confirmation (ex. “Votre réservation au restaurant Zuma
+est confirmée pour 20h00 ce soir”).
+• Les confirmations peuvent contenir des pièces jointes (billet électronique, plan d’accès).
+4. Pourboires digitaux
+• Le client peut remercier son concierge via un système intégré de tips digitaux.
+• Le pourboire est aEecté directement au profil du concierge concerné.
+• L’historique des pourboires est consultable dans la section “Fidélité & Tips”.
+Côté hôtel (employés)
+• Le concierge dispose d’une interface employé dédiée où il voit :
+o La liste des clients en cours de séjour.
+o Les conversations en cours classées par priorité.
+o Les demandes actives (ex. “Réserver un restaurant” → statut En attente).
+• Le concierge peut répondre directement par chat et ajouter un statut (ex. En cours, Confirmé).
+• Les actions validées par le concierge génèrent automatiquement une notification côté client.
+• Possibilité de déléguer certaines demandes à un partenaire externe (taxis, agences locales).
+Cas ocline & IA
+• Si aucun concierge n’est disponible (ex. nuit), le module bascule automatiquement sur un assistant IA
+intégré.
+• L’IA répond aux questions générales (horaires de l’hôtel, recommandations standards, infos pratiques).
+• Les demandes nécessitant une action humaine sont enregistrées et transmises au concierge dès sa prise
+de poste.
+Acceptance Criteria (AC)
+• Le temps de réponse doit être inférieur à 1 minute lorsque le concierge est en ligne.
+• Si oEline, l’IA prend le relais avec des réponses automatiques et utiles.
+• L’historique complet des conversations est conservé dans l’onglet Messages, accessible à tout moment
+par le client.
+• Les confirmations envoyées par le concierge doivent toujours inclure un statut visible (ex. “Réservation
+confirmée”).
+• Le client doit avoir la possibilité de laisser un pourboire digital à la fin de chaque interaction.
+5. Réception (Check-in / Check-out)
+User Story
+Le client de l’hôtel peut eEectuer son check-in et son check-out directement via l’application, afin d’éviter l’attente
+à la réception et de fluidifier son arrivée et son départ. L’objectif est de rendre ces étapes simples, rapides et 100 %
+digitales, tout en oErant la possibilité de personnaliser le séjour.
+Parcours utilisateur – Check-in
+1. Accès
+• Le client accède au module via le Drawer → Réception.
+• L’écran d’accueil aEiche un récapitulatif du séjour :
+o Dates de check-in et check-out.
+o Type et numéro de chambre réservé.
+o Nombre d’adultes et d’enfants.
+o Lien vers les conditions de l’hôtel (politiques d’annulation, taxes locales, etc.).
+• Un bouton principal “Commencer mon check-in” est mis en avant.
+2. Étapes du check-in digital
+• Scan de pièce d’identité : le client prend en photo sa carte d’identité ou son passeport → reconnaissance
+OCR et validation automatique.
+• Vérification des informations personnelles : nom, prénom, date de naissance, adresse.
+• Ajout ou confirmation d’une carte bancaire : empreinte sécurisée pour extras (mini-bar, room service,
+spa).
+• Signature digitale du formulaire d’enregistrement oEiciel de l’hôtel.
+• Demandes spéciales : ajout d’options (lit bébé, étage préféré, arrivée anticipée, chambre côté mer).
+3. Validation
+• Une fois toutes les étapes validées :
+o La clé digitale de la chambre est activée et ajoutée à l’onglet principal (icône “Room Key”).
+o Le client reçoit une notification de confirmation : “Votre check-in est confirmé. Bienvenue au
+[Nom de l’hôtel]”.
+o Le statut de la réservation passe en Check-in eIectué dans le PMS.
+Parcours utilisateur – Check-out
+1. Accès
+• Le client accède au module via Drawer → Réception → Check-out.
+2. Écran récapitulatif du séjour
+• Présentation des informations clés :
+o Dates de séjour.
+o Extras consommés (room service, spa, minibar).
+o Montant total (chambre + extras).
+• Option d’ajouter un pourboire global distribué entre les employés de l’hôtel.
+3. Paiement digital
+• Moyens de paiement acceptés :
+o Carte bancaire enregistrée.
+o Apple Pay / Google Pay.
+o Nouvelle carte si ajoutée manuellement.
+• Paiement sécurisé (3D Secure ou équivalent).
+4. Confirmation & sortie
+• Une fois le paiement validé :
+o Message de confirmation → “Merci pour votre séjour au [Nom de l’hôtel]. Votre facture vous a été
+envoyée par email.”
+o Envoi automatique d’une facture PDF par email.
+o Option de demander directement un taxi ou transfert vers l’aéroport via l’app.
+o Déconnexion automatique de la clé digitale (accès chambre désactivé).
+Acceptance Criteria (AC)
+• L’application doit être intégrée avec le PMS de l’hôtel (Opera, Mews, Cloudbeds, etc.) afin de synchroniser
+les check-in/check-out en temps réel.
+• Les informations de facturation et factures doivent rester accessibles dans l’onglet Profil après le séjour.
+• La clé digitale doit être automatiquement activée/désactivée selon le statut du check-in/check-out.
+• Le processus doit être fluide et sécurisé (OCR fiable, paiement encrypté).
+• Le temps moyen de check-in/check-out digital doit être inférieur à 2 minutes.
+6. Housekeeping
+User Story
+Le client de l’hôtel peut gérer ses préférences de ménage directement depuis l’application. Il peut indiquer s’il
+souhaite que sa chambre soit nettoyée pendant son séjour, échanger en direct avec l’équipe housekeeping et
+demander des articles spécifiques en un seul clic grâce à des icônes configurées par l’hôtel.
+Parcours utilisateur
+1. Choix global du ménage
+• À l’ouverture du module, une question simple s’aEiche :
+“Souhaitez-vous que le housekeeping nettoie votre chambre durant votre séjour ?”
+• Le client choisit Oui ou Non.
+• Cette préférence reste modifiable à tout moment durant le séjour (via un bouton toggle ou menu dédié).
+2. Chat direct avec housekeeping
+• Le client dispose d’un espace de messagerie instantanée pour communiquer avec l’équipe
+housekeeping.
+• Il peut envoyer des messages libres (ex. “Pouvez-vous passer plus tard ?”, “Merci de changer les draps
+demain matin”).
+• L’équipe housekeeping reçoit la demande en temps réel sur son interface employé.
+3. Icônes de demandes rapides
+• Une série d’icônes visuelles simplifie les demandes les plus courantes :
+o 🧴 Shampoing
+o 🛏 Oreillers
+o 🧻 Papier toilette
+o 🛁 Serviettes
+• Icônes configurables par l’hôtel :
+o Le département housekeeping peut ajouter ou supprimer des icônes selon ses stocks et politiques
+de service.
+o D’autres articles peuvent être proposés (peignoir, chaussons, bouilloire, etc.).
+• Le client sélectionne un article, choisit la quantité et envoie sa demande sans avoir besoin d’écrire.
+4. Confirmation & suivi
+• Chaque demande déclenche une notification de confirmation au client :
+“Votre demande de 2 serviettes est en cours de livraison.”
+• Le statut apparaît dans le chat (ex. “En cours” → “Livré”).
+Acceptance Criteria (AC)
+• Le client peut activer/désactiver le ménage pour tout son séjour à tout moment.
+• Les messages envoyés dans le chat doivent apparaître instantanément côté housekeeping.
+• Les icônes rapides doivent être dynamiques et personnalisables par le département housekeeping.
+• Chaque demande doit générer une confirmation avec suivi du statut.
+• L’historique des échanges doit rester visible dans l’onglet Messages.
+7. Room Service
+User Story
+Le client de l’hôtel peut consulter les horaires et menus du room service directement dans l’application. Il peut
+parcourir un menu visuel avec photos et détails, personnaliser ses commandes, suivre leur statut en temps réel et
+communiquer avec le département pour des demandes spécifiques. L’expérience est pensée pour être aussi
+simple et fluide qu’une application de livraison comme Uber Eats, mais intégrée à l’hôtel.
+Parcours utilisateur
+1. Accueil du Room Service
+• La page aEiche les horaires de disponibilité (ex. 7h–23h, carte de nuit après minuit).
+• Si le service est fermé, un message clair apparaît : “Le room service ouvrira à 7h00.”
+2. Menu visuel digitalisé
+• Menu présenté sous forme de catalogue moderne :
+o Photos HD de chaque plat/boisson.
+o Détails : description, ingrédients, allergènes, options (vegan, halal, sans gluten).
+o Prix acichés de manière transparente.
+• Possibilité de filtrer par catégorie : petit-déjeuner, entrées, plats, desserts, boissons, carte de nuit.
+3. Commande
+• Le client sélectionne un plat → options de personnalisation (ex. cuisson de la viande, sauces,
+accompagnements).
+• Le plat est ajouté au panier avec un récapitulatif clair.
+• Le client valide la commande et suit en temps réel son statut :
+o Reçu → En préparation → En livraison → Livré.
+• Une notification push est envoyée à chaque étape.
+4. Chat Room Service
+• En parallèle, le client peut ouvrir un chat direct avec le département pour :
+o Faire une demande spéciale (“Sans sel”, “Plat non au menu”).
+o Modifier une commande déjà passée (si encore possible).
+5. Gestion côté hôtel
+• Le département room service dispose d’un back-oEice pour gérer :
+o Les menus (ajout/suppression en fonction des stocks).
+o Les promotions ou plats du jour.
+o Les fermetures exceptionnelles ou changements d’horaires.
+• Les statuts de commandes sont mis à jour côté hôtel et synchronisés avec l’app client.
+6. Feedback & pourboires
+• Après livraison, le client reçoit une notification l’invitant à évaluer son expérience :
+o Note (1–5 étoiles).
+o Commentaire rapide.
+o Possibilité de laisser un pourboire digital attribué directement au serveur/livreur.
+Acceptance Criteria (AC)
+• Les horaires du room service sont toujours visibles et mis à jour.
+• Le menu est dynamique et reflète les stocks en temps réel.
+• Le suivi de commande doit inclure des statuts clairs et actualisés.
+• Un chat intégré doit être disponible pour toute demande spécifique.
+• Le client peut laisser une évaluation et un pourboire après chaque service.
+8. Spa (intégration Spa Booker)
+User Story
+Le client de l’hôtel peut consulter la liste des services du spa directement depuis l’application. Grâce à
+l’intégration avec Spa Booker, il peut réserver un soin ou une activité, choisir son créneau horaire, recevoir une
+confirmation immédiate et communiquer avec le département pour toute demande spécifique. L’objectif est de
+rendre la planification du bien-être simple, transparente et fluide.
+Parcours utilisateur
+1. Accueil Spa
+• La page aEiche les horaires d’ouverture du spa.
+• Si le spa est fermé, un message clair apparaît : “Le spa ouvrira demain à 9h00.”
+2. Catalogue des services (via Spa Booker)
+• Les services disponibles sont automatiquement synchronisés depuis Spa Booker :
+o Massages (relaxants, thérapeutiques, en duo).
+o Soins visage et corps.
+o Expériences spa (hammam, sauna, bains).
+o Coaching sportif ou bien-être.
+• Chaque service est présenté avec :
+o Photo illustrant l’expérience.
+o Durée du soin (ex. 50 min).
+o Tarif clair et détaillé.
+o Conditions d’annulation (directement reprises de Spa Booker).
+3. Réservation
+• Le client sélectionne un service → ouverture du calendrier Spa Booker intégré.
+• Il choisit la date et le créneau horaire disponibles.
+• Options possibles :
+o Choix du praticien (ex. homme/femme, masseur spécifique).
+o Préférences particulières (ex. huile sans parfum).
+• Une fois validée, la réservation est confirmée instantanément dans l’app et par email.
+• L’événement est automatiquement ajouté au planning personnel du client dans l’app.
+4. Chat direct avec le spa
+• Le client peut ouvrir une conversation avec l’équipe du spa pour :
+o Poser des questions (“Quel soin est recommandé pour peaux sensibles ?”).
+o Demander une modification d’horaire.
+o Vérifier une réservation déjà eEectuée.
+5. Feedback et pourboire digital
+• Après le soin, l’app propose une évaluation rapide (1 à 5 étoiles + commentaire).
+• Le client peut également laisser un pourboire digital attribué directement au praticien.
+Acceptance Criteria (AC)
+• Le catalogue des services est toujours synchronisé en temps réel avec Spa Booker.
+• Les créneaux disponibles aEichés dans l’app correspondent à la disponibilité réelle du spa.
+• Chaque réservation eEectuée via l’app apparaît instantanément dans Spa Booker côté hôtel.
+• Le client reçoit une confirmation immédiate dans l’app et par email.
+• Le chat intégré reste disponible pour toutes les questions hors Spa Booker.
+• Feedback + pourboire digital possibles après chaque prestation.
+9. Restaurants de l’hôtel
+User Story
+Le client de l’hôtel peut consulter la liste des restaurants disponibles dans l’établissement, parcourir leurs menus
+digitaux, vérifier les horaires d’ouverture et réserver une table directement depuis l’application. L’objectif est de
+simplifier l’accès à la restauration de l’hôtel sans passer par des appels téléphoniques ou des déplacements
+inutiles.
+Parcours utilisateur
+1. Accueil Restaurants
+• La page aEiche la liste des restaurants de l’hôtel avec :
+o Nom du restaurant.
+o Photo illustrative en HD.
+o Type de cuisine (ex. asiatique, méditerranéenne, gastronomique).
+o Horaires d’ouverture.
+o Dress code (si applicable, ex. smart casual).
+2. Menu digital
+• Le client accède au menu complet :
+o Photos HD des plats et boissons.
+o Prix aEichés de manière transparente.
+o Informations sur les allergènes et options (végétarien, vegan, halal, sans gluten).
+• Possibilité de filtrer par catégories (entrées, plats, desserts, boissons).
+3. Réservation
+• Le client sélectionne un restaurant et choisit :
+o La date souhaitée.
+o L’heure disponible.
+o Le nombre de personnes.
+• Une section “Demandes spéciales” permet d’ajouter des précisions (ex. table en terrasse, chaise bébé,
+allergie).
+• La réservation est confirmée instantanément et ajoutée à l’agenda/planning du client dans l’app.
+4. Chat direct avec le restaurant
+• Le client peut ouvrir un chat pour :
+o Poser une question sur le menu (“Avez-vous des plats sans lactose ?”).
+o Modifier une réservation déjà faite.
+o Demander un service spécial (ex. gâteau d’anniversaire, bouteille en chambre après dîner).
+5. Confirmation et suivi
+• Une fois la réservation validée, le client reçoit :
+o Une notification push confirmant la réservation.
+o Un récapitulatif dans son agenda (restaurant, heure, nombre de personnes).
+Acceptance Criteria (AC)
+• Les menus et horaires aEichés sont toujours à jour, car mis à jour directement par le département F&B.
+• Les réservations eEectuées dans l’app sont synchronisées avec le système de gestion du restaurant (ex.
+OpenTable, SevenRooms, PMS de l’hôtel).
+• Chaque réservation génère une confirmation visible dans l’app et envoyée par notification.
+• Le chat intégré doit permettre des demandes uniques ou personnalisées.
+10. Gym
+User Story
+Le client de l’hôtel peut consulter les horaires de la salle de sport, voir les équipements disponibles, réserver un
+créneau ou un cours, et communiquer avec le département fitness pour des besoins spécifiques. L’objectif est de
+faciliter l’accès aux infrastructures sportives et d’encourager leur utilisation.
+Parcours utilisateur
+1. Accueil Gym
+• AEichage des horaires d’ouverture de la salle.
+• Présentation rapide des équipements disponibles (machines cardio, poids libres, cours collectifs).
+• Message automatique si la salle est fermée : “La salle de sport ouvrira demain à 6h00.”
+2. Réservation de créneaux
+• Le client peut réserver un créneau horaire pour :
+o Accès à la salle (si gestion des flux / capacité limitée).
+o Participation à un cours collectif (yoga, pilates, HIIT, spinning).
+• Chaque créneau aEiche :
+o Heure de début / fin.
+o Nombre de places disponibles.
+o Nom de l’instructeur (si applicable).
+3. Services additionnels
+• Possibilité de réserver un coach personnel (ex. 1h de musculation encadrée).
+• Demande de programmes personnalisés via chat (ex. “Programme cardio adapté”).
+4. Chat Fitness
+• Messagerie directe avec le département sport/fitness pour :
+o Poser des questions sur l’équipement.
+o Annuler ou déplacer une réservation.
+o Demander un service spécial (ex. “Préparer des serviettes et bouteilles d’eau”).
+5. Confirmation & suivi
+• Chaque réservation validée génère :
+o Une confirmation instantanée dans l’app.
+o Une notification push rappelant l’heure du cours/entraînement.
+o Ajout automatique au planning personnel du client.
+6. Feedback et pourboires
+• Après un cours ou une séance avec coach, l’app propose :
+o Une évaluation (1–5 étoiles + commentaire).
+o La possibilité de laisser un pourboire digital attribué au coach ou à l’instructeur.
+Acceptance Criteria (AC)
+• Les horaires et disponibilités de la gym doivent être dynamiques et mis à jour par le département.
+• Les réservations de créneaux et cours sont limitées en fonction des capacités.
+• Le client reçoit une confirmation et un rappel pour chaque réservation.
+• Le chat fitness reste disponible pour toutes les demandes spécifiques.
+• Feedback + pourboire digital possibles après un cours ou une session de coaching.
+11. Agenda Intelligent
+User Story : Le client de l’hôtel peut accéder à un agenda intégré qui regroupe automatiquement toutes ses
+réservations confirmées (spa, restaurants, housekeeping, activités, etc.). Cet agenda s’actualise en temps réel dès
+qu’une réservation est eEectuée via l’app ou par un employé (concierge, réception, spa…).
+En plus de ses propres réservations, le client reçoit des invitations d’événements proposés par l’hôtel, qui
+apparaissent dans son agenda comme des suggestions (similaires aux meeting requests d’Outlook).
+Parcours utilisateur – Côté Client
+1. Accès à l’agenda
+L’agenda est accessible depuis la barre d’onglets en bas de l’app.
+Vue possible en mode journalier, hebdomadaire ou mensuel.
+2. Synchronisation automatique
+Dès qu’une réservation est validée (ex. spa à 13h, restaurant à 20h, taxi à 9h), elle apparaît automatiquement dans
+l’agenda.
+Les informations incluent : service, heure, lieu, durée, contact associé.
+3. Invitations événementielles
+Le client peut recevoir des invitations envoyées par les managers de département (ex. restaurant, spa, F&B,
+activités spéciales).
+Exemple : si le client a un massage au spa à 13h, le manager du spa peut pousser une invitation “Déjeuner au
+restaurant du spa à 12h30”.
+L’invitation apparaît en gris clair dans l’agenda avec mention Suggestion / Invitation.
+Le client peut cliquer dessus et choisir :
+Accepter → la réservation est confirmée et ajoutée oEiciellement à l’agenda.
+Refuser → l’invitation disparaît.
+4. Notifications & rappels
+Le client reçoit une notification push avant chaque réservation ou événement confirmé.
+Pour les invitations, une alerte indique : “Nouvelle suggestion : Restaurant du Spa avant votre massage de 13h.”
+Fonctionnalités côté Hôtel / Employés
+1. Gestion automatique
+Chaque réservation validée via l’app ou le PMS synchronisé apparaît dans l’agenda client sans intervention
+manuelle.
+2. Promotion événementielle
+Les managers de département (ex. F&B, Spa, Activités) disposent d’un module leur permettant de :
+Créer des événements promotionnels ciblés.
+Choisir une audience (ex. tous les clients avec une réservation Spa à 13h).
+Définir une durée (12h30–13h00) et un lieu (Restaurant X).
+Envoyer l’invitation directement sur les agendas des clients concernés.
+3. Suivi des invitations
+Les managers voient en back-oEice :
+Le nombre d’invitations envoyées.
+Le taux d’acceptation/refus.
+Les conversions générées (ex. 30 % des clients du spa ont accepté l’option déjeuner).
+Application MyStay Recap
+L’application MyStay a été conçue pour révolutionner l’expérience hôtelière en centralisant toutes les interactions
+entre le client et l’hôtel dans une seule plateforme digitale.
+Grâce à son approche intuitive et personnalisée, elle fluidifie chaque étape du séjour, depuis la réservation
+jusqu’au check-out, tout en optimisant le travail des équipes hôtelières.
+Ce que permet MyStay
+1. Authentification simplifiée
+Tout client peut s’identifier facilement grâce à son numéro de réservation. L’app associe automatiquement ses
+informations au PMS de l’hôtel. Même sans réservation, il peut créer un compte, explorer les hôtels partenaires et
+préparer son futur séjour.
+2. Accueil & Navigation fluide
+La Home aEiche directement la chambre réservée, les informations de séjour et des actions rapides (clé digitale,
+Wi-Fi, arrivée anticipée, etc.). Un menu latéral regroupe tous les services de l’hôtel, tandis qu’une barre d’onglets
+oEre un accès immédiat aux messages et à l’agenda.
+3. Concierge digitalisé
+Le client échange en direct avec le concierge via chat, demande des recommandations, réserve des restaurants
+ou activités, et peut laisser un pourboire digital. Une IA prend le relais en dehors des heures d’ouverture.
+4. Réception – Check-in & Check-out
+Tout le processus est digital : scan pièce d’identité, validation des données, empreinte bancaire, signature
+électronique. Le client active sa clé digitale et gagne du temps. Le check-out se fait depuis l’app, avec paiement
+sécurisé, facture instantanée et désactivation de la clé.
+5. Housekeeping moderne
+Le client choisit s’il souhaite le ménage ou non, communique en direct avec l’équipe, et peut demander des
+articles en un clic grâce à des icônes configurées par l’hôtel. Chaque demande est confirmée et suivie en temps
+réel.
+6. Room Service digital
+Un menu visuel type Uber Eats permet de commander facilement plats et boissons. La commande est suivie en
+temps réel (reçu → préparation → livraison), avec chat direct pour des demandes spéciales. Feedback et pourboire
+digital sont intégrés.
+7. Spa (intégration Spa Booker)
+Catalogue automatique des soins, réservation avec créneaux en temps réel, confirmation instantanée, chat direct
+et feedback client. L’expérience bien-être est totalement digitalisée.
+8. Gym
+Le client consulte les équipements et horaires, réserve des créneaux ou des cours collectifs, engage un coach
+privé et suit ses réservations dans son agenda. Feedback et pourboires pour les coachs sont possibles.
+9. Restaurants de l’hôtel
+Menus digitaux avec photos, prix et allergènes, réservation en quelques clics, demandes spéciales via chat, et
+confirmation instantanée ajoutée au planning du client.
+10. Fidélité & Pourboires
+Chaque action dans l’app peut générer des points fidélité, avec statuts Silver, Gold ou Platinum. Les clients
+peuvent aussi laisser des pourboires digitaux personnalisés pour valoriser directement le personnel.
+Bénéfices pour le client
+• Une expérience fluide, moderne et personnalisée.
+• Accès instantané à tous les services de l’hôtel, sans appels ni attente.
+• Réservations confirmées en temps réel et centralisées dans un seul agenda.
+• Plus de flexibilité et de confort tout au long du séjour.
+Bénéfices pour l’hôtel
+• Augmentation des revenus (room service, spa, restaurants).
+• Réduction des coûts (cartes clés physiques, gestion papier).
+• Amélioration de la satisfaction client, favorisant les bons avis et la fidélisation.
+• Valorisation du personnel grâce aux pourboires digitaux.
+• Centralisation et traçabilité des échanges via un dashboard unique.
+La vision MyStay
+MyStay n’est pas seulement une application : c’est une nouvelle norme pour l’hospitalité.
+Elle crée un pont digital entre l’hôtel et ses clients, transformant chaque séjour en une expérience plus simple,
+plus humaine et plus rentable.
+Avec MyStay, le futur de l’hôtellerie est connecté, personnalisé et sans friction.
+User Story – Interface StaE & Gestion des Demandes Clients – Joel part’s
+L’application intègre une interface dédiée au personnel de l’hôtel pour simplifier, centraliser et structurer la gestion
+des demandes clients. Elle repose sur deux éléments complémentaires :
+1. un système de modules prédéfinis permettant de traiter les demandes fréquentes sans intervention
+2. manuelle,
+une messagerie intelligente réservée aux requêtes personnalisées non couvertes par les options
+standards.
+Standardisation des demandes récurrentes
+Lors de la mise en place de l’outil, chaque département (housekeeping, room service, spa, réception, etc.) a la
+possibilité de définir ses prestations principales visibles dans l’application côté client.
+Ces prestations apparaissent sous forme d’options claires et multilingues que le client peut remplir directement
+(quantité, horaire, type de service…), afin de limiter le recours aux messages libres.
+Exemples :
+précise”
+• Room service → “Commande rapide de boisson”, “Plat chaud végétarien”
+• Housekeeping → “Commander des serviettes” avec sélecteur de quantité, “Demande de nettoyage à une heure
+• Réception → “Demande de taxi”, “Demande de réveil”
+• Spa → “Massage 30 min à 17h” avec choix du soin
+Ces formulaires génèrent automatiquement des demandes structurées, assignées aux bons départements, sans
+passer par une messagerie manuelle.
+Messagerie dédiée aux demandes personnalisées
+Si un client souhaite formuler une demande non prévue par les modules proposés, un fil de discussion s’ouvre
+automatiquement et les membres du département concerné reçoivent une notification immédiate.
+L’un des membres du staE est alors responsable de prendre en charge la demande et de mettre à jour son statut
+(En attente, En cours, Résolu) jusqu’à sa clôture.
+Fonctionnalités de l’interface StaE (tous départements)
+• Chaque demande est liée à un numéro de chambre, aEiché clairement en haut du fil de discussion
+• Le fil de discussion s’ouvre uniquement pour les demandes spécifiques non couvertes par les modules
+standardisés
+• Réponse possible via :
+– Messages libres
+– Réponses prédéfinies
+• Traduction automatique pour tous les échanges client ↔ staE
+• Système de tagging :
+– @Nom Prénom → pour alerter un employé en particulier
+– @Département (ex. @Spa) → pour assigner une équipe
+→ Le tag n’est pas visible côté client, mais il assigne automatiquement la demande à l’employé ou au département
+mentionné
+• Visibilité restreinte :
+– Un employé ne voit que les demandes de son propre département
+– Et celles dans lesquelles il a été spécifiquement tagué
+• Suivi d’état de chaque demande :
+– En attente
+– En cours
+– Résolu
+→ Le personnel est en charge de mettre à jour manuellement le statut à chaque étape du traitement
+• Possibilité pour un employé de s’auto-assigner une demande ("Prendre en charge") afin d’éviter les doublons et
+clarifier les responsabilités
+• Ajout de notes internes privées visibles uniquement par les membres du staE pour assurer un suivi si la tâche ne
+peut pas être exécutée immédiatement
+• Historique partagé visible en continu pour tous les utilisateurs impliqués dans la conversation
+• Fonction de recherche et de filtrage par :
+– Numéro de chambre
+– Nom du client
+– Département/service concerné
+– Statut de la demande
+• Canal de communication interne réservé aux échanges entre membres du staE (hors client), accessible via un fil
+parallèle confidentiel
+Dashboard analytique (pour managers ou chefs de service)
+Un tableau de bord est accessible aux responsables de chaque département. Il permet de visualiser en temps
+réel:
+• Le nombre total de demandes reçues
+• Le nombre de demandes traitées, en attente ou en cours
+• Le temps moyen de réponse par type de demande
+• Les demandes les plus fréquentes, ce qui aide à aEiner les modules standardisés
+• L’activité par employé (volume traité, délais, performance)
+User Story – Interface StaE & Gestion des Demandes Clients
+Contexte
+L’application intègre une interface dédiée au personnel de l’hôtel qui permet de simplifier, centraliser et structurer
+la gestion des demandes clients.
+Elle repose sur deux mécanismes complémentaires :
+Modules standardisés : formulaires prédéfinis pour traiter les demandes fréquentes automatiquement.
+Messagerie intelligente : canal direct réservé aux demandes personnalisées non couvertes par les modules.
+1. Standardisation des demandes récurrentes
+Lors de la mise en place de l’outil, chaque département (Housekeeping, Room Service, Spa, Réception, etc.)
+configure ses prestations principales, qui deviennent visibles côté client.
+Ces prestations apparaissent sous forme de formulaires multilingues clairs et rapides à remplir (quantité, horaire,
+type de service).
+Le client soumet sa demande sans avoir besoin de rédiger un message libre.
+Ces demandes sont directement assignées au bon département via l’interface staE.
+Exemples :
+Housekeeping → “Commander des serviettes” (sélecteur de quantité), “Demande de nettoyage à une heure
+précise”.
+Room Service → “Commande rapide de boisson”, “Plat chaud végétarien”.
+Réception → “Réservation de taxi”, “Demande de réveil”.
+Spa → “Massage 30 min à 17h” avec choix du soin.
+Ces formulaires génèrent automatiquement des tickets structurés, évitant la surcharge de messagerie.
+2. Messagerie pour demandes personnalisées
+Si le client exprime un besoin non couvert par les options standardisées :
+Un fil de discussion s’ouvre automatiquement avec le département concerné.
+Le personnel reçoit une notification immédiate.
+Un employé prend en charge la demande et met à jour son statut jusqu’à résolution.
+3. Fonctionnalités côté StaE (tous départements)
+Identification claire : chaque demande est liée à un numéro de chambre, aEiché en haut du fil.
+Types de réponse :
+- Message libre.
+- Réponses prédéfinies.
+- Traduction automatique de tous les échanges client ↔ staE.
+Système de tagging :
+@Nom Prénom → alerter un employé en particulier.
+@Département (ex. @Spa) → assigner une équipe.
+(Ces tags ne sont pas visibles côté client).
+Visibilité contrôlée :
+Un employé voit uniquement les demandes de son département.
+Ou celles où il a été explicitement tagué.
+Statuts de suivi :
+- En attente.
+- En cours.
+- Résolu.
+(Mise à jour manuelle par le staE).
+Prise en charge claire : un employé peut “s’auto-assigner” une demande pour éviter les doublons.
+Notes internes privées visibles uniquement par le staE, pour assurer un suivi en cas de report.
+Historique partagé accessible en continu à tous les membres impliqués.
+Recherche & filtres par numéro de chambre, nom du client, département/service, statut de la demande.
+Canal interne staE-only → discussion confidentielle parallèle, invisible côté client.
+4. Dashboard analytique (Managers / Chefs de service)
+Un tableau de bord analytique donne aux responsables une vue globale et temps réel :
+Nombre total de demandes reçues.
+Statut des demandes (en attente, en cours, résolues).
+Temps moyen de réponse par type de demande.
+Classement des demandes les plus fréquentes (pour optimiser les modules standardisés).
+Activité par employé : volume traité, rapidité, performance.
+Acceptance Criteria (AC)
+Les modules standardisés sont configurables par chaque département et apparaissent en multilingue côté client.
+Chaque demande personnalisée ouvre automatiquement un fil de discussion assigné.
+Les demandes doivent toujours avoir un statut visible (En attente / En cours / Résolu).
+Les tags assignent correctement les demandes aux bons employés/départements.
+Le dashboard doit aEicher des indicateurs temps réel exploitables pour le management.
+Avec cette logique, ton app permet :
+Aux clients : d’avoir une expérience fluide et sans friction.
+Au staE : de traiter plus vite les demandes standardisées.
+Aux managers : d’avoir une visibilité complète sur la qualité de service.
