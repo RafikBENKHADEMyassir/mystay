@@ -18,7 +18,7 @@ export default function LoginPage() {
   const initialType: LoginType = typeParam === "platform" ? "platform" : "staff";
 
   const [loginType, setLoginType] = useState<LoginType>(initialType);
-  const [email, setEmail] = useState(loginType === "platform" ? "admin@mystay.com" : "admin@mystay.local");
+  const [email, setEmail] = useState(loginType === "platform" ? "admin@mystay.com" : "manager@fourseasons.demo");
   const [password, setPassword] = useState("admin123");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function LoginPage() {
     if (type === "platform") {
       setEmail("admin@mystay.com");
     } else {
-      setEmail("admin@mystay.local");
+      setEmail("manager@fourseasons.demo");
     }
   }
 

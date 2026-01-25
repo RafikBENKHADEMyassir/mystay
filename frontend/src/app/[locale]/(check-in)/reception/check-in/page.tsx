@@ -63,10 +63,11 @@ export default function CheckInPage() {
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
+  // Initialize form with empty values - will be populated from session
   const [form, setForm] = useState<CheckInFormState>({
     reason: "personal",
-    firstName: "Ethel",
-    lastName: "Bracka",
+    firstName: "",
+    lastName: "",
     email: "",
     phoneCountryCode: "+33",
     phoneNumber: "",
@@ -83,10 +84,21 @@ export default function CheckInPage() {
     flowers: false
   });
 
+  // Populate form with guest data from session when available
   useEffect(() => {
     const existing = getDemoSession();
     if (existing) {
       setSession(existing);
+      // Update form with guest data if available
+      if (existing.guestFirstName || existing.guestLastName || existing.guestEmail || existing.guestPhone) {
+        setForm((prev) => ({
+          ...prev,
+          firstName: existing.guestFirstName ?? prev.firstName,
+          lastName: existing.guestLastName ?? prev.lastName,
+          email: existing.guestEmail ?? prev.email,
+          phoneNumber: existing.guestPhone ?? prev.phoneNumber
+        }));
+      }
       return;
     }
 
@@ -176,7 +188,8 @@ export default function CheckInPage() {
 
   function goNextFromIdentity() {
     setIdentitySubmitted(true);
-    if (!identityFiles.length) return;
+    // Allow skipping ID upload in development mode for demo purposes
+    if (!identityFiles.length && process.env.NODE_ENV !== "development") return;
     setStep("finalize");
   }
 

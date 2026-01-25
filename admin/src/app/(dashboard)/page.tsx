@@ -1,9 +1,17 @@
 import Link from "next/link";
 
 import { requireStaffToken } from "@/lib/staff-auth";
+import { getStaffPrincipal } from "@/lib/staff-token";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const tiles = [
+type Tile = {
+  title: string;
+  href: string;
+  description: string;
+  roles?: string[];
+};
+
+const tiles: Tile[] = [
   {
     title: "Inbox",
     href: "/inbox",
@@ -17,7 +25,8 @@ const tiles = [
   {
     title: "Integrations",
     href: "/integrations",
-    description: "Configure PMS, digital keys, and per-hotel providers."
+    description: "Configure PMS, digital keys, and per-hotel providers.",
+    roles: ["admin", "manager"]
   },
   {
     title: "Reception",
@@ -34,10 +43,17 @@ const tiles = [
     href: "/inbox?dept=concierge",
     description: "Chats with quick actions (transfers, restaurants, activities)."
   }
-] as const;
+];
 
 export default function AdminHomePage() {
   requireStaffToken();
+  const principal = getStaffPrincipal();
+  const role = principal?.role ?? "staff";
+
+  const visibleTiles = tiles.filter((tile) => {
+    if (!tile.roles) return true;
+    return tile.roles.includes(role);
+  });
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -50,7 +66,7 @@ export default function AdminHomePage() {
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2">
-        {tiles.map((tile) => (
+        {visibleTiles.map((tile) => (
           <Link key={tile.title} href={tile.href}>
             <Card className="transition hover:bg-accent/20">
               <CardHeader className="p-5">

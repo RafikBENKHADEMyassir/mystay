@@ -9,9 +9,10 @@ type MessageBubbleProps = {
   body: string;
   timestamp?: string;
   showTranslate?: boolean;
+  compact?: boolean;
 };
 
-export function MessageBubble({ variant, body, timestamp, showTranslate }: MessageBubbleProps) {
+export function MessageBubble({ variant, body, timestamp, showTranslate, compact }: MessageBubbleProps) {
   const isOutgoing = variant === "outgoing";
   const isError = variant === "error";
 
@@ -19,7 +20,8 @@ export function MessageBubble({ variant, body, timestamp, showTranslate }: Messa
     <div className={cn("flex", isOutgoing ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[88%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm",
+          "max-w-[88%] rounded-2xl shadow-sm",
+          compact ? "px-3 py-2 text-sm" : "px-4 py-3 text-[15px] leading-relaxed",
           isOutgoing && "bg-zinc-700 text-white",
           variant === "incoming" && "bg-white text-foreground",
           isError && "bg-white text-destructive ring-1 ring-destructive/30"

@@ -2102,7 +2102,7 @@ async function handleRequest(req, res) {
     }
 
     if (segments[4] === "integrations") {
-      if (!requireStaffRole(res, principal, ["admin"])) return;
+      if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
       if (req.method === "GET" && segments.length === 5) {
         const integrations = await getHotelIntegrations(hotelId);
         sendJson(res, 200, integrations);
@@ -2160,7 +2160,7 @@ async function handleRequest(req, res) {
     }
 
     if (segments[4] === "notifications") {
-      if (!requireStaffRole(res, principal, ["admin"])) return;
+      if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
       if (req.method === "GET" && segments.length === 5) {
         const notifications = await getHotelNotifications(hotelId);
         sendJson(res, 200, notifications);
@@ -3354,33 +3354,35 @@ async function handleRequest(req, res) {
 
       const items = await query(
         `
-	          SELECT
-	            t.id,
-	            t.hotel_id AS "hotelId",
-	            t.stay_id AS "stayId",
-	            t.department,
-	            t.status,
-	            t.title,
-	            t.assigned_staff_user_id AS "assignedStaffUserId",
-	            t.created_at AS "createdAt",
-	            t.updated_at AS "updatedAt",
-	            (
-	              SELECT body_text
-              FROM messages m
-              WHERE m.thread_id = t.id
-              ORDER BY m.created_at DESC
-              LIMIT 1
-            ) AS "lastMessage",
-            (
-              SELECT created_at
-              FROM messages m
-              WHERE m.thread_id = t.id
-              ORDER BY m.created_at DESC
-              LIMIT 1
-            ) AS "lastMessageAt"
-          FROM threads t
-          ${whereClause}
-          ORDER BY COALESCE("lastMessageAt", t.updated_at) DESC
+          SELECT * FROM (
+            SELECT
+              t.id,
+              t.hotel_id AS "hotelId",
+              t.stay_id AS "stayId",
+              t.department,
+              t.status,
+              t.title,
+              t.assigned_staff_user_id AS "assignedStaffUserId",
+              t.created_at AS "createdAt",
+              t.updated_at AS "updatedAt",
+              (
+                SELECT body_text
+                FROM messages m
+                WHERE m.thread_id = t.id
+                ORDER BY m.created_at DESC
+                LIMIT 1
+              ) AS "lastMessage",
+              (
+                SELECT created_at
+                FROM messages m
+                WHERE m.thread_id = t.id
+                ORDER BY m.created_at DESC
+                LIMIT 1
+              ) AS "lastMessageAt"
+            FROM threads t
+            ${whereClause}
+          ) AS sub
+          ORDER BY COALESCE("lastMessageAt", "updatedAt") DESC
           LIMIT 100
         `,
         params
@@ -3811,17 +3813,17 @@ async function handleRequest(req, res) {
         const items = await query(
           `
             SELECT
-              id,
-              thread_id AS "threadId",
-              sender_type AS "senderType",
-              sender_name AS "senderName",
-              body_text AS "bodyText",
-              payload AS payload,
-              created_at AS "createdAt"
+              m.id,
+              m.thread_id AS "threadId",
+              m.sender_type AS "senderType",
+              m.sender_name AS "senderName",
+              m.body_text AS "bodyText",
+              m.payload AS payload,
+              m.created_at AS "createdAt"
             FROM messages m
             JOIN threads t ON t.id = m.thread_id
             WHERE ${where}
-            ORDER BY created_at ASC
+            ORDER BY m.created_at ASC
             LIMIT 500
           `,
           params

@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Clock, Flower2, RefreshCw, Dumbbell } from "lucide-react";
+import { ChevronLeft, ChevronRight, Leaf, RefreshCw, Clock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ServiceCatalog } from "@/components/services";
 import { getDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
+
+// Unsplash placeholder image for hero
+const HERO_IMAGE = "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800&q=80";
 
 type Ticket = {
   id: string;
@@ -26,6 +25,13 @@ type Ticket = {
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+
+// Status translations
+const statusLabels: Record<string, string> = {
+  pending: "En attente de confirmation",
+  in_progress: "Confirmée",
+  resolved: "Terminée"
+};
 
 export default function SpaPage() {
   const locale = useLocale();
@@ -58,14 +64,14 @@ export default function SpaPage() {
         headers: { Authorization: `Bearer ${activeSession.guestToken}` }
       });
       if (!response.ok) {
-        setError("Could not load bookings.");
+        setError("Impossible de charger les réservations.");
         return;
       }
 
       const data = (await response.json()) as { items?: Ticket[] };
       setTickets(Array.isArray(data.items) ? data.items : []);
     } catch {
-      setError("Backend unreachable. Start `npm run dev:backend` then refresh.");
+      setError("Service indisponible. Réessayez plus tard.");
     } finally {
       setIsLoading(false);
     }
@@ -81,161 +87,112 @@ export default function SpaPage() {
     void loadTickets(session);
   };
 
-  const getStatusLabel = (status: string) => {
-    const statusMap: Record<string, string> = {
-      pending: "Pending Confirmation",
-      in_progress: "Confirmed",
-      resolved: "Completed"
-    };
-    return statusMap[status] || status.replace("_", " ");
-  };
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="flex items-center justify-between px-4 py-4">
+          <Link href={withLocale(locale, "/")} className="p-2 -ml-2">
+            <ChevronLeft className="h-6 w-6 text-gray-900" />
+          </Link>
+          <div className="text-center">
+            <p className="font-medium text-gray-900">Spa & Gym</p>
+            <p className="text-sm text-gray-500">Hôtel Four Seasons</p>
+          </div>
+          <Leaf className="h-6 w-6 text-gray-300" />
+        </div>
+        <div className="px-4 py-12 text-center">
+          <p className="text-gray-500">Connectez-vous pour accéder aux services spa.</p>
+          <Link 
+            href={withLocale(locale, "/reception/check-in")}
+            className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
+          >
+            Commencer le check-in
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Spa & Wellness"
-        description="Book treatments, massages, and fitness sessions."
-        actions={
-          session ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{session.hotelName}</Badge>
-              {session.roomNumber ? <Badge variant="outline">Room {session.roomNumber}</Badge> : null}
-              <Button size="sm" variant="outline" asChild>
-                <Link href={withLocale(locale, "/reception/check-in")}>Change reservation</Link>
-              </Button>
-            </div>
-          ) : (
-            <Button size="sm" asChild>
-              <Link href={withLocale(locale, "/reception/check-in")}>Start check-in</Link>
-            </Button>
-          )
-        }
-      />
+    <div className="min-h-screen bg-white">
+      {/* Hero Header with Image */}
+      <div className="relative h-48">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${HERO_IMAGE})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/60" />
+        
+        {/* Topbar */}
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-4">
+          <Link href={withLocale(locale, "/")} className="p-2 -ml-2 rounded-full bg-white/10 backdrop-blur-sm">
+            <ChevronLeft className="h-5 w-5 text-white" />
+          </Link>
+          <Leaf className="h-6 w-6 text-white/80" />
+        </div>
+        
+        {/* Title Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
+          <h1 className="font-serif text-3xl font-light tracking-wide text-white uppercase">
+            Spa & Gym
+          </h1>
+          <p className="mt-1 text-sm text-white/80">Voir le service &gt;</p>
+        </div>
+      </div>
 
-      {!session ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Connect a stay</CardTitle>
-            <CardDescription>Start from digital check-in to book spa services.</CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
+      {/* Opening Hours */}
+      <div className="border-b border-gray-100 px-4 py-4">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <Clock className="h-4 w-4" />
+          <span>Ouvert aujourd'hui : 9h00 - 21h00</span>
+        </div>
+      </div>
+
+      {/* Active Bookings Section */}
+      {spaTickets.length > 0 && (
+        <div className="border-b border-gray-100 px-4 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-gray-500">Mes réservations</p>
+            <button 
+              onClick={() => loadTickets()} 
+              disabled={isLoading}
+              className="p-1.5 rounded-full hover:bg-gray-100"
+            >
+              <RefreshCw className={`h-4 w-4 text-gray-400 ${isLoading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+          {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
+          <div className="space-y-2">
+            {spaTickets.map((ticket) => (
+              <div 
+                key={ticket.id}
+                className="flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3"
+              >
+                <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
+                  🧖 {ticket.title}
+                </span>
+                <ChevronRight className="ml-auto h-4 w-4 text-gray-300" />
+              </div>
+            ))}
+            {spaTickets.length > 0 && (
+              <p className="text-xs text-gray-500 mt-2">
+                {statusLabels[spaTickets[0].status] || spaTickets[0].status}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Service Catalog */}
-      {session ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Flower2 className="h-4 w-4 text-primary" />
-              <CardTitle>Spa Services</CardTitle>
-            </div>
-            <CardDescription>
-              Browse our treatments and book your wellness experience.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ServiceCatalog
-              hotelId={session.hotelId}
-              department="spa-gym"
-              guestToken={session.guestToken}
-              stayId={session.stayId}
-              roomNumber={session.roomNumber}
-              onRequestSubmitted={handleRequestSubmitted}
-            />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {/* Active Bookings */}
-      {session ? (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Your Bookings</CardTitle>
-                <CardDescription>View and manage your spa appointments.</CardDescription>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => loadTickets()} disabled={isLoading}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-                {isLoading ? "Refreshing…" : "Refresh"}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
-            {!isLoading && spaTickets.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No spa bookings yet.</p>
-            ) : null}
-            <ul className="space-y-2">
-              {spaTickets.map((ticket) => (
-                <li key={ticket.id} className="rounded-lg border bg-card px-4 py-3 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-foreground">{ticket.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {ticket.id} · {new Date(ticket.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    <Badge 
-                      variant={
-                        ticket.status === "resolved" ? "default" : 
-                        ticket.status === "in_progress" ? "secondary" : 
-                        "outline"
-                      }
-                    >
-                      {getStatusLabel(ticket.status)}
-                    </Badge>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" />
-              <CardTitle>Opening Hours</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span>Spa</span>
-                <span className="font-medium text-foreground">9:00 AM - 9:00 PM</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Fitness Center</span>
-                <span className="font-medium text-foreground">6:00 AM - 10:00 PM</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Pool</span>
-                <span className="font-medium text-foreground">7:00 AM - 8:00 PM</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Dumbbell className="h-4 w-4 text-primary" />
-              <CardTitle>Facilities</CardTitle>
-            </div>
-            <CardDescription>Included with your stay</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <ul className="list-disc space-y-1 pl-5">
-              <li>State-of-the-art fitness center</li>
-              <li>Indoor heated pool</li>
-              <li>Steam room and sauna</li>
-              <li>Relaxation lounge</li>
-            </ul>
-          </CardContent>
-        </Card>
+      <div className="px-4 py-6">
+        <ServiceCatalog
+          hotelId={session.hotelId}
+          department="spa-gym"
+          guestToken={session.guestToken}
+          stayId={session.stayId}
+          roomNumber={session.roomNumber}
+          onRequestSubmitted={handleRequestSubmitted}
+        />
       </div>
     </div>
   );

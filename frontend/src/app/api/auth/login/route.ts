@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
       success: true,
       guest: backendData.guest,
       stay: backendData.stay,
+      token: backendData.token, // Backend JWT token for API calls
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

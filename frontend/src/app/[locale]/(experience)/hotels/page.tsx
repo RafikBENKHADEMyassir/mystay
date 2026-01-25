@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MapPin, Star, Wifi, Utensils, Dumbbell, Waves, ArrowRight, Search, Building2 } from "lucide-react";
-import Link from "next/link";
+import { useState } from "react";
+import { MapPin, Star, Wifi, Utensils, Dumbbell, Waves, Search, Building2 } from "lucide-react";
 
+import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getHotelsStrings } from "@/lib/i18n/hotels";
-import { withLocale } from "@/lib/i18n/paths";
 
 type Hotel = {
   id: string;
@@ -106,15 +105,6 @@ export default function HotelsPage() {
   const t = getHotelsStrings(locale);
   const [searchQuery, setSearchQuery] = useState("");
   const [hotels] = useState<Hotel[]>(mockHotels);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    // Check if user is authenticated
-    fetch("/api/auth/session")
-      .then((res) => res.json())
-      .then((data) => setIsAuthenticated(data.authenticated))
-      .catch(() => setIsAuthenticated(false));
-  }, []);
 
   const amenityIcons: Record<string, React.ReactNode> = {
     wifi: <Wifi className="h-4 w-4" />,
@@ -134,188 +124,137 @@ export default function HotelsPage() {
   const otherHotels = filteredHotels.filter((h) => !h.featured);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-amber-900/20 border-b border-slate-700">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.1),transparent_50%)]" />
-        <div className="container relative py-12">
-          <div className="max-w-2xl">
-            <h1 className="text-4xl font-bold tracking-tight text-white mb-4">
-              {t.pageTitle}
-            </h1>
-            <p className="text-lg text-slate-300 mb-6">
-              {t.pageDescription}
-            </p>
-            {!isAuthenticated && (
-              <div className="flex gap-3 flex-wrap">
-                <Link href={withLocale(locale, "/signup")}>
-                  <Button className="bg-amber-500 text-slate-900 hover:bg-amber-400">
-                    Create Account
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href={withLocale(locale, "/login")}>
-                  <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
-                    Sign In
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="border-b border-slate-700 bg-slate-800/50">
-        <div className="container py-4">
-          <div className="max-w-md relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <div className="space-y-4">
+      <PageHeader
+        title={t.pageTitle}
+        description={t.pageDescription}
+        actions={
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder={t.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400"
+              className="pl-10"
             />
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Content */}
-      <div className="container py-8 space-y-12 flex-1">
-        {/* Featured Hotels */}
-        {featuredHotels.length > 0 && (
-          <section>
-            <h2 className="text-2xl font-semibold mb-6 text-white flex items-center gap-2">
-              <Star className="h-5 w-5 text-amber-400" />
-              {t.featuredSection}
-            </h2>
-            <div className="grid gap-6 md:grid-cols-2">
-              {featuredHotels.map((hotel) => (
-                <Card key={hotel.id} className="overflow-hidden bg-slate-800/50 border-slate-700 hover:border-amber-500/50 transition-colors">
-                  <div className="aspect-video relative bg-gradient-to-br from-slate-700 to-slate-800">
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-500">
-                      <Building2 className="h-16 w-16" />
-                    </div>
-                    <Badge className="absolute top-4 right-4 bg-amber-500 text-slate-900">
-                      {t.featured}
-                    </Badge>
+      {/* Featured Hotels */}
+      {featuredHotels.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">{t.featuredSection}</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {featuredHotels.map((hotel) => (
+              <Card key={hotel.id} className="overflow-hidden">
+                <div className="aspect-video relative bg-muted">
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                    <Building2 className="h-16 w-16" />
                   </div>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-white">{hotel.name}</CardTitle>
-                        <CardDescription className="flex items-center gap-1 mt-1 text-slate-400">
-                          <MapPin className="h-3 w-3" />
-                          {hotel.location}
-                        </CardDescription>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                        <span className="font-semibold text-white">{hotel.rating}</span>
-                        <span className="text-xs text-slate-400">
-                          ({hotel.reviewCount} {t.reviews})
-                        </span>
-                      </div>
+                  <Badge className="absolute top-3 right-3">
+                    {t.featured}
+                  </Badge>
+                </div>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle>{hotel.name}</CardTitle>
+                      <CardDescription className="flex items-center gap-1 mt-1">
+                        <MapPin className="h-3 w-3" />
+                        {hotel.location}
+                      </CardDescription>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-slate-400 mb-4">{hotel.description}</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {hotel.amenities.map((amenity) => (
-                        <Badge key={amenity} variant="outline" className="gap-1 border-slate-600 text-slate-300">
-                          {amenityIcons[amenity]}
-                          {t.amenities[amenity as keyof typeof t.amenities]}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex items-center justify-between border-t border-slate-700 pt-4">
-                    <span className="text-sm font-medium text-slate-300">{hotel.priceRange}</span>
-                    <Button className="bg-amber-500 text-slate-900 hover:bg-amber-400">
-                      {t.viewDetails}
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Other Hotels */}
-        {otherHotels.length > 0 && (
-          <section>
-            <h2 className="text-2xl font-semibold mb-6 text-white">{t.allPropertiesSection}</h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {otherHotels.map((hotel) => (
-                <Card key={hotel.id} className="overflow-hidden flex flex-col bg-slate-800/50 border-slate-700 hover:border-amber-500/50 transition-colors">
-                  <div className="aspect-video relative bg-gradient-to-br from-slate-700 to-slate-800">
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-500">
-                      <Building2 className="h-12 w-12" />
-                    </div>
-                  </div>
-                  <CardHeader className="flex-1">
-                    <CardTitle className="text-base text-white">{hotel.name}</CardTitle>
-                    <CardDescription className="flex items-center gap-1 text-slate-400">
-                      <MapPin className="h-3 w-3" />
-                      {hotel.location}
-                    </CardDescription>
-                    <div className="flex items-center gap-1 mt-2">
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      <span className="text-sm font-medium text-white">{hotel.rating}</span>
-                      <span className="text-xs text-slate-400">
-                        ({hotel.reviewCount} {t.reviews})
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Star className="h-4 w-4 fill-primary text-primary" />
+                      <span className="font-semibold">{hotel.rating}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({hotel.reviewCount})
                       </span>
                     </div>
-                  </CardHeader>
-                  <CardFooter className="flex-col gap-3 border-t border-slate-700 pt-4">
-                    <div className="flex items-center gap-2 flex-wrap w-full">
-                      {hotel.amenities.slice(0, 3).map((amenity) => (
-                        <div key={amenity} className="text-slate-400">
-                          {amenityIcons[amenity]}
-                        </div>
-                      ))}
-                    </div>
-                    <Button className="w-full" variant="outline" className="w-full border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white">
-                      {t.viewDetails}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* No results */}
-        {filteredHotels.length === 0 && (
-          <div className="text-center py-12">
-            <MapPin className="mx-auto h-12 w-12 text-slate-500" />
-            <h3 className="mt-4 text-lg font-medium text-white">{t.noResultsTitle}</h3>
-            <p className="mt-2 text-sm text-slate-400">
-              {t.noResultsDescription}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* CTA Section */}
-      {!isAuthenticated && (
-        <div className="border-t border-slate-700 bg-gradient-to-r from-amber-500/10 via-transparent to-amber-500/10">
-          <div className="container py-12 text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">
-              Ready to experience your stay?
-            </h2>
-            <p className="text-slate-400 mb-6 max-w-md mx-auto">
-              Create an account to unlock exclusive services, digital room keys, and personalized experiences.
-            </p>
-            <Link href={withLocale(locale, "/signup")}>
-              <Button size="lg" className="bg-amber-500 text-slate-900 hover:bg-amber-400">
-                Get Started
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">{hotel.description}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {hotel.amenities.map((amenity) => (
+                      <Badge key={amenity} variant="outline" className="gap-1">
+                        {amenityIcons[amenity]}
+                        {t.amenities[amenity as keyof typeof t.amenities]}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+                <CardFooter className="flex items-center justify-between border-t pt-4">
+                  <span className="text-sm font-medium text-muted-foreground">{hotel.priceRange}</span>
+                  <Button size="sm">
+                    {t.viewDetails}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
           </div>
         </div>
+      )}
+
+      {/* Other Hotels */}
+      {otherHotels.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">{t.allPropertiesSection}</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {otherHotels.map((hotel) => (
+              <Card key={hotel.id} className="overflow-hidden flex flex-col">
+                <div className="aspect-video relative bg-muted">
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                    <Building2 className="h-12 w-12" />
+                  </div>
+                </div>
+                <CardHeader className="flex-1">
+                  <CardTitle className="text-base">{hotel.name}</CardTitle>
+                  <CardDescription className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {hotel.location}
+                  </CardDescription>
+                  <div className="flex items-center gap-1 mt-2">
+                    <Star className="h-3 w-3 fill-primary text-primary" />
+                    <span className="text-sm font-medium">{hotel.rating}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({hotel.reviewCount})
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardFooter className="flex-col gap-3 border-t pt-4">
+                  <div className="flex items-center gap-2 flex-wrap w-full">
+                    {hotel.amenities.slice(0, 3).map((amenity) => (
+                      <div key={amenity} className="text-muted-foreground">
+                        {amenityIcons[amenity]}
+                      </div>
+                    ))}
+                  </div>
+                  <Button className="w-full" variant="outline" size="sm">
+                    {t.viewDetails}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No results */}
+      {filteredHotels.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">{t.noResultsTitle}</h3>
+            <p className="text-sm text-muted-foreground text-center max-w-sm">
+              {t.noResultsDescription}
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

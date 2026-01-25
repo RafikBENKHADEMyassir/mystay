@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Minus, Plus, Clock } from "lucide-react";
 
 export type FormFieldType = 
   | "quantity"
@@ -96,64 +93,51 @@ export function ServiceRequestForm({
     switch (field.type) {
       case "quantity":
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
-            <div className="flex items-center gap-3">
-              <Button
+          <div key={field.name} className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">{field.label}</label>
+            <div className="flex items-center justify-center gap-6">
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 shrink-0"
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
                 disabled={isSubmitting || (typeof value === "number" && value <= (field.min ?? 1))}
                 onClick={() => updateField(field.name, Math.max((field.min ?? 1), (value as number) - 1))}
               >
-                −
-              </Button>
-              <Input
-                id={field.name}
-                type="number"
-                value={value as number}
-                min={field.min ?? 1}
-                max={field.max ?? 99}
-                className="h-10 w-20 text-center"
-                onChange={(e) => {
-                  const num = parseInt(e.target.value, 10);
-                  if (!isNaN(num)) {
-                    updateField(field.name, Math.min(field.max ?? 99, Math.max(field.min ?? 1, num)));
-                  }
-                }}
-                disabled={isSubmitting}
-              />
-              <Button
+                <Minus className="h-5 w-5" />
+              </button>
+              <span className="text-3xl font-semibold text-gray-900 w-16 text-center">
+                {value as number}
+              </span>
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 shrink-0"
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
                 disabled={isSubmitting || (typeof value === "number" && value >= (field.max ?? 99))}
                 onClick={() => updateField(field.name, Math.min((field.max ?? 99), (value as number) + 1))}
               >
-                +
-              </Button>
+                <Plus className="h-5 w-5" />
+              </button>
             </div>
           </div>
         );
 
       case "select":
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
+          <div key={field.name} className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">{field.label}</label>
             <div className="flex flex-wrap gap-2">
               {field.options?.map((option) => (
-                <Button
+                <button
                   key={option.value}
                   type="button"
-                  variant={value === option.value ? "default" : "outline"}
-                  size="sm"
+                  className={`rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
+                    value === option.value
+                      ? "bg-gray-900 text-white"
+                      : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
                   onClick={() => updateField(field.name, option.value)}
                   disabled={isSubmitting}
                 >
                   {option.label}
-                </Button>
+                </button>
               ))}
             </div>
           </div>
@@ -161,17 +145,20 @@ export function ServiceRequestForm({
 
       case "multiselect":
         return (
-          <div key={field.name} className="space-y-2">
-            <Label>{field.label}</Label>
+          <div key={field.name} className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">{field.label}</label>
             <div className="flex flex-wrap gap-2">
               {field.options?.map((option) => {
                 const selected = Array.isArray(value) && value.includes(option.value);
                 return (
-                  <Button
+                  <button
                     key={option.value}
                     type="button"
-                    variant={selected ? "default" : "outline"}
-                    size="sm"
+                    className={`rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
+                      selected
+                        ? "bg-gray-900 text-white"
+                        : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
                     onClick={() => {
                       const currentValues = Array.isArray(value) ? value : [];
                       if (selected) {
@@ -183,7 +170,7 @@ export function ServiceRequestForm({
                     disabled={isSubmitting}
                   >
                     {option.label}
-                  </Button>
+                  </button>
                 );
               })}
             </div>
@@ -192,88 +179,88 @@ export function ServiceRequestForm({
 
       case "time":
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
-            <Input
-              id={field.name}
+          <div key={field.name} className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">{field.label}</label>
+            <input
               type="time"
               value={value as string}
               onChange={(e) => updateField(field.name, e.target.value)}
               disabled={isSubmitting}
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-0"
             />
           </div>
         );
 
       case "date":
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
-            <Input
-              id={field.name}
+          <div key={field.name} className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">{field.label}</label>
+            <input
               type="date"
               value={value as string}
               onChange={(e) => updateField(field.name, e.target.value)}
               disabled={isSubmitting}
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-0"
             />
           </div>
         );
 
       case "datetime":
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
-            <Input
-              id={field.name}
+          <div key={field.name} className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">{field.label}</label>
+            <input
               type="datetime-local"
               value={value as string}
               onChange={(e) => updateField(field.name, e.target.value)}
               disabled={isSubmitting}
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-0"
             />
           </div>
         );
 
       case "textarea":
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
-            <Textarea
-              id={field.name}
+          <div key={field.name} className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">{field.label}</label>
+            <textarea
               value={value as string}
               placeholder={field.placeholder}
               onChange={(e) => updateField(field.name, e.target.value)}
               disabled={isSubmitting}
               rows={3}
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-0 resize-none"
             />
           </div>
         );
 
       case "checkbox":
         return (
-          <div key={field.name} className="flex items-center gap-2">
+          <div key={field.name} className="flex items-center gap-3">
             <input
               id={field.name}
               type="checkbox"
               checked={value as boolean}
               onChange={(e) => updateField(field.name, e.target.checked)}
               disabled={isSubmitting}
-              className="h-4 w-4 rounded border-gray-300"
+              className="h-5 w-5 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
             />
-            <Label htmlFor={field.name}>{field.label}</Label>
+            <label htmlFor={field.name} className="text-sm text-gray-700">{field.label}</label>
           </div>
         );
 
       case "text":
       default:
         return (
-          <div key={field.name} className="space-y-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
-            <Input
-              id={field.name}
+          <div key={field.name} className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">{field.label}</label>
+            <input
               type="text"
               value={value as string}
               placeholder={field.placeholder}
               onChange={(e) => updateField(field.name, e.target.value)}
               disabled={isSubmitting}
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-0"
             />
           </div>
         );
@@ -281,30 +268,38 @@ export function ServiceRequestForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {serviceItem.formFields.length > 0 ? (
         serviceItem.formFields.map(renderField)
       ) : (
-        <p className="text-sm text-muted-foreground">
-          No additional options required. Click submit to send your request.
+        <p className="text-center text-sm text-gray-500 py-4">
+          Aucune option supplémentaire requise. Cliquez sur Valider pour envoyer votre demande.
         </p>
       )}
 
-      {serviceItem.estimatedTimeMinutes && (
-        <p className="text-sm text-muted-foreground">
-          ⏱ Estimated time: ~{serviceItem.estimatedTimeMinutes} minutes
-        </p>
-      )}
+      {/* Info section */}
+      <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500">
+        {serviceItem.estimatedTimeMinutes && (
+          <div className="flex items-center gap-1.5 bg-gray-50 rounded-full px-3 py-1.5">
+            <Clock className="h-4 w-4" />
+            <span>~{serviceItem.estimatedTimeMinutes} min</span>
+          </div>
+        )}
+        {serviceItem.priceCents !== null && serviceItem.priceCents > 0 && (
+          <div className="bg-gray-50 rounded-full px-3 py-1.5 font-medium text-gray-700">
+            {(serviceItem.priceCents / 100).toFixed(0)},00 €
+          </div>
+        )}
+      </div>
 
-      {serviceItem.priceCents !== null && serviceItem.priceCents > 0 && (
-        <p className="text-sm font-medium">
-          💰 Price: {(serviceItem.priceCents / 100).toFixed(2)} {serviceItem.currency}
-        </p>
-      )}
-
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Sending request…" : "Submit Request"}
-      </Button>
+      {/* Submit button */}
+      <button 
+        type="submit" 
+        disabled={isSubmitting}
+        className="w-full rounded-full bg-gray-900 py-4 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+      >
+        {isSubmitting ? "Envoi en cours…" : "Valider"}
+      </button>
     </form>
   );
 }

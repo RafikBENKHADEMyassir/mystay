@@ -16,11 +16,19 @@ import {
   Gift,
   Calendar,
   Loader2,
-  MessageCircle
+  MessageCircle,
+  ChevronRight,
+  Plane,
+  Ticket,
+  MapPin,
+  Coffee,
+  Croissant,
+  Clock,
+  Trash2,
+  Moon
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ServiceItem } from "./service-request-form";
 import { ServiceRequestDialog } from "./service-request-dialog";
 
@@ -47,7 +55,7 @@ type ServiceCatalogProps = {
   onRequestSubmitted?: (ticketId: string) => void;
 };
 
-// Icon mapping for service items
+// Icon mapping for service items - matching the design aesthetic
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   sparkles: Sparkles,
   shirt: Shirt,
@@ -68,6 +76,14 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   blanket: Bed,
   soap: Sparkles,
   broom: Sparkles,
+  plane: Plane,
+  ticket: Ticket,
+  map: MapPin,
+  coffee: Coffee,
+  croissant: Croissant,
+  clock: Clock,
+  trash: Trash2,
+  moon: Moon,
 };
 
 function getIcon(iconName: string): React.ComponentType<{ className?: string }> {
@@ -143,7 +159,7 @@ export function ServiceCatalog({
 
   const handleDialogClose = () => {
     setIsDialogOpen(false);
-    setTimeout(() => setSelectedItem(null), 300); // Clear after animation
+    setTimeout(() => setSelectedItem(null), 300);
   };
 
   const handleSubmit = async (
@@ -212,117 +228,94 @@ export function ServiceCatalog({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <Card>
+      <Card className="border-0 shadow-none">
         <CardContent className="py-8 text-center">
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="text-sm text-red-500">{error}</p>
           <Button variant="outline" size="sm" className="mt-4" onClick={loadCatalog}>
-            Try Again
+            Réessayer
           </Button>
         </CardContent>
       </Card>
     );
   }
 
-  if (categories.length === 0) {
+  if (items.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            No services available for this department at the moment.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="py-8 text-center">
+        <p className="text-sm text-gray-500">
+          Aucun service disponible pour le moment.
+        </p>
+      </div>
     );
   }
 
+  // Flat list view matching the design
+  const showCategories = categories.length > 1;
+
   return (
     <>
-      <div className="space-y-6">
-        {categories.map((category) => {
-          const categoryItems = itemsByCategory[category.id] || [];
-          const CategoryIcon = getIcon(category.icon);
+      <div className="divide-y divide-gray-100">
+        {showCategories ? (
+          // Show with category headers if multiple categories
+          categories.map((category) => {
+            const categoryItems = itemsByCategory[category.id] || [];
+            if (categoryItems.length === 0) return null;
 
-          return (
-            <div key={category.id} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <CategoryIcon className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">{category.nameDefault}</h3>
-                <Badge variant="secondary" className="ml-auto">
-                  {categoryItems.length} services
-                </Badge>
-              </div>
-              
-              {category.descriptionDefault && (
-                <p className="text-sm text-muted-foreground">
-                  {category.descriptionDefault}
+            return (
+              <div key={category.id} className="py-4 first:pt-0 last:pb-0">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">
+                  {category.nameDefault}
                 </p>
-              )}
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                {categoryItems.map((item) => {
-                  const ItemIcon = getIcon(item.icon);
-                  
-                  return (
-                    <Card
+                <div className="space-y-1">
+                  {categoryItems.map((item) => (
+                    <ServiceListItem
                       key={item.id}
-                      className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md"
+                      item={item}
                       onClick={() => handleItemClick(item)}
-                    >
-                      <CardContent className="flex items-start gap-3 p-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                          <ItemIcon className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium leading-tight">{item.nameDefault}</h4>
-                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
-                            {item.descriptionDefault}
-                          </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            {item.estimatedTimeMinutes && (
-                              <Badge variant="outline" className="text-xs">
-                                ~{item.estimatedTimeMinutes} min
-                              </Badge>
-                            )}
-                            {item.priceCents !== null && item.priceCents > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {(item.priceCents / 100).toFixed(2)} {item.currency}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        ) : (
+          // Flat list without category headers
+          <div className="space-y-1">
+            {items.map((item) => (
+              <ServiceListItem
+                key={item.id}
+                item={item}
+                onClick={() => handleItemClick(item)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Free-form message option */}
-        <Card className="border-dashed">
-          <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <MessageCircle className="h-5 w-5 text-muted-foreground" />
+        <div className="pt-4">
+          <button
+            className="flex w-full items-center gap-4 rounded-xl bg-gray-50 px-4 py-4 text-left transition-colors hover:bg-gray-100"
+            onClick={() => {/* TODO: Open messaging */}}
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
+              <MessageCircle className="h-5 w-5 text-gray-500" />
             </div>
-            <div className="flex-1">
-              <h4 className="font-medium">Need something else?</h4>
-              <p className="text-xs text-muted-foreground">
-                Send a free-form message to our staff
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900">Autre demande</p>
+              <p className="text-sm text-gray-500">
+                Contactez directement notre équipe
               </p>
             </div>
-            <Button variant="outline" size="sm">
-              Message
-            </Button>
-          </CardContent>
-        </Card>
+            <ChevronRight className="h-5 w-5 text-gray-300" />
+          </button>
+        </div>
       </div>
 
       <ServiceRequestDialog
@@ -332,5 +325,36 @@ export function ServiceCatalog({
         onSubmit={handleSubmit}
       />
     </>
+  );
+}
+
+// Clean list item component matching the design
+function ServiceListItem({ 
+  item, 
+  onClick 
+}: { 
+  item: ServiceItem; 
+  onClick: () => void;
+}) {
+  const ItemIcon = getIcon(item.icon);
+  
+  return (
+    <button
+      className="flex w-full items-center gap-4 rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-gray-50 active:bg-gray-100"
+      onClick={onClick}
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+        <ItemIcon className="h-5 w-5 text-gray-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-gray-900">{item.nameDefault}</p>
+        {item.priceCents !== null && item.priceCents > 0 && (
+          <p className="text-sm text-gray-500">
+            {(item.priceCents / 100).toFixed(0)},00 €
+          </p>
+        )}
+      </div>
+      <ChevronRight className="h-5 w-5 text-gray-300" />
+    </button>
   );
 }

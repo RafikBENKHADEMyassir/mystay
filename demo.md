@@ -1,134 +1,113 @@
 # MyStay Demo Guide
 
-This document provides comprehensive instructions for setting up and testing the MyStay platform.
+Complete guide for running and testing the MyStay hotel guest experience platform.
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js 20+
-- PostgreSQL 15+
-- npm or pnpm
-
-### 1. Start the Database
 ```bash
-# If using Docker
-docker compose up -d db
+# Start everything with one command
+./dev.sh
 
-# Or ensure your PostgreSQL is running
+# Or start fresh (reset database)
+./dev.sh --reset-db
 ```
 
-### 2. Run Migrations & Seed Data
-```bash
-cd backend
-npm run db:migrate
-npm run db:seed
-```
+### What Gets Started
 
-### 3. Start All Services
-```bash
-# Terminal 1: Mock PMS Server
-cd backend && npm run mock-pms
-
-# Terminal 2: Backend API
-cd backend && npm run dev
-
-# Terminal 3: Guest Frontend
-cd frontend && npm run dev
-
-# Terminal 4: Hotel Admin Dashboard
-cd admin && npm run dev
-```
-
-### 4. Access the Applications
-- **Guest App**: http://localhost:3001
-- **Hotel Admin**: http://localhost:3002
-- **Backend API**: http://localhost:4000
-- **Mock PMS**: http://localhost:4010
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Guest Frontend** | http://localhost:3000 | Guest mobile web app |
+| **Admin Dashboard** | http://localhost:3001 | Hotel/Platform management |
+| **Backend API** | http://localhost:4000 | REST API server |
+| **Opera PMS Mock** | http://localhost:4010 | Mock Property Management System |
+| **SpaBooker Mock** | http://localhost:4011 | Mock Spa booking system |
 
 ---
 
 ## 🔐 Demo Accounts
 
 ### Platform Administrator
-Access the hotel admin dashboard at http://localhost:3002
+Full access to manage all hotels in the platform.
 
 | Email | Password | Access |
 |-------|----------|--------|
-| `admin@mystay.com` | `admin123` | Platform-wide admin (manage all hotels) |
+| `admin@mystay.com` | `admin123` | Platform admin dashboard |
 
-### Hotel Staff Accounts
+**URL:** http://localhost:3001 → Select "Platform Admin" login
 
-#### Four Seasons Paris (Main Demo Hotel)
+### Hotel Staff (Four Seasons Paris)
+
 | Email | Password | Role | Departments |
 |-------|----------|------|-------------|
-| `manager@fourseasons.demo` | `admin123` | Manager | All departments |
+| `manager@fourseasons.demo` | `admin123` | Manager | All |
 | `concierge@fourseasons.demo` | `admin123` | Staff | Concierge |
 | `reception@fourseasons.demo` | `admin123` | Staff | Reception |
 | `housekeeping@fourseasons.demo` | `admin123` | Staff | Housekeeping |
 | `spa@fourseasons.demo` | `admin123` | Staff | Spa & Gym |
-| `roomservice@fourseasons.demo` | `admin123` | Staff | Room Service, Restaurants |
+| `roomservice@fourseasons.demo` | `admin123` | Staff | Room Service |
 
-#### Four Seasons Geneva
-| Email | Password | Role |
-|-------|----------|------|
-| `manager@geneva.demo` | `admin123` | Manager |
-| `concierge@geneva.demo` | `admin123` | Staff |
+**URL:** http://localhost:3001 → Select "Hotel Staff" login
 
-#### Bulgari Hotel Milan
-| Email | Password | Role |
-|-------|----------|------|
-| `manager@bulgari.demo` | `admin123` | Manager |
-| `concierge@bulgari.demo` | `admin123` | Staff |
+### Other Hotels
 
-#### La Mamounia Marrakech
-| Email | Password | Role |
-|-------|----------|------|
-| `manager@mamounia.demo` | `admin123` | Manager |
-| `concierge@mamounia.demo` | `admin123` | Staff |
+| Hotel | Manager Email | Password |
+|-------|--------------|----------|
+| Four Seasons Geneva | `manager@geneva.demo` | `admin123` |
+| Bulgari Milano | `manager@bulgari.demo` | `admin123` |
+| La Mamounia | `manager@mamounia.demo` | `admin123` |
 
 ### Guest Accounts
-Access the guest app at http://localhost:3001
 
-| Email | Password | Hotel | Status |
-|-------|----------|-------|--------|
-| `sophie.martin@email.com` | `admin123` | Four Seasons Paris | Currently checked in |
-| `james.wilson@corp.com` | `admin123` | Four Seasons Paris | Arriving tomorrow |
-| `yuki.tanaka@example.jp` | `admin123` | Four Seasons Paris | Checking in today |
-| `emma.dubois@gmail.com` | `admin123` | Four Seasons Paris | Arriving in 2 days |
-| `m.alrashid@business.ae` | `admin123` | La Mamounia | Future booking |
+| Guest | Email | Password | Hotel | Status |
+|-------|-------|----------|-------|--------|
+| Sophie Martin | `sophie.martin@email.com` | `admin123` | Paris | Checked in (Room 701) |
+| James Wilson | `james.wilson@corp.com` | `admin123` | Paris | Arriving tomorrow |
+| Yuki Tanaka | `yuki.tanaka@example.jp` | `admin123` | Paris | Arriving today |
+| Emma Dubois | `emma.dubois@gmail.com` | `admin123` | Paris | Arriving in 2 days |
+| Mohammed Al-Rashid | `m.alrashid@business.ae` | `admin123` | Paris | VIP - Penthouse (PH1) |
 
-### Demo Reservation (No Account Required)
-For quick testing without creating an account:
-- **Confirmation Number**: `0123456789`
-- **Room**: 227
+**URL:** http://localhost:3000
+
+### Guest Authentication Flow
+
+**Login is required** to access your stay and hotel services. Two options:
+
+1. **Sign Up** → Create account (name, email, phone, ID, payment) → Enter confirmation number → Access your stay
+2. **Log In** → Use existing credentials → Reservation auto-links → Access your stay
+
+> 💡 Without a reservation, guests can still browse partner hotels, but stay-specific features (check-in, room service, etc.) require a validated reservation.
+
+### Demo Reservations
+
+After logging in with a guest account, these confirmation numbers link to active stays:
+
+| Confirmation | Room | Hotel | Guest Account |
+|--------------|------|-------|---------------|
+| `FSGV2025A1B2C` | 701 | Four Seasons Paris | `sophie.martin@email.com` |
+| `FSGV2025J7K8L` | PH1 | Four Seasons Paris (VIP) | `m.alrashid@business.ae` |
+| `FSGV2025D4E5F` | 412 | Four Seasons Paris | `james.wilson@corp.com` |
+| `FSGV2025G7H8I` | 305 | Four Seasons Paris | `yuki.tanaka@example.jp` |
 
 ---
 
 ## 🏨 Mock PMS Integration
 
-The Mock PMS simulates a real Property Management System (Opera, Mews, etc.).
+### Opera PMS Mock (Port 4010)
 
-### Starting the Mock PMS
+Simulates Oracle Opera PMS - the industry standard for luxury hotels.
+
+#### Test Connection
 ```bash
-cd backend
-npm run mock-pms
-# Server runs on http://localhost:4010
-```
+# Health check
+curl http://localhost:4010/health
 
-### Available Endpoints
-
-#### Properties
-```bash
-# List all properties
+# List properties
 curl http://localhost:4010/v1/properties
-
-# Get property details
-curl http://localhost:4010/v1/properties/FS-PARIS
 ```
 
 #### Reservations
 ```bash
-# List reservations for a property
+# List all reservations for Four Seasons Paris
 curl http://localhost:4010/v1/hotels/FS-PARIS/reservations
 
 # Search by confirmation number
@@ -137,23 +116,25 @@ curl "http://localhost:4010/v1/hotels/FS-PARIS/reservations?confirmationNumber=F
 # Search by guest email
 curl "http://localhost:4010/v1/hotels/FS-PARIS/reservations?guestEmail=sophie.martin@email.com"
 
-# Get reservation details
-curl http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-2025-0001
+# Get specific reservation
+curl http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-SOPHIE-PARIS
 ```
 
 #### Room Management
 ```bash
-# List rooms
+# List all rooms
 curl http://localhost:4010/v1/hotels/FS-PARIS/rooms
 
-# Get room details
-curl http://localhost:4010/v1/hotels/FS-PARIS/rooms/701
+# Filter by status
+curl "http://localhost:4010/v1/hotels/FS-PARIS/rooms?status=CLEAN"
+curl "http://localhost:4010/v1/hotels/FS-PARIS/rooms?status=OCCUPIED"
+curl "http://localhost:4010/v1/hotels/FS-PARIS/rooms?status=DIRTY"
 
-# Filter by status (clean, dirty, occupied, maintenance)
-curl "http://localhost:4010/v1/hotels/FS-PARIS/rooms?status=clean"
+# Get specific room
+curl http://localhost:4010/v1/hotels/FS-PARIS/rooms/701
 ```
 
-#### Today's Arrivals/Departures
+#### Arrivals & Departures
 ```bash
 # Today's arrivals
 curl http://localhost:4010/v1/hotels/FS-PARIS/arrivals
@@ -162,29 +143,29 @@ curl http://localhost:4010/v1/hotels/FS-PARIS/arrivals
 curl http://localhost:4010/v1/hotels/FS-PARIS/departures
 
 # Specific date
-curl "http://localhost:4010/v1/hotels/FS-PARIS/arrivals?date=2025-01-22"
+curl "http://localhost:4010/v1/hotels/FS-PARIS/arrivals?date=2026-01-21"
+```
+
+#### Guest Folio (Billing)
+```bash
+# Get guest folio
+curl http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-SOPHIE-PARIS/folios
+
+# Add a charge
+curl -X POST http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-SOPHIE-PARIS/charges \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Room Service - Dinner", "amount": 95, "category": "FB"}'
 ```
 
 #### Check-in / Check-out
 ```bash
-# Check in a guest
-curl -X POST http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-2025-0003/checkin \
+# Check in guest (assign room)
+curl -X POST http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-YUKI-PARIS/checkin \
   -H "Content-Type: application/json" \
   -d '{"roomNumber": "602"}'
 
-# Check out a guest
-curl -X POST http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-2025-0001/checkout
-```
-
-#### Folio/Billing
-```bash
-# Get guest folio
-curl http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-2025-0001/folios
-
-# Add a charge
-curl -X POST http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-2025-0001/charges \
-  -H "Content-Type: application/json" \
-  -d '{"description": "Room Service - Lunch", "amount": 65, "category": "restaurant"}'
+# Check out guest
+curl -X POST http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-SOPHIE-PARIS/checkout
 ```
 
 #### Room Service Menu
@@ -192,18 +173,9 @@ curl -X POST http://localhost:4010/v1/hotels/FS-PARIS/reservations/RES-2025-0001
 curl http://localhost:4010/v1/hotels/FS-PARIS/menu
 ```
 
-#### Spa Services
+#### OTA Sync (Booking.com, Expedia simulation)
 ```bash
-# Get spa services catalog
-curl http://localhost:4010/v1/hotels/FS-PARIS/spa/services
-
-# Check availability
-curl "http://localhost:4010/v1/hotels/FS-PARIS/spa/availability?date=2025-01-21&serviceId=SPA-004"
-```
-
-#### OTA Sync Simulation
-```bash
-# Simulate a booking from Booking.com
+# Simulate a new booking from Booking.com
 curl -X POST http://localhost:4010/v1/sync/reservations \
   -H "Content-Type: application/json" \
   -d '{
@@ -215,117 +187,149 @@ curl -X POST http://localhost:4010/v1/sync/reservations \
         "lastName": "Guest",
         "email": "new.guest@email.com"
       },
-      "checkInDate": "2025-01-25",
-      "checkOutDate": "2025-01-28",
-      "roomType": "Deluxe Room"
+      "arrival": "2026-01-25",
+      "departure": "2026-01-28",
+      "roomType": "DELUXE"
     }
   }'
 ```
 
-### PMS Configuration in MyStay
+### SpaBooker Mock (Port 4011)
 
-Hotels can be connected to the PMS via the admin dashboard:
+Simulates spa booking system integration.
 
-1. Login as hotel manager
-2. Go to Settings → PMS Integration
-3. Configure the PMS provider:
-   - **Provider**: opera, mews, cloudbeds
-   - **Base URL**: http://localhost:4010
-   - **Resort ID**: FS-PARIS (matches PMS property ID)
-   - **Credentials**: OPERA/OPERA (mock credentials)
+#### Test Connection
+```bash
+curl http://localhost:4011/health
+```
+
+#### Spa Services
+```bash
+# List all locations
+curl http://localhost:4011/v1/locations
+
+# Get spa services for Four Seasons Paris
+curl http://localhost:4011/v1/locations/FS-PARIS/services
+
+# Get practitioners
+curl http://localhost:4011/v1/locations/FS-PARIS/practitioners
+```
+
+#### Availability & Booking
+```bash
+# Check availability
+curl "http://localhost:4011/v1/locations/FS-PARIS/availability?date=2026-01-21&serviceId=SPA-004"
+
+# Book appointment
+curl -X POST http://localhost:4011/v1/appointments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "locationId": "FS-PARIS",
+    "serviceId": "SPA-004",
+    "guestEmail": "sophie.martin@email.com",
+    "guestName": "Sophie Martin",
+    "roomNumber": "701",
+    "date": "2026-01-21",
+    "time": "15:00"
+  }'
+
+# List appointments
+curl "http://localhost:4011/v1/appointments?guestEmail=sophie.martin@email.com"
+```
 
 ---
 
 ## 🧪 Testing Scenarios
 
-### Scenario 1: Guest Journey (with Account)
+### Scenario 1: Complete Guest Journey
 
-1. **Sign Up**: Go to http://localhost:3001/signup
-   - Enter: Sophie Martin, sophie.martin@email.com, guest123
-   - Skip ID verification and payment steps
+1. **Open Guest App:** http://localhost:3000
+2. **Enter confirmation:** `DEMO123456`
+3. **Explore services:**
+   - Browse Housekeeping → Request towels
+   - Browse Room Service → Order breakfast
+   - Browse Spa → Book a massage
+   - Browse Concierge → Request restaurant reservation
+4. **Check activity:** View "Your Requests" on each service page
+5. **View messages:** Check conversation threads
 
-2. **Link Reservation**: 
-   - Enter confirmation: `FSGV2025A1B2C`
-   - Guest is now connected to room 701
+### Scenario 2: Staff Request Processing
 
-3. **Explore Experience**:
-   - View room information
-   - Browse spa services
-   - Order room service
-   - Chat with concierge
+1. **Open Admin Dashboard:** http://localhost:3001
+2. **Login as staff:** `concierge@fourseasons.demo` / `admin123`
+3. **View incoming requests**
+4. **Process a ticket:**
+   - Assign to yourself
+   - Add internal note
+   - Reply to guest
+   - Mark as completed
 
-### Scenario 2: Guest Journey (Quick Demo)
+### Scenario 3: Hotel Manager Operations
 
-1. Go to http://localhost:3001/login
-2. Use demo confirmation: `0123456789`
-3. Explore the experience without creating an account
+1. **Login as manager:** `manager@fourseasons.demo` / `admin123`
+2. **View dashboard:** See today's arrivals/departures
+3. **Manage staff:** Add/edit staff members
+4. **Configure hotel:** Update branding, settings
+5. **View analytics:** Review request statistics
 
-### Scenario 3: Hotel Staff Operations
+### Scenario 4: Platform Administration
 
-1. Login to admin dashboard: http://localhost:3002
-2. Use: `manager@fourseasons.demo` / `password123`
-3. View:
-   - Dashboard overview
-   - Today's arrivals/departures
-   - Active service requests
-   - Guest conversations
+1. **Login as platform admin:** `admin@mystay.com` / `admin123`
+2. **View all hotels**
+3. **Add new hotel**
+4. **Configure PMS integration**
+5. **Manage global settings**
 
-### Scenario 4: Platform Admin
+### Scenario 5: VIP Guest Experience
 
-1. Login to admin: http://localhost:3002
-2. Toggle to "Platform Admin" mode
-3. Use: `admin@mystay.com` / `admin123`
-4. Manage:
-   - View all hotels
-   - Add new hotels
-   - Configure hotel settings
-   - Manage staff across hotels
-
-### Scenario 5: PMS Integration Test
-
-1. Login as hotel manager
-2. Go to Settings
-3. Test PMS connection
-4. View synced reservations
-5. Check room availability
+1. **Open Guest App:** http://localhost:3000
+2. **Enter confirmation:** `FSGV2025J7K8L` (VIP - Presidential Suite)
+3. **Notice VIP treatment:**
+   - Special welcome message
+   - Priority service indicators
+   - Premium service options
 
 ---
 
 ## 📊 Sample Data Overview
 
 ### Hotels
-| ID | Name | City | Status |
-|----|------|------|--------|
-| H-FOURSEASONS | Four Seasons Hotel George V | Paris | Active |
-| H-FSGENEVA | Four Seasons Hotel des Bergues | Geneva | Active |
-| H-BULGARI | Bulgari Hotel Milano | Milan | Active |
-| H-MAMOUNIA | La Mamounia | Marrakech | Active |
 
-### Active Reservations (PMS Mock)
-| Confirmation | Guest | Hotel | Room | Status |
-|-------------|-------|-------|------|--------|
-| FSGV2025A1B2C | Sophie Martin | Paris | 701 | Checked In |
-| FSGV2025D3E4F | James Wilson | Paris | TBA | Confirmed |
-| FSGV2025G5H6I | Yuki Tanaka | Paris | TBA | Confirmed |
-| FSGV2025M9N0P | Emma Dubois | Paris | TBA | Confirmed |
-| FSGE2025A1A1A | James Wilson | Geneva | 401 | Checked In |
-| BHMI2025X1Y2Z | Sophie Martin | Milan | TBA | Confirmed |
-| LAMM2025H1H2H | Mohammed Al-Rashid | Marrakech | TBA | Confirmed |
+| ID | Name | City | PMS |
+|----|------|------|-----|
+| H-FOURSEASONS | Four Seasons George V | Paris | Opera |
+| H-FSGENEVA | Four Seasons des Bergues | Geneva | Opera |
+| H-BULGARI | Bulgari Hotel Milano | Milan | Mews |
+| H-MAMOUNIA | La Mamounia | Marrakech | Opera |
 
-### Room Service Menu Categories
-- Breakfast (06:30-11:00)
-- Starters & Salads (11:00-23:00)
-- Main Courses (12:00-23:00)
-- Desserts (12:00-23:30)
-- Late Night (23:00-06:00)
-- Beverages (24/7)
+### Active Reservations (Four Seasons Paris)
 
-### Spa Services
-- Massages (Swedish, Deep Tissue, Hot Stone, Couples)
-- Facials (Signature, Anti-Aging, Hydrating, Men's)
-- Body Treatments (Scrub & Wrap, Detox)
-- Spa Journeys (Half-Day, Full Day, Romantic)
-- Wellness (Yoga, Personal Training, Meditation)
+| Confirmation | Guest | Room | Status |
+|--------------|-------|------|--------|
+| FSGV2025A1B2C | Sophie Martin | 701 | Checked In |
+| FSGV2025D3E4F | James Wilson | TBD | Arriving Tomorrow |
+| FSGV2025G5H6I | Yuki Tanaka | TBD | Arriving Today |
+| FSGV2025M9N0P | Emma Dubois | TBD | Arriving +2 days |
+| FSGV2025J7K8L | Mohammed Al-Rashid | PH1 | VIP Checked In |
+| DEMO123456 | Demo Guest | 227 | Demo Stay |
+
+### Service Departments
+
+- **Housekeeping:** Towels, pillows, cleaning, turndown
+- **Room Service:** Breakfast, dining, beverages, minibar
+- **Concierge:** Transport, reservations, special requests
+- **Spa & Gym:** Massages, facials, fitness
+- **Reception:** Check-out, room changes
+
+### Room Types
+
+| Type | Description | Rate (EUR) |
+|------|-------------|------------|
+| SUPERIOR | Superior Room | 650 |
+| DELUXE | Deluxe Room | 850 |
+| JRSUITE | Junior Suite | 1,200 |
+| SUITE | One Bedroom Suite | 1,500 |
+| PRESIDENTIAL | Presidential Suite | 8,500 |
 
 ---
 
@@ -336,41 +340,80 @@ Hotels can be connected to the PMS via the admin dashboard:
 # Check PostgreSQL is running
 pg_isready
 
-# Verify connection string in .env
+# Verify connection (check backend/.env)
 DATABASE_URL=postgres://user:password@localhost:5432/mystay
+
+# Reset database completely
+./dev.sh --reset-db
 ```
 
-### Mock PMS Not Responding
+### Mock Server Issues
 ```bash
-# Check if port 4010 is in use
+# Check if ports are in use
 lsof -i :4010
+lsof -i :4011
 
-# Restart mock PMS
-cd backend && npm run mock-pms
+# Kill processes on ports
+kill -9 $(lsof -t -i:4010)
+kill -9 $(lsof -t -i:4011)
+
+# Restart just mocks
+npm run dev:mock:opera
+npm run dev:mock:spabooker
+```
+
+### Frontend Issues
+```bash
+# Clear Next.js cache
+rm -rf frontend/.next
+rm -rf admin/.next
+
+# Reinstall dependencies
+npm install
+
+# Restart
+npm run dev:frontend
 ```
 
 ### Staff Login Not Working
-1. Ensure migrations are applied: `npm run db:migrate`
-2. Ensure seed data is loaded: `npm run db:seed`
-3. Verify the password hash in the database
-
-### Frontend Build Errors
 ```bash
-# Clear cache and reinstall
-rm -rf node_modules .next
-npm install
-npm run dev
+# Re-seed database
+npm run db:seed
+
+# Or full reset
+./dev.sh --reset-db
 ```
 
 ---
 
-## 📝 Notes
+## 📁 Project Structure
 
-- All demo passwords should be changed in production
-- Mock PMS data resets when server restarts
-- Use environment variables for sensitive configuration
-- The platform supports multiple languages (en, fr)
+```
+mystay/
+├── frontend/          # Guest mobile web app (Next.js)
+├── admin/             # Hotel admin dashboard (Next.js)
+├── backend/           # API server (Node.js)
+│   ├── src/
+│   │   └── server.mjs
+│   └── db/
+│       ├── seed.sql          # Main seed data
+│       └── seed-services.sql # Service catalog
+├── mock-servers/      # PMS mock servers
+│   ├── opera-mock.mjs
+│   └── spabooker-mock.mjs
+├── dev.sh            # Development startup script
+└── demo.md           # This file
+```
 
 ---
 
-*Last updated: January 2025*
+## 🔑 Important Notes
+
+- **All demo passwords:** `admin123`
+- **Mock data resets** when servers restart
+- **Use environment variables** for production secrets
+- **Multi-language support:** English (en) and French (fr)
+
+---
+
+*Last updated: January 2026*

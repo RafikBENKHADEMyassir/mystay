@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { requireStaffToken } from "@/lib/staff-auth";
+import { getStaffPrincipal } from "@/lib/staff-token";
 import { cn } from "@/lib/utils";
 
 type Hotel = {
@@ -188,6 +189,11 @@ async function updateNotificationChannel({
 }
 
 export default async function IntegrationsPage({ searchParams }: IntegrationsPageProps) {
+  const principal = getStaffPrincipal();
+  const role = principal?.role ?? "staff";
+  if (role !== "admin" && role !== "manager") {
+    redirect("/");
+  }
   const token = requireStaffToken();
   const hotels = await getHotels(token);
   const options = await getOptions(token);

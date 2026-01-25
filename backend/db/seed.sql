@@ -149,7 +149,7 @@ INSERT INTO hotel_integrations (
   spa_config
 )
 VALUES 
-  -- Four Seasons Paris - Connected to Mock PMS
+  -- Four Seasons Paris - Connected to Mock PMS (Opera style)
   (
     'H-FOURSEASONS',
     'opera',
@@ -164,7 +164,7 @@ VALUES
     'alliants',
     '{"propertyId": "FS-PARIS"}'::jsonb,
     'spabooker',
-    '{"baseUrl": "http://localhost:4010", "siteId": "FS-PARIS"}'::jsonb
+    '{"baseUrl": "http://localhost:4011", "siteId": "FS-PARIS"}'::jsonb
   ),
   -- Four Seasons Geneva
   (
@@ -181,7 +181,7 @@ VALUES
     'none',
     '{}'::jsonb,
     'spabooker',
-    '{"baseUrl": "http://localhost:4010", "siteId": "FS-GENEVA"}'::jsonb
+    '{"baseUrl": "http://localhost:4011", "siteId": "FS-GENEVA"}'::jsonb
   ),
   -- Bulgari Milan
   (
@@ -212,7 +212,7 @@ VALUES
     'none',
     '{}'::jsonb,
     'spabooker',
-    '{"baseUrl": "http://localhost:4010", "siteId": "MN-MARRAKECH"}'::jsonb
+    '{"baseUrl": "http://localhost:4011", "siteId": "MN-MARRAKECH"}'::jsonb
   )
 ON CONFLICT (hotel_id) DO UPDATE SET
   pms_provider = EXCLUDED.pms_provider,
@@ -255,7 +255,7 @@ INSERT INTO staff_users (
   password_hash
 )
 VALUES
-  -- Four Seasons Paris Staff
+  -- Four Seasons Paris Staff (Complete team)
   (
     'SU-0001',
     'H-FOURSEASONS',
@@ -377,7 +377,7 @@ ON CONFLICT (id) DO UPDATE SET
 -- =============================================================================
 -- GUESTS (Registered App Users)
 -- =============================================================================
--- Password for all guests: admin123
+-- Password for all guests: guest123
 INSERT INTO guests (
   id,
   email,
@@ -387,6 +387,7 @@ INSERT INTO guests (
   password_hash
 )
 VALUES
+  -- VIP Gold member
   (
     'G-0001',
     'sophie.martin@email.com',
@@ -395,6 +396,7 @@ VALUES
     '+33 6 12 34 56 78',
     'scrypt$8EedSiBiqAYyVxV/ipnNYw==$8997a+RkLshzu1PHSL7XFplb973ySksGoYANPNkHek9CQHkwAufeSPAnGaqU4jX+yB7QdHsCSCPrgOYnd/S4pQ=='
   ),
+  -- VIP Platinum member (Business traveler)
   (
     'G-0002',
     'james.wilson@corp.com',
@@ -403,6 +405,7 @@ VALUES
     '+1 212 555 0123',
     'scrypt$8EedSiBiqAYyVxV/ipnNYw==$8997a+RkLshzu1PHSL7XFplb973ySksGoYANPNkHek9CQHkwAufeSPAnGaqU4jX+yB7QdHsCSCPrgOYnd/S4pQ=='
   ),
+  -- VIP Silver (Japanese guest)
   (
     'G-0003',
     'yuki.tanaka@example.jp',
@@ -411,6 +414,7 @@ VALUES
     '+81 90 1234 5678',
     'scrypt$8EedSiBiqAYyVxV/ipnNYw==$8997a+RkLshzu1PHSL7XFplb973ySksGoYANPNkHek9CQHkwAufeSPAnGaqU4jX+yB7QdHsCSCPrgOYnd/S4pQ=='
   ),
+  -- First time guest (French)
   (
     'G-0004',
     'emma.dubois@gmail.com',
@@ -419,6 +423,7 @@ VALUES
     '+33 6 98 76 54 32',
     'scrypt$8EedSiBiqAYyVxV/ipnNYw==$8997a+RkLshzu1PHSL7XFplb973ySksGoYANPNkHek9CQHkwAufeSPAnGaqU4jX+yB7QdHsCSCPrgOYnd/S4pQ=='
   ),
+  -- VIP Platinum (Middle East)
   (
     'G-0005',
     'm.alrashid@business.ae',
@@ -497,6 +502,18 @@ VALUES
     1,
     0
   ),
+  -- Mohammed Al-Rashid at Four Seasons Paris (VIP, checked in yesterday)
+  (
+    'S-0006',
+    'H-FOURSEASONS',
+    'G-0005',
+    'FSGV2025J7K8L',
+    'PH1',
+    CURRENT_DATE - INTERVAL '1 day',
+    CURRENT_DATE + INTERVAL '2 days',
+    2,
+    2
+  ),
   -- Mohammed Al-Rashid at La Mamounia (future booking)
   (
     'S-0005',
@@ -509,15 +526,15 @@ VALUES
     4,
     3
   ),
-  -- Demo stay for testing (no guest linked - for anonymous demo)
+  -- Demo stay for testing (anonymous guest for quick demo)
   (
     'S-DEMO',
     'H-FOURSEASONS',
     NULL,
-    '0123456789',
+    'DEMO123456',
     '227',
-    '2025-11-03',
-    '2025-11-12',
+    CURRENT_DATE - INTERVAL '2 days',
+    CURRENT_DATE + INTERVAL '5 days',
     2,
     1
   )
@@ -555,7 +572,7 @@ VALUES
     'pending',
     'Restaurant reservation at Le Cinq',
     'SU-0002',
-    '{"type":"restaurant_booking","restaurant":"Le Cinq","date":"2025-01-22","time":"20:00","guests":2}'::jsonb
+    '{"type":"restaurant_booking","restaurant":"Le Cinq","time":"20:00","guests":2}'::jsonb
   ),
   (
     'T-1002',
@@ -566,7 +583,7 @@ VALUES
     'in_progress',
     'Couples massage appointment',
     'SU-0005',
-    '{"type":"spa_booking","service":"Couples Massage","date":"2025-01-21","time":"15:00"}'::jsonb
+    '{"type":"spa_booking","service":"Couples Massage","time":"15:00"}'::jsonb
   ),
   (
     'T-1003',
@@ -587,9 +604,9 @@ VALUES
     '227',
     'concierge',
     'pending',
-    'Airport transfer for 15:30',
+    'Airport transfer for departure',
     'SU-0002',
-    '{"type":"transfer_airport","time":"15:30"}'::jsonb
+    '{"type":"transfer_airport","direction":"to_airport","time":"12:00"}'::jsonb
   ),
   (
     'T-2002',
@@ -598,8 +615,8 @@ VALUES
     '227',
     'housekeeping',
     'in_progress',
-    '2 towels requested',
-    NULL,
+    '2 extra towels requested',
+    'SU-0004',
     '{"type":"item_request","item":"towels","quantity":2}'::jsonb
   ),
   (
@@ -612,6 +629,29 @@ VALUES
     'Breakfast order for tomorrow 8:00',
     'SU-0006',
     '{"type":"room_service","items":["Continental Breakfast x2"],"deliveryTime":"08:00"}'::jsonb
+  ),
+  -- VIP Mohammed Al-Rashid tickets
+  (
+    'T-3001',
+    'H-FOURSEASONS',
+    'S-0006',
+    'PH1',
+    'concierge',
+    'completed',
+    'Private limousine to Louvre',
+    'SU-0002',
+    '{"type":"limousine","destination":"Louvre Museum","duration":"half-day"}'::jsonb
+  ),
+  (
+    'T-3002',
+    'H-FOURSEASONS',
+    'S-0006',
+    'PH1',
+    'room-service',
+    'completed',
+    'Private dinner for 6 guests',
+    'SU-0006',
+    '{"type":"private_dining","guests":6,"dietary":["halal"]}'::jsonb
   )
 ON CONFLICT (id) DO UPDATE SET
   status = EXCLUDED.status,
@@ -665,8 +705,8 @@ VALUES
     'S-DEMO',
     'housekeeping',
     'in_progress',
-    'Extra towels',
-    NULL
+    'Extra towels request',
+    'SU-0004'
   )
 ON CONFLICT (id) DO UPDATE SET
   status = EXCLUDED.status,
@@ -733,7 +773,7 @@ VALUES
     'TH-2001',
     'guest',
     'Guest',
-    'Bonjour, pouvez-vous organiser un transfert aéroport pour ce soir ?',
+    'Bonjour, pouvez-vous organiser un transfert aéroport pour mon départ ?',
     '{}'::jsonb
   ),
   (
@@ -741,7 +781,7 @@ VALUES
     'TH-2001',
     'staff',
     'Marie Laurent',
-    'Bien sûr. À quelle heure souhaitez-vous partir ?',
+    'Bien sûr ! À quelle heure est votre vol ?',
     '{}'::jsonb
   ),
   (
@@ -757,7 +797,7 @@ VALUES
     'TH-2002',
     'staff',
     'Claire Moreau',
-    'C''est noté. Nous arrivons dans 10 minutes.',
+    'C''est noté ! Notre équipe arrive dans 10 minutes.',
     '{}'::jsonb
   )
 ON CONFLICT (id) DO UPDATE SET
@@ -786,7 +826,7 @@ VALUES
     'concierge',
     'SU-0002',
     'Marie Laurent',
-    'VIP guest - Gold member, ensure best table.'
+    'VIP Gold member - ensure best table with view.'
   ),
   (
     'IN-1002',
@@ -806,17 +846,17 @@ VALUES
     'concierge',
     'SU-0002',
     'Marie Laurent',
-    'Guest requested pickup at 15:30, confirm car category.'
+    'Confirm car category with guest before booking.'
   ),
   (
-    'IN-2002',
+    'IN-3001',
     'H-FOURSEASONS',
-    'thread',
-    'TH-2001',
+    'ticket',
+    'T-3001',
     'concierge',
     'SU-0001',
     'Jean-Pierre Dupont',
-    'Escalate to reception if transfer changes after 18:00.'
+    'VIP Platinum - Presidential Suite guest. Priority handling.'
   )
 ON CONFLICT (id) DO UPDATE SET
   body_text = EXCLUDED.body_text;
@@ -854,7 +894,7 @@ VALUES
     'S-0001',
     'restaurant',
     'Dinner at Le Cinq',
-    (CURRENT_DATE + INTERVAL '2 days' + TIME '20:00')::timestamp,
+    (CURRENT_DATE + INTERVAL '1 day' + TIME '20:00')::timestamp,
     NULL,
     'scheduled',
     '{"department":"restaurants","restaurant":"Le Cinq","guests":2}'::jsonb
@@ -865,33 +905,33 @@ VALUES
     'H-FOURSEASONS',
     'S-DEMO',
     'spa',
-    'Massage 2h – Instant relaxation',
-    '2025-11-07T15:00:00Z',
-    '2025-11-07T17:00:00Z',
+    'Relaxation Massage - 60 min',
+    (CURRENT_DATE + INTERVAL '1 day' + TIME '11:00')::timestamp,
+    (CURRENT_DATE + INTERVAL '1 day' + TIME '12:00')::timestamp,
     'scheduled',
-    '{"department":"spa-gym"}'::jsonb
+    '{"department":"spa-gym","service":"Swedish Massage"}'::jsonb
   ),
   (
     'E-2002',
     'H-FOURSEASONS',
     'S-DEMO',
     'restaurant',
-    'Table réservée – Brasserie',
-    '2025-11-08T19:30:00Z',
+    'Brasserie Reservation',
+    (CURRENT_DATE + INTERVAL '2 days' + TIME '19:30')::timestamp,
     NULL,
     'scheduled',
-    '{"department":"restaurants"}'::jsonb
+    '{"department":"restaurants","restaurant":"La Brasserie","guests":3}'::jsonb
   ),
   (
     'E-2003',
     'H-FOURSEASONS',
     'S-DEMO',
     'transfer',
-    'Transfert aéroport',
-    '2025-11-12T12:00:00Z',
+    'Airport Transfer - Departure',
+    (CURRENT_DATE + INTERVAL '5 days' + TIME '12:00')::timestamp,
     NULL,
     'scheduled',
-    '{"department":"concierge"}'::jsonb
+    '{"department":"concierge","type":"airport","direction":"to_airport"}'::jsonb
   )
 ON CONFLICT (id) DO UPDATE SET
   title = EXCLUDED.title,
@@ -941,41 +981,66 @@ VALUES
     CURRENT_DATE,
     NULL
   ),
+  (
+    'I-1003',
+    'H-FOURSEASONS',
+    'S-0001',
+    'Deep Tissue Massage',
+    'spa-gym',
+    22000,
+    'EUR',
+    220,
+    CURRENT_DATE,
+    NULL
+  ),
   -- Demo stay invoices
   (
     'I-2001',
     'H-FOURSEASONS',
     'S-DEMO',
-    'Forfait 1 h au spa privé',
+    'Spa Treatment - Swedish Massage',
     'spa-gym',
-    5500,
+    18000,
     'EUR',
-    55,
-    '2025-11-08',
+    180,
+    CURRENT_DATE - INTERVAL '1 day',
     NULL
   ),
   (
     'I-2002',
     'H-FOURSEASONS',
     'S-DEMO',
-    'Forfait 2 h massage et instant relaxation',
-    'spa-gym',
-    13500,
+    'Room Service - Dinner',
+    'room-service',
+    8500,
     'EUR',
-    135,
-    '2025-11-07',
+    85,
+    CURRENT_DATE - INTERVAL '1 day',
+    NULL
+  ),
+  -- VIP Mohammed charges
+  (
+    'I-3001',
+    'H-FOURSEASONS',
+    'S-0006',
+    'Private Dining - 6 guests',
+    'restaurants',
+    180000,
+    'EUR',
+    1800,
+    CURRENT_DATE - INTERVAL '1 day',
     NULL
   ),
   (
-    'I-2003',
+    'I-3002',
     'H-FOURSEASONS',
-    'S-DEMO',
-    'Forfait 1 h au spa privé',
-    'spa-gym',
-    5500,
+    'S-0006',
+    'Limousine Service - Half Day',
+    'concierge',
+    75000,
     'EUR',
-    55,
-    '2025-11-06',
+    750,
+    CURRENT_DATE,
     NULL
   )
 ON CONFLICT (id) DO UPDATE SET

@@ -1,15 +1,327 @@
-import { createServer } from "node:http";
-import { randomUUID } from "node:crypto";
+/**
+ * SpaBooker Mock Server
+ * 
+ * Simulates a spa/wellness booking system API.
+ * Provides endpoints for:
+ * - Spa services catalog
+ * - Availability checking
+ * - Appointment booking
+ * - Practitioner management
+ * 
+ * Port: 4011
+ */
 
-const port = Number(process.env.SPABOOKER_MOCK_PORT ?? 4011);
-const host = process.env.SPABOOKER_MOCK_HOST ?? "127.0.0.1";
-const expectedApiKey = process.env.SPABOOKER_MOCK_API_KEY ?? "SPA_API_KEY";
+import { createServer } from "node:http";
+
+const PORT = Number(process.env.SPABOOKER_PORT ?? 4011);
+const HOST = process.env.SPABOOKER_HOST ?? "127.0.0.1";
+
+// =============================================================================
+// MOCK DATA
+// =============================================================================
+
+function getDate(daysFromNow) {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow);
+  return date.toISOString().split("T")[0];
+}
+
+const TODAY = getDate(0);
+const TOMORROW = getDate(1);
+
+const data = {
+  // Spa locations (aligned with MyStay hotels)
+  locations: {
+    "FS-PARIS": {
+      id: "FS-PARIS",
+      name: "Le Spa - Four Seasons George V",
+      address: "31 Avenue George V, Paris",
+      phone: "+33 1 49 52 70 10",
+      email: "spa.paris@fourseasons.com",
+      hours: { open: "08:00", close: "21:00" },
+      timezone: "Europe/Paris",
+      facilities: [
+        { name: "Swimming Pool", description: "15m indoor heated pool", included: true },
+        { name: "Hammam", description: "Traditional steam bath", included: true },
+        { name: "Sauna", description: "Finnish dry sauna", included: true },
+        { name: "Fitness Center", description: "State-of-the-art equipment", included: true },
+        { name: "Relaxation Lounge", description: "With tea service", included: true }
+      ]
+    },
+    "FS-GENEVA": {
+      id: "FS-GENEVA",
+      name: "Le Spa - Four Seasons des Bergues",
+      address: "33 Quai des Bergues, Geneva",
+      phone: "+41 22 908 70 10",
+      email: "spa.geneva@fourseasons.com",
+      hours: { open: "08:00", close: "20:00" },
+      timezone: "Europe/Zurich",
+      facilities: [
+        { name: "Swimming Pool", description: "Indoor pool with lake views", included: true },
+        { name: "Steam Room", description: "Aromatic steam room", included: true },
+        { name: "Sauna", description: "Finnish dry sauna", included: true },
+        { name: "Fitness Center", description: "Technogym equipment", included: true }
+      ]
+    }
+  },
+
+  // Spa services catalog
+  services: {
+    "FS-PARIS": {
+      categories: [
+        {
+          id: "CAT-MASSAGE",
+          name: "Massages",
+          description: "Therapeutic and relaxation massages",
+          items: [
+            {
+              id: "SPA-001",
+              name: "Swedish Relaxation Massage",
+              description: "Classic relaxation massage with medium pressure to ease tension and promote well-being",
+              duration: 60,
+              priceCents: 18000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-002",
+              name: "Deep Tissue Massage",
+              description: "Therapeutic massage targeting muscle tension and chronic pain areas",
+              duration: 60,
+              priceCents: 22000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-003",
+              name: "Hot Stone Therapy",
+              description: "Heated basalt stones combined with massage techniques for deep relaxation",
+              duration: 90,
+              priceCents: 28000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-004",
+              name: "Couples Massage",
+              description: "Side-by-side massage for two in our luxurious couple's suite",
+              duration: 60,
+              priceCents: 38000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-005",
+              name: "Aromatherapy Journey",
+              description: "Custom essential oil blend with full body massage tailored to your needs",
+              duration: 75,
+              priceCents: 24000,
+              currency: "EUR"
+            }
+          ]
+        },
+        {
+          id: "CAT-FACIAL",
+          name: "Facials",
+          description: "Rejuvenating facial treatments",
+          items: [
+            {
+              id: "SPA-010",
+              name: "Signature Facial",
+              description: "Customized facial treatment tailored to your specific skin type and concerns",
+              duration: 60,
+              priceCents: 19500,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-011",
+              name: "Anti-Aging Treatment",
+              description: "Advanced treatment with collagen-boosting technology and luxury serums",
+              duration: 90,
+              priceCents: 29500,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-012",
+              name: "Hydrating Facial",
+              description: "Deep hydration for dry or dehydrated skin using marine extracts",
+              duration: 60,
+              priceCents: 17500,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-013",
+              name: "Men's Facial",
+              description: "Tailored treatment addressing men's specific skincare needs",
+              duration: 45,
+              priceCents: 15000,
+              currency: "EUR"
+            }
+          ]
+        },
+        {
+          id: "CAT-BODY",
+          name: "Body Treatments",
+          description: "Luxurious body treatments",
+          items: [
+            {
+              id: "SPA-020",
+              name: "Body Scrub & Wrap",
+              description: "Exfoliation followed by a nourishing body wrap to revitalize your skin",
+              duration: 90,
+              priceCents: 25000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-021",
+              name: "Detox Treatment",
+              description: "Stimulating treatment designed to eliminate toxins and boost circulation",
+              duration: 60,
+              priceCents: 19500,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-022",
+              name: "After-Sun Recovery",
+              description: "Cooling and hydrating treatment for sun-exposed skin",
+              duration: 45,
+              priceCents: 14500,
+              currency: "EUR"
+            }
+          ]
+        },
+        {
+          id: "CAT-PACKAGES",
+          name: "Spa Journeys",
+          description: "Complete spa experiences",
+          items: [
+            {
+              id: "SPA-030",
+              name: "Half-Day Retreat",
+              description: "3-hour experience including massage, facial, and light healthy lunch",
+              duration: 180,
+              priceCents: 45000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-031",
+              name: "Ultimate Relaxation",
+              description: "Full day spa access with signature treatments, meals, and champagne",
+              duration: 360,
+              priceCents: 75000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-032",
+              name: "Romantic Escape",
+              description: "Couple's experience with champagne, side-by-side massage, and private suite",
+              duration: 150,
+              priceCents: 65000,
+              currency: "EUR"
+            }
+          ]
+        },
+        {
+          id: "CAT-WELLNESS",
+          name: "Wellness",
+          description: "Fitness and wellness services",
+          items: [
+            {
+              id: "SPA-040",
+              name: "Private Yoga Session",
+              description: "One-on-one yoga instruction customized to your level and goals",
+              duration: 60,
+              priceCents: 15000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-041",
+              name: "Personal Training",
+              description: "Customized workout with certified trainer using our state-of-the-art equipment",
+              duration: 60,
+              priceCents: 16000,
+              currency: "EUR"
+            },
+            {
+              id: "SPA-042",
+              name: "Meditation Session",
+              description: "Guided meditation for stress relief and mental clarity",
+              duration: 45,
+              priceCents: 12000,
+              currency: "EUR"
+            }
+          ]
+        }
+      ]
+    },
+    "FS-GENEVA": {
+      categories: [
+        {
+          id: "CAT-MASSAGE",
+          name: "Massages",
+          items: [
+            { id: "SPA-G001", name: "Swiss Alpine Massage", description: "Invigorating massage with Swiss botanical oils", duration: 60, priceCents: 20000, currency: "CHF" },
+            { id: "SPA-G002", name: "Hot Stone Therapy", description: "Heated stones for deep muscle relaxation", duration: 90, priceCents: 30000, currency: "CHF" },
+            { id: "SPA-G003", name: "Couples Massage", description: "Side-by-side massage in our couple's suite", duration: 60, priceCents: 40000, currency: "CHF" }
+          ]
+        },
+        {
+          id: "CAT-FACIAL",
+          name: "Facials",
+          items: [
+            { id: "SPA-G010", name: "Swiss Glacier Facial", description: "Cooling, rejuvenating facial with glacial extracts", duration: 60, priceCents: 21000, currency: "CHF" },
+            { id: "SPA-G011", name: "Anti-Aging Excellence", description: "Advanced anti-aging treatment with Swiss precision", duration: 90, priceCents: 32000, currency: "CHF" }
+          ]
+        }
+      ]
+    }
+  },
+
+  // Practitioners
+  practitioners: {
+    "FS-PARIS": [
+      { id: "PRAC-001", name: "Marie Lefèvre", specialties: ["massage", "body"], languages: ["fr", "en"], rating: 4.9 },
+      { id: "PRAC-002", name: "Jean-Pierre Moreau", specialties: ["massage", "wellness"], languages: ["fr", "en", "de"], rating: 4.8 },
+      { id: "PRAC-003", name: "Sophie Bernard", specialties: ["facial", "body"], languages: ["fr", "en"], rating: 4.9 },
+      { id: "PRAC-004", name: "Pierre Dubois", specialties: ["massage"], languages: ["fr", "en", "es"], rating: 4.7 },
+      { id: "PRAC-005", name: "Amélie Martin", specialties: ["wellness", "facial"], languages: ["fr", "en"], rating: 5.0 },
+      { id: "PRAC-006", name: "Thomas Petit", specialties: ["wellness"], languages: ["fr", "en"], rating: 4.8 }
+    ],
+    "FS-GENEVA": [
+      { id: "PRAC-G01", name: "Anna Schmidt", specialties: ["massage", "body"], languages: ["de", "en", "fr"], rating: 4.9 },
+      { id: "PRAC-G02", name: "Marc Weber", specialties: ["massage", "wellness"], languages: ["de", "fr", "en"], rating: 4.8 },
+      { id: "PRAC-G03", name: "Elena Rossi", specialties: ["facial"], languages: ["it", "en", "fr"], rating: 4.9 }
+    ]
+  },
+
+  // Appointments (sample bookings)
+  appointments: {
+    "APT-001": {
+      id: "APT-001",
+      locationId: "FS-PARIS",
+      serviceId: "SPA-004",
+      practitionerId: "PRAC-001",
+      guestEmail: "sophie.martin@email.com",
+      guestName: "Sophie Martin",
+      roomNumber: "701",
+      date: TOMORROW,
+      time: "15:00",
+      duration: 60,
+      status: "confirmed",
+      notes: "Anniversary celebration",
+      createdAt: TODAY
+    }
+  }
+};
+
+// =============================================================================
+// UTILITIES
+// =============================================================================
 
 function sendJson(res, status, payload) {
-  const body = JSON.stringify(payload);
+  const body = JSON.stringify(payload, null, 2);
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(body)
+    "Content-Length": Buffer.byteLength(body),
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
   });
   res.end(body);
 }
@@ -17,109 +329,56 @@ function sendJson(res, status, payload) {
 async function readJson(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
-  const raw = Buffer.concat(chunks).toString("utf8").trim();
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  if (chunks.length === 0) return null;
+  const raw = Buffer.concat(chunks).toString("utf8");
+  try { return JSON.parse(raw); } catch { return null; }
 }
 
-function requireBearer(req, res) {
-  const auth = typeof req.headers.authorization === "string" ? req.headers.authorization : "";
-  const prefix = "Bearer ";
-  if (!auth.startsWith(prefix) || auth.slice(prefix.length).trim() !== expectedApiKey) {
-    sendJson(res, 401, { error: "unauthorized" });
-    return false;
-  }
-  return true;
-}
-
-const services = [
-  {
-    id: "SV-PRIV-SPA-1H",
-    name: "Forfait 1 h au spa privé",
-    description: "Accès spa privé + serviettes + thé.",
-    duration: 60,
-    price: 55.0,
-    category: "spa"
-  },
-  {
-    id: "SV-MASSAGE-2H",
-    name: "Forfait 2 h massage et instant relaxation",
-    description: "Massage complet + aromathérapie.",
-    duration: 120,
-    price: 135.0,
-    category: "massage"
-  },
-  {
-    id: "SV-GYM-PT-1H",
-    name: "Coaching sportif 1 h",
-    description: "Session personnalisée en salle de sport.",
-    duration: 60,
-    price: 85.0,
-    category: "gym"
-  }
-];
-
-const staff = [
-  {
-    id: "ST-0001",
-    name: "Mohamed",
-    bio: "Spécialiste massage et relaxation.",
-    image_url: null,
-    specialties: ["massage", "spa"]
-  },
-  {
-    id: "ST-0002",
-    name: "Julia",
-    bio: "Coach sportif certifié.",
-    image_url: null,
-    specialties: ["gym"]
-  }
-];
-
-/** @type {Map<string, any>} */
-const bookings = new Map();
-
-function listSlots(date, duration) {
+function generateSlots(date, serviceId, locationId) {
+  const location = data.locations[locationId];
+  if (!location) return [];
+  
+  const openHour = parseInt(location.hours.open.split(":")[0]);
+  const closeHour = parseInt(location.hours.close.split(":")[0]);
+  const practitioners = data.practitioners[locationId] ?? [];
+  
   const slots = [];
-  const startHour = 9;
-  const endHour = 18;
-  const minutesStep = duration >= 90 ? 90 : 60;
-
-  for (let minutes = startHour * 60; minutes <= endHour * 60; minutes += minutesStep) {
-    const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
-    const mm = String(minutes % 60).padStart(2, "0");
-    slots.push(`${hh}:${mm}`);
+  for (let hour = openHour; hour < closeHour; hour++) {
+    // Randomly mark some slots as unavailable
+    const available = Math.random() > 0.3;
+    if (available) {
+      const practitioner = practitioners[Math.floor(Math.random() * practitioners.length)];
+      slots.push({
+        time: `${hour.toString().padStart(2, "0")}:00`,
+        available: true,
+        practitioner: practitioner?.name ?? "Available"
+      });
+      // Also add :30 slots for some hours
+      if (Math.random() > 0.5) {
+        slots.push({
+          time: `${hour.toString().padStart(2, "0")}:30`,
+          available: true,
+          practitioner: practitioner?.name ?? "Available"
+        });
+      }
+    }
   }
-
-  return { date, slots };
+  
+  return slots;
 }
 
-function findService(serviceId) {
-  return services.find((s) => s.id === serviceId) ?? null;
-}
+// =============================================================================
+// REQUEST HANDLER
+// =============================================================================
 
-function findStaff(staffId) {
-  return staff.find((s) => s.id === staffId) ?? null;
-}
-
-const server = createServer(async (req, res) => {
-  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-  const pathname = url.pathname;
-  const segments = pathname.split("/").filter(Boolean);
-
-  if (req.method === "GET" && pathname === "/health") {
-    sendJson(res, 200, { ok: true, service: "spabooker-mock", ts: new Date().toISOString() });
-    return;
-  }
-
+async function handleRequest(req, res) {
+  const url = new URL(req.url ?? "/", `http://${HOST}:${PORT}`);
+  
+  // CORS preflight
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+      "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Max-Age": "600"
     });
@@ -127,212 +386,186 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // Require bearer token for SpaBooker v3 endpoints.
-  if (segments[0] === "v3") {
-    if (!requireBearer(req, res)) return;
-  }
+  console.log(`[SpaBooker] ${req.method} ${url.pathname}`);
 
-  // GET /v3/sites/:siteId/services?category=...
-  if (req.method === "GET" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "services" && segments.length === 4) {
-    const category = (url.searchParams.get("category") ?? "").trim();
-    const items = category ? services.filter((s) => s.category === category) : services;
-    sendJson(res, 200, { services: items });
+  // Health check
+  if (url.pathname === "/health") {
+    sendJson(res, 200, { status: "ok", service: "spabooker-mock", timestamp: new Date().toISOString() });
     return;
   }
 
-  // GET /v3/sites/:siteId/staff?service_id=...
-  if (req.method === "GET" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "staff" && segments.length === 4) {
-    const serviceId = (url.searchParams.get("service_id") ?? "").trim();
-    const service = serviceId ? findService(serviceId) : null;
-    const items = service ? staff.filter((s) => s.specialties.includes(service.category)) : staff;
-    sendJson(res, 200, { staff: items });
+  // ==========================================================================
+  // LOCATION ENDPOINTS
+  // ==========================================================================
+
+  if (req.method === "GET" && url.pathname === "/v1/locations") {
+    sendJson(res, 200, { locations: Object.values(data.locations) });
     return;
   }
 
-  // GET /v3/sites/:siteId/availability?service_id=...&date=YYYY-MM-DD&duration=...&staff_id=...
-  if (req.method === "GET" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "availability" && segments.length === 4) {
-    const serviceId = (url.searchParams.get("service_id") ?? "").trim();
-    const date = (url.searchParams.get("date") ?? "").trim();
-    const duration = Number(url.searchParams.get("duration") ?? 60);
-    const staffId = (url.searchParams.get("staff_id") ?? "").trim();
-
-    if (!serviceId || !date) {
-      sendJson(res, 400, { error: "missing_fields", required: ["service_id", "date"] });
-      return;
-    }
-
-    const service = findService(serviceId);
-    if (!service) {
-      sendJson(res, 404, { error: "service_not_found" });
-      return;
-    }
-
-    if (staffId) {
-      const practitioner = findStaff(staffId);
-      if (!practitioner) {
-        sendJson(res, 404, { error: "staff_not_found" });
-        return;
-      }
-    }
-
-    sendJson(res, 200, listSlots(date, Number.isFinite(duration) && duration > 0 ? duration : service.duration));
+  const locationMatch = url.pathname.match(/^\/v1\/locations\/([^/]+)$/);
+  if (req.method === "GET" && locationMatch) {
+    const location = data.locations[locationMatch[1]];
+    if (!location) return sendJson(res, 404, { error: "LOCATION_NOT_FOUND" });
+    sendJson(res, 200, { location });
     return;
   }
 
-  // POST /v3/sites/:siteId/appointments
-  if (req.method === "POST" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "appointments" && segments.length === 4) {
-    const payload = await readJson(req);
-    if (!payload || typeof payload !== "object") {
-      sendJson(res, 400, { error: "invalid_json" });
+  // ==========================================================================
+  // SPA SERVICES
+  // ==========================================================================
+
+  // Also support /v1/hotels/:siteId/spa/services pattern (Opera style)
+  const spaServicesMatch = url.pathname.match(/^\/v1\/(?:hotels|locations)\/([^/]+)\/(?:spa\/)?services$/);
+  if (req.method === "GET" && spaServicesMatch) {
+    const locationId = spaServicesMatch[1];
+    const services = data.services[locationId];
+    if (!services) {
+      // Return default Paris services if location not found
+      sendJson(res, 200, { services: data.services["FS-PARIS"] ?? { categories: [] } });
       return;
     }
-
-    const serviceId = String(payload.service_id ?? "").trim();
-    const staffId = String(payload.staff_id ?? "").trim();
-    const date = String(payload.date ?? "").trim();
-    const time = String(payload.time ?? "").trim();
-    const client = payload.client && typeof payload.client === "object" ? payload.client : null;
-
-    if (!serviceId || !staffId || !date || !time || !client) {
-      sendJson(res, 400, { error: "missing_fields", required: ["service_id", "staff_id", "date", "time", "client"] });
-      return;
-    }
-
-    const service = findService(serviceId);
-    const practitioner = findStaff(staffId);
-    if (!service) {
-      sendJson(res, 404, { error: "service_not_found" });
-      return;
-    }
-    if (!practitioner) {
-      sendJson(res, 404, { error: "staff_not_found" });
-      return;
-    }
-
-    const bookingId = `APT-${randomUUID().slice(0, 8).toUpperCase()}`;
-    const confirmation = `SB-${randomUUID().slice(0, 6).toUpperCase()}`;
-
-    const booking = {
-      id: bookingId,
-      confirmation,
-      status: "confirmed",
-      service_id: service.id,
-      service_name: service.name,
-      staff_id: practitioner.id,
-      staff_name: practitioner.name,
-      date,
-      time,
-      duration: service.duration,
-      client: {
-        name: String(client.name ?? "").trim() || "Guest",
-        email: String(client.email ?? "").trim() || null,
-        phone: String(client.phone ?? "").trim() || null
-      },
-      notes: String(payload.notes ?? "").trim() || ""
-    };
-
-    bookings.set(bookingId, booking);
-    sendJson(res, 201, booking);
+    sendJson(res, 200, { services });
     return;
   }
 
-  // GET /v3/sites/:siteId/appointments/:bookingId
-  if (req.method === "GET" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "appointments" && segments[4] && segments.length === 5) {
-    const bookingId = decodeURIComponent(segments[4]);
-    const booking = bookings.get(bookingId);
-    if (!booking) {
-      sendJson(res, 404, { error: "booking_not_found" });
-      return;
-    }
-    sendJson(res, 200, booking);
-    return;
-  }
+  // ==========================================================================
+  // AVAILABILITY
+  // ==========================================================================
 
-  // PATCH /v3/sites/:siteId/appointments/:bookingId
-  if (req.method === "PATCH" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "appointments" && segments[4] && segments.length === 5) {
-    const bookingId = decodeURIComponent(segments[4]);
-    const existing = bookings.get(bookingId);
-    if (!existing) {
-      sendJson(res, 404, { error: "booking_not_found" });
-      return;
-    }
-
-    const updates = await readJson(req);
-    if (!updates || typeof updates !== "object") {
-      sendJson(res, 400, { error: "invalid_json" });
-      return;
-    }
-
-    const next = { ...existing };
-    if (typeof updates.date === "string" && updates.date.trim()) next.date = updates.date.trim();
-    if (typeof updates.time === "string" && updates.time.trim()) next.time = updates.time.trim();
-    if (typeof updates.staff_id === "string" && updates.staff_id.trim()) {
-      const practitioner = findStaff(updates.staff_id.trim());
-      if (!practitioner) {
-        sendJson(res, 404, { error: "staff_not_found" });
-        return;
-      }
-      next.staff_id = practitioner.id;
-      next.staff_name = practitioner.name;
-    }
-    if (typeof updates.notes === "string") next.notes = updates.notes.trim();
-    next.status = "confirmed";
-    bookings.set(bookingId, next);
-    sendJson(res, 200, next);
-    return;
-  }
-
-  // DELETE /v3/sites/:siteId/appointments/:bookingId
-  if (req.method === "DELETE" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "appointments" && segments[4] && segments.length === 5) {
-    const bookingId = decodeURIComponent(segments[4]);
-    const existing = bookings.get(bookingId);
-    if (!existing) {
-      sendJson(res, 404, { error: "booking_not_found" });
-      return;
-    }
-    bookings.delete(bookingId);
-    sendJson(res, 200, { success: true, bookingId });
-    return;
-  }
-
-  // GET /v3/sites/:siteId/staff/:staffId/schedule?start_date=...&end_date=...
-  if (req.method === "GET" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "staff" && segments[4] && segments[5] === "schedule" && segments.length === 6) {
-    const staffId = decodeURIComponent(segments[4]);
-    const startDate = (url.searchParams.get("start_date") ?? "").trim();
-    const endDate = (url.searchParams.get("end_date") ?? "").trim();
-    if (!findStaff(staffId)) {
-      sendJson(res, 404, { error: "staff_not_found" });
-      return;
-    }
-    sendJson(res, 200, {
-      staff_id: staffId,
-      start_date: startDate,
-      end_date: endDate,
-      appointments: Array.from(bookings.values()).filter((b) => b.staff_id === staffId)
+  const availabilityMatch = url.pathname.match(/^\/v1\/(?:hotels|locations)\/([^/]+)\/(?:spa\/)?availability$/);
+  if (req.method === "GET" && availabilityMatch) {
+    const locationId = availabilityMatch[1];
+    const date = url.searchParams.get("date") ?? TODAY;
+    const serviceId = url.searchParams.get("serviceId");
+    
+    const slots = generateSlots(date, serviceId, locationId);
+    
+    sendJson(res, 200, { 
+      locationId, 
+      date, 
+      serviceId, 
+      slots,
+      timezone: data.locations[locationId]?.timezone ?? "Europe/Paris"
     });
     return;
   }
 
-  // POST /v3/sites/:siteId/feedback
-  if (req.method === "POST" && segments[0] === "v3" && segments[1] === "sites" && segments[2] && segments[3] === "feedback" && segments.length === 4) {
-    const payload = await readJson(req);
-    if (!payload || typeof payload !== "object") {
-      sendJson(res, 400, { error: "invalid_json" });
-      return;
-    }
-    sendJson(res, 201, { success: true, receivedAt: new Date().toISOString(), ...payload });
+  // ==========================================================================
+  // PRACTITIONERS
+  // ==========================================================================
+
+  const practitionersMatch = url.pathname.match(/^\/v1\/locations\/([^/]+)\/practitioners$/);
+  if (req.method === "GET" && practitionersMatch) {
+    const locationId = practitionersMatch[1];
+    const practitioners = data.practitioners[locationId] ?? [];
+    sendJson(res, 200, { practitioners });
     return;
   }
 
-  sendJson(res, 404, { error: "not_found" });
-});
+  // ==========================================================================
+  // APPOINTMENTS
+  // ==========================================================================
 
-server.listen(port, host, () => {
-  // eslint-disable-next-line no-console
-  console.log(`spabooker-mock listening on http://${host}:${port}`);
-  // eslint-disable-next-line no-console
-  console.log(`- Health: http://${host}:${port}/health`);
-  // eslint-disable-next-line no-console
-  console.log(`- Base URL (for config): http://${host}:${port}/v3`);
-});
+  // List appointments
+  if (req.method === "GET" && url.pathname === "/v1/appointments") {
+    const guestEmail = url.searchParams.get("guestEmail");
+    const locationId = url.searchParams.get("locationId");
+    const date = url.searchParams.get("date");
+    
+    let appointments = Object.values(data.appointments);
+    
+    if (guestEmail) {
+      appointments = appointments.filter(a => a.guestEmail?.toLowerCase() === guestEmail.toLowerCase());
+    }
+    if (locationId) {
+      appointments = appointments.filter(a => a.locationId === locationId);
+    }
+    if (date) {
+      appointments = appointments.filter(a => a.date === date);
+    }
+    
+    sendJson(res, 200, { appointments, count: appointments.length });
+    return;
+  }
 
+  // Create appointment
+  if (req.method === "POST" && url.pathname === "/v1/appointments") {
+    const body = await readJson(req);
+    
+    const id = `APT-${Date.now()}`;
+    const appointment = {
+      id,
+      status: "confirmed",
+      createdAt: new Date().toISOString(),
+      ...body
+    };
+    
+    data.appointments[id] = appointment;
+    
+    sendJson(res, 201, { 
+      appointment,
+      message: "Appointment booked successfully. Please arrive 15 minutes early."
+    });
+    return;
+  }
+
+  // Get appointment
+  const appointmentMatch = url.pathname.match(/^\/v1\/appointments\/([^/]+)$/);
+  if (req.method === "GET" && appointmentMatch) {
+    const appointment = data.appointments[appointmentMatch[1]];
+    if (!appointment) return sendJson(res, 404, { error: "APPOINTMENT_NOT_FOUND" });
+    sendJson(res, 200, { appointment });
+    return;
+  }
+
+  // Update appointment (reschedule)
+  if (req.method === "PATCH" && appointmentMatch) {
+    const appointment = data.appointments[appointmentMatch[1]];
+    if (!appointment) return sendJson(res, 404, { error: "APPOINTMENT_NOT_FOUND" });
+    
+    const body = await readJson(req);
+    Object.assign(appointment, body, { updatedAt: new Date().toISOString() });
+    sendJson(res, 200, { appointment });
+    return;
+  }
+
+  // Cancel appointment
+  if (req.method === "DELETE" && appointmentMatch) {
+    const appointment = data.appointments[appointmentMatch[1]];
+    if (!appointment) return sendJson(res, 404, { error: "APPOINTMENT_NOT_FOUND" });
+    
+    appointment.status = "cancelled";
+    appointment.cancelledAt = new Date().toISOString();
+    
+    sendJson(res, 200, { 
+      success: true,
+      appointment,
+      message: "Appointment cancelled successfully."
+    });
+    return;
+  }
+
+  // Not found
+  sendJson(res, 404, { error: "NOT_FOUND", path: url.pathname });
+}
+
+// =============================================================================
+// START SERVER
+// =============================================================================
+
+const server = createServer(handleRequest);
+
+server.listen(PORT, HOST, () => {
+  console.log(`\n💆 SpaBooker Mock Server running at http://${HOST}:${PORT}`);
+  console.log(`\nLocations: ${Object.keys(data.locations).join(", ")}`);
+  console.log(`\nAvailable endpoints:`);
+  console.log(`  GET  /health`);
+  console.log(`  GET  /v1/locations`);
+  console.log(`  GET  /v1/locations/:id/services`);
+  console.log(`  GET  /v1/locations/:id/availability?date=YYYY-MM-DD&serviceId=...`);
+  console.log(`  GET  /v1/locations/:id/practitioners`);
+  console.log(`  GET  /v1/appointments`);
+  console.log(`  POST /v1/appointments`);
+  console.log(`\n`);
+});

@@ -7,6 +7,7 @@ import { AlertCircle } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
+import { setDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
 
@@ -84,8 +85,24 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Check if user has an active stay
+        // Set demo session with guest and stay data for check-in page
         if (data.stay) {
+          setDemoSession({
+            hotelId: data.stay.hotelId,
+            hotelName: data.stay.hotelName ?? "Hotel",
+            stayId: data.stay.id,
+            confirmationNumber: data.stay.confirmationNumber,
+            guestToken: data.token, // Backend JWT token for API calls
+            roomNumber: data.stay.roomNumber,
+            checkIn: data.stay.checkIn,
+            checkOut: data.stay.checkOut,
+            guests: data.stay.guests,
+            // Include guest info for check-in form
+            guestFirstName: data.guest.firstName,
+            guestLastName: data.guest.lastName,
+            guestEmail: data.guest.email,
+            guestPhone: data.guest.phone
+          });
           router.push(withLocale(locale, "/"));
         } else {
           router.push(withLocale(locale, "/link-reservation"));

@@ -11,6 +11,11 @@ export type DemoSession = {
     adults: number;
     children: number;
   } | null;
+  // Guest personal info
+  guestFirstName?: string | null;
+  guestLastName?: string | null;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
 };
 
 const storageKey = "mystay_demo_session_v1";
@@ -29,7 +34,8 @@ export function getDemoSession(): DemoSession | null {
   try {
     const parsed = JSON.parse(raw) as Partial<DemoSession>;
     if (!parsed || typeof parsed !== "object") return null;
-    if (!parsed.hotelId || !parsed.hotelName || !parsed.stayId || !parsed.confirmationNumber || !parsed.guestToken) {
+    // Note: guestToken can be empty string when using authenticated session
+    if (!parsed.hotelId || !parsed.hotelName || !parsed.stayId || !parsed.confirmationNumber) {
       return null;
     }
 
@@ -54,7 +60,11 @@ export function getDemoSession(): DemoSession | null {
                   ? (parsed.guests as { children: number }).children
                   : 0
             }
-          : null
+          : null,
+      guestFirstName: parsed.guestFirstName ?? null,
+      guestLastName: parsed.guestLastName ?? null,
+      guestEmail: parsed.guestEmail ?? null,
+      guestPhone: parsed.guestPhone ?? null
     };
   } catch {
     return null;
