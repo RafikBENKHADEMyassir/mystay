@@ -24,13 +24,15 @@ type MessagesPageProps = {
     dept?: string;
     status?: string;
     q?: string;
+    stayId?: string;
   };
 };
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
-async function getThreads(token: string): Promise<Thread[]> {
-  const response = await fetch(`${backendUrl}/api/v1/threads`, {
+async function getThreads(token: string, query: URLSearchParams): Promise<Thread[]> {
+  const qs = query.toString();
+  const response = await fetch(qs ? `${backendUrl}/api/v1/threads?${qs}` : `${backendUrl}/api/v1/threads`, {
     cache: "no-store",
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -55,7 +57,14 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
   let error: string | null = null;
 
   try {
-    allThreads = await getThreads(token);
+    const query = new URLSearchParams();
+    const stayId = searchParams?.stayId?.trim() ?? "";
+    if (stayId) query.set("stayId", stayId);
+    const department = searchParams?.dept?.trim() ?? "";
+    if (department) query.set("department", department);
+    const status = searchParams?.status?.trim() ?? "";
+    if (status) query.set("status", status);
+    allThreads = await getThreads(token, query);
   } catch {
     error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
   }
@@ -63,6 +72,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
   const departmentFilter = searchParams?.dept?.trim() ?? "";
   const statusFilter = searchParams?.status?.trim() ?? "";
   const query = searchParams?.q?.trim().toLowerCase() ?? "";
+  const stayIdFilter = searchParams?.stayId?.trim() ?? "";
 
   const departments = Array.from(new Set(allThreads.map((thread) => thread.department).filter(Boolean))).sort();
   const statuses = Array.from(new Set(allThreads.map((thread) => thread.status).filter(Boolean))).sort();
@@ -120,6 +130,11 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
             <CardDescription>Sorted by most recent message activity.</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {stayIdFilter ? (
+              <Badge variant="secondary" className="font-mono">
+                stayId={stayIdFilter}
+              </Badge>
+            ) : null}
             {departmentFilter ? <Badge variant="outline">{departmentFilter}</Badge> : null}
             {statusFilter ? <Badge variant="outline">{statusFilter.replace("_", " ")}</Badge> : null}
             {query ? (
@@ -184,4 +199,3 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
     </div>
   );
 }
-

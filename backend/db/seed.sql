@@ -484,7 +484,7 @@ VALUES
     'H-FOURSEASONS',
     'G-0003',
     'FSGV2025G5H6I',
-    NULL,
+    '502',
     CURRENT_DATE,
     CURRENT_DATE + INTERVAL '5 days',
     2,
@@ -496,7 +496,7 @@ VALUES
     'H-FOURSEASONS',
     'G-0004',
     'FSGV2025M9N0P',
-    NULL,
+    '305',
     CURRENT_DATE + INTERVAL '2 days',
     CURRENT_DATE + INTERVAL '4 days',
     1,
@@ -905,22 +905,22 @@ VALUES
     'H-FOURSEASONS',
     'S-DEMO',
     'spa',
-    'Relaxation Massage - 60 min',
-    (CURRENT_DATE + INTERVAL '1 day' + TIME '11:00')::timestamp,
-    (CURRENT_DATE + INTERVAL '1 day' + TIME '12:00')::timestamp,
+    'Une heure de relaxation au Spa',
+    (CURRENT_DATE + TIME '14:00')::timestamp,
+    (CURRENT_DATE + TIME '15:00')::timestamp,
     'scheduled',
-    '{"department":"spa-gym","service":"Swedish Massage"}'::jsonb
+    '{"department":"spa-gym","service":"Relaxation"}'::jsonb
   ),
   (
     'E-2002',
     'H-FOURSEASONS',
     'S-DEMO',
-    'restaurant',
-    'Brasserie Reservation',
-    (CURRENT_DATE + INTERVAL '2 days' + TIME '19:30')::timestamp,
-    NULL,
+    'invite',
+    'Soirée de lancement',
+    (CURRENT_DATE + TIME '19:00')::timestamp,
+    (CURRENT_DATE + TIME '21:00')::timestamp,
     'scheduled',
-    '{"department":"restaurants","restaurant":"La Brasserie","guests":3}'::jsonb
+    '{"variant":"invite","linkUrl":"/agenda"}'::jsonb
   ),
   (
     'E-2003',
@@ -1047,6 +1047,959 @@ ON CONFLICT (id) DO UPDATE SET
   title = EXCLUDED.title,
   amount_cents = EXCLUDED.amount_cents,
   points_earned = EXCLUDED.points_earned;
+
+-- =============================================================================
+-- PAYMENT LINKS (Pay by Link)
+-- =============================================================================
+INSERT INTO payment_links (
+  id,
+  hotel_id,
+  stay_id,
+  guest_id,
+  payer_type,
+  payer_name,
+  payer_email,
+  payer_phone,
+  amount_cents,
+  currency,
+  reason_category,
+  reason_text,
+  pms_status,
+  payment_status,
+  public_token,
+  public_url,
+  created_by_staff_user_id,
+  paid_at,
+  expires_at,
+  created_at,
+  updated_at
+)
+VALUES
+  (
+    'PL-1001',
+    'H-FOURSEASONS',
+    'S-0002',
+    'G-0002',
+    'guest',
+    NULL,
+    NULL,
+    NULL,
+    120000,
+    'EUR',
+    'deposit',
+    'Deposit',
+    'configured',
+    'created',
+    'pl_demo_1001',
+    'http://localhost:3000/pay/pl_demo_1001',
+    'SU-0001',
+    NULL,
+    NULL,
+    NOW() - INTERVAL '7 days',
+    NOW() - INTERVAL '7 days'
+  ),
+  (
+    'PL-1002',
+    'H-FOURSEASONS',
+    'S-0001',
+    'G-0001',
+    'guest',
+    NULL,
+    NULL,
+    NULL,
+    60000,
+    'EUR',
+    'food_beverage',
+    'Food & Beverages',
+    'posted',
+    'paid',
+    'pl_demo_1002',
+    'http://localhost:3000/pay/pl_demo_1002',
+    'SU-0001',
+    NOW() - INTERVAL '2 days',
+    NULL,
+    NOW() - INTERVAL '8 days',
+    NOW() - INTERVAL '2 days'
+  ),
+  (
+    'PL-1003',
+    'H-FOURSEASONS',
+    NULL,
+    NULL,
+    'visitor',
+    'Miracle Rosser',
+    'miracle.rosser@example.com',
+    '+45 12 34 56 78',
+    880000,
+    'EUR',
+    'other',
+    'Other',
+    'not_configured',
+    'failed',
+    'pl_demo_1003',
+    'http://localhost:3000/pay/pl_demo_1003',
+    'SU-0001',
+    NULL,
+    NULL,
+    NOW() - INTERVAL '10 days',
+    NOW() - INTERVAL '10 days'
+  ),
+  (
+    'PL-1004',
+    'H-FOURSEASONS',
+    'S-DEMO',
+    NULL,
+    'guest',
+    NULL,
+    NULL,
+    NULL,
+    220000,
+    'EUR',
+    'spa',
+    'SPA',
+    'configured',
+    'expired',
+    'pl_demo_1004',
+    'http://localhost:3000/pay/pl_demo_1004',
+    'SU-0001',
+    NULL,
+    NOW() - INTERVAL '1 day',
+    NOW() - INTERVAL '14 days',
+    NOW() - INTERVAL '1 day'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  amount_cents = EXCLUDED.amount_cents,
+  currency = EXCLUDED.currency,
+  reason_category = EXCLUDED.reason_category,
+  reason_text = EXCLUDED.reason_text,
+  pms_status = EXCLUDED.pms_status,
+  payment_status = EXCLUDED.payment_status,
+  public_token = EXCLUDED.public_token,
+  public_url = EXCLUDED.public_url,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- PMS SYNC RUNS (for synced timestamp)
+-- =============================================================================
+INSERT INTO pms_sync_runs (
+  id,
+  hotel_id,
+  status,
+  started_at,
+  finished_at,
+  summary,
+  error_message,
+  error_details
+)
+VALUES
+  (
+    'PS-DEMO-0001',
+    'H-FOURSEASONS',
+    'ok',
+    NOW() - INTERVAL '2 days',
+    NOW() - INTERVAL '2 days' + INTERVAL '2 minutes',
+    '{"demo": true, "provider": "opera"}'::jsonb,
+    NULL,
+    NULL
+  )
+ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status,
+  started_at = EXCLUDED.started_at,
+  finished_at = EXCLUDED.finished_at,
+  summary = EXCLUDED.summary,
+  error_message = EXCLUDED.error_message,
+  error_details = EXCLUDED.error_details;
+
+-- =============================================================================
+-- AUDIENCE CONTACTS (CRM)
+-- =============================================================================
+INSERT INTO audience_contacts (
+  id,
+  hotel_id,
+  guest_id,
+  status,
+  status_at,
+  name,
+  email,
+  phone,
+  channel,
+  synced_with_pms,
+  created_at,
+  updated_at
+)
+VALUES
+  (
+    'AC-1001',
+    'H-FOURSEASONS',
+    'G-0001',
+    'opted_in',
+    NOW() - INTERVAL '1 day',
+    'Ethan Evans',
+    'ethan.evans@example.com',
+    '+33 6 12 34 56 70',
+    'app',
+    TRUE,
+    NOW() - INTERVAL '1 day',
+    NOW() - INTERVAL '1 day'
+  ),
+  (
+    'AC-1002',
+    'H-FOURSEASONS',
+    'G-0002',
+    'opted_in',
+    NOW() - INTERVAL '3 days',
+    'Sophia Bennett',
+    'sophia.bennett@example.com',
+    '+33 6 12 34 56 71',
+    'manual_import',
+    FALSE,
+    NOW() - INTERVAL '3 days',
+    NOW() - INTERVAL '3 days'
+  ),
+  (
+    'AC-1003',
+    'H-FOURSEASONS',
+    NULL,
+    'opted_in',
+    NOW() - INTERVAL '10 days',
+    'Ava Foster',
+    'ava.foster@example.com',
+    NULL,
+    'app',
+    TRUE,
+    NOW() - INTERVAL '10 days',
+    NOW() - INTERVAL '10 days'
+  ),
+  (
+    'AC-1004',
+    'H-FOURSEASONS',
+    NULL,
+    'opted_in',
+    NOW() - INTERVAL '18 days',
+    'Liam Anderson',
+    'liam.anderson@example.com',
+    NULL,
+    'manual_import',
+    FALSE,
+    NOW() - INTERVAL '18 days',
+    NOW() - INTERVAL '18 days'
+  ),
+  (
+    'AC-1005',
+    'H-FOURSEASONS',
+    NULL,
+    'opted_in',
+    NOW() - INTERVAL '25 days',
+    'Olivia Davis',
+    'olivia.davis@example.com',
+    NULL,
+    'manual_import',
+    FALSE,
+    NOW() - INTERVAL '25 days',
+    NOW() - INTERVAL '25 days'
+  ),
+  (
+    'AC-2001',
+    'H-FOURSEASONS',
+    NULL,
+    'skipped',
+    NOW() - INTERVAL '2 hours',
+    'Noah Carter',
+    NULL,
+    NULL,
+    'app',
+    FALSE,
+    NOW() - INTERVAL '2 hours',
+    NOW() - INTERVAL '2 hours'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  status = EXCLUDED.status,
+  status_at = EXCLUDED.status_at,
+  name = EXCLUDED.name,
+  email = EXCLUDED.email,
+  phone = EXCLUDED.phone,
+  channel = EXCLUDED.channel,
+  synced_with_pms = EXCLUDED.synced_with_pms,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- SIGN-UP FORMS (CRM)
+-- =============================================================================
+INSERT INTO signup_forms (
+  id,
+  hotel_id,
+  name,
+  description,
+  channel,
+  status,
+  config,
+  created_by_staff_user_id,
+  created_at,
+  updated_at
+)
+VALUES
+  (
+    'SF-1001',
+    'H-FOURSEASONS',
+    '10% off your next stay',
+    'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+    'check_in',
+    'active',
+    '{}'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '35 days',
+    NOW() - INTERVAL '2 days'
+  ),
+  (
+    'SF-1002',
+    'H-FOURSEASONS',
+    'Join our VIP list',
+    'Receive exclusive offers and updates.',
+    'stay',
+    'active',
+    '{}'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '20 days',
+    NOW() - INTERVAL '7 days'
+  ),
+  (
+    'SF-1003',
+    'H-FOURSEASONS',
+    'Late checkout offers',
+    'Get notified about late checkout availability.',
+    'check_out',
+    'active',
+    '{}'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '15 days',
+    NOW() - INTERVAL '15 days'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  channel = EXCLUDED.channel,
+  status = EXCLUDED.status,
+  config = EXCLUDED.config,
+  created_by_staff_user_id = EXCLUDED.created_by_staff_user_id,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- HOTEL DIRECTORY (Content builder)
+-- =============================================================================
+INSERT INTO hotel_directory_pages (
+  hotel_id,
+  draft,
+  published,
+  draft_saved_at,
+  published_at,
+  created_at,
+  updated_at
+)
+VALUES
+  (
+    'H-FOURSEASONS',
+    '{
+      "version": 1,
+      "defaultLocale": "en",
+      "locales": {
+        "en": {
+          "blocks": [
+            { "id": "blk-welcome-h1", "type": "heading", "level": 2, "text": "Hotel Directory" },
+            {
+              "id": "blk-welcome-p1",
+              "type": "paragraph",
+              "text": "Welcome! On behalf of the entire team, we would like to welcome you to our hotel. Please do not hesitate to contact a team member if there is anything we can do for you during your stay."
+            },
+            { "id": "blk-signature", "type": "paragraph", "text": "Yours sincerely\\nThe MyStay team" },
+            { "id": "blk-divider-1", "type": "divider" },
+            { "id": "blk-btn-1", "type": "button", "label": "Contact reception", "href": "/messages" }
+          ]
+        },
+        "fr": {
+          "blocks": [
+            { "id": "blk-welcome-h1-fr", "type": "heading", "level": 2, "text": "Répertoire de l’hôtel" },
+            {
+              "id": "blk-welcome-p1-fr",
+              "type": "paragraph",
+              "text": "Bienvenue ! Au nom de toute l’équipe, nous vous souhaitons un excellent séjour. N’hésitez pas à contacter un membre de l’équipe si nous pouvons vous aider."
+            },
+            { "id": "blk-signature-fr", "type": "paragraph", "text": "Bien cordialement\\nL’équipe MyStay" },
+            { "id": "blk-divider-1-fr", "type": "divider" },
+            { "id": "blk-btn-1-fr", "type": "button", "label": "Contacter la réception", "href": "/messages" }
+          ]
+        }
+      }
+    }'::jsonb,
+    '{
+      "version": 1,
+      "defaultLocale": "en",
+      "locales": {
+        "en": {
+          "blocks": [
+            { "id": "blk-welcome-h1", "type": "heading", "level": 2, "text": "Hotel Directory" },
+            {
+              "id": "blk-welcome-p1",
+              "type": "paragraph",
+              "text": "Welcome! On behalf of the entire team, we would like to welcome you to our hotel. Please do not hesitate to contact a team member if there is anything we can do for you during your stay."
+            },
+            { "id": "blk-signature", "type": "paragraph", "text": "Yours sincerely\\nThe MyStay team" },
+            { "id": "blk-divider-1", "type": "divider" },
+            { "id": "blk-btn-1", "type": "button", "label": "Contact reception", "href": "/messages" }
+          ]
+        },
+        "fr": {
+          "blocks": [
+            { "id": "blk-welcome-h1-fr", "type": "heading", "level": 2, "text": "Répertoire de l’hôtel" },
+            {
+              "id": "blk-welcome-p1-fr",
+              "type": "paragraph",
+              "text": "Bienvenue ! Au nom de toute l’équipe, nous vous souhaitons un excellent séjour. N’hésitez pas à contacter un membre de l’équipe si nous pouvons vous aider."
+            },
+            { "id": "blk-signature-fr", "type": "paragraph", "text": "Bien cordialement\\nL’équipe MyStay" },
+            { "id": "blk-divider-1-fr", "type": "divider" },
+            { "id": "blk-btn-1-fr", "type": "button", "label": "Contacter la réception", "href": "/messages" }
+          ]
+        }
+      }
+    }'::jsonb,
+    NOW() - INTERVAL '2 days',
+    NOW() - INTERVAL '2 days',
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '2 days'
+  )
+ON CONFLICT (hotel_id) DO UPDATE SET
+  draft = EXCLUDED.draft,
+  published = EXCLUDED.published,
+  draft_saved_at = EXCLUDED.draft_saved_at,
+  published_at = EXCLUDED.published_at,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- MESSAGE TEMPLATES (Automations + manual messages)
+-- =============================================================================
+INSERT INTO message_templates (
+  id,
+  hotel_id,
+  name,
+  description,
+  channel,
+  status,
+  content,
+  created_by_staff_user_id,
+  created_at,
+  updated_at
+)
+VALUES
+  (
+    'MT-1001',
+    'H-FOURSEASONS',
+    'Check in now',
+    'Invite guests to complete check-in online.',
+    'email',
+    'published',
+    '{
+      "defaultLocale": "en",
+      "locales": {
+        "en": {
+          "subject": "Check in now",
+          "bodyText": "Hi {{guestName}},\\n\\nYou can start your check-in now to save time on arrival.\\n\\nTap the link to continue: {{checkInUrl}}\\n\\nSee you soon,\\n{{hotelName}}"
+        },
+        "fr": {
+          "subject": "Enregistrez-vous dès maintenant",
+          "bodyText": "Bonjour {{guestName}},\\n\\nVous pouvez commencer l’enregistrement dès maintenant pour gagner du temps à l’arrivée.\\n\\nCliquez ici : {{checkInUrl}}\\n\\nÀ bientôt,\\n{{hotelName}}"
+        }
+      }
+    }'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '40 days',
+    NOW() - INTERVAL '2 days'
+  ),
+  (
+    'MT-1002',
+    'H-FOURSEASONS',
+    'Reservation confirmed',
+    'Confirmation message sent after booking.',
+    'app',
+    'published',
+    '{
+      "defaultLocale": "en",
+      "locales": {
+        "en": { "subject": "Reservation confirmed", "bodyText": "Thanks {{guestName}} — your stay is confirmed for {{arrivalDate}} to {{departureDate}}." },
+        "fr": { "subject": "Réservation confirmée", "bodyText": "Merci {{guestName}} — votre séjour est confirmé du {{arrivalDate}} au {{departureDate}}." }
+      }
+    }'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '60 days',
+    NOW() - INTERVAL '9 days'
+  ),
+  (
+    'MT-1003',
+    'H-FOURSEASONS',
+    'Unlocked room',
+    'Short SMS for digital key availability.',
+    'sms',
+    'draft',
+    '{
+      "defaultLocale": "en",
+      "locales": {
+        "en": { "bodyText": "{{hotelName}}: Your room is ready. Digital key is now available in the app." },
+        "fr": { "bodyText": "{{hotelName}} : votre chambre est prête. La clé digitale est disponible dans l’app." }
+      }
+    }'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '25 days',
+    NOW() - INTERVAL '1 days'
+  ),
+  (
+    'MT-1004',
+    'H-FOURSEASONS',
+    'Order room service in app',
+    'Archived template kept for history.',
+    'app',
+    'archived',
+    '{
+      "defaultLocale": "en",
+      "locales": {
+        "en": { "subject": "Order room service", "bodyText": "Browse the menu and order directly from the app." },
+        "fr": { "subject": "Room service", "bodyText": "Consultez le menu et commandez directement depuis l’app." }
+      }
+    }'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '120 days',
+    NOW() - INTERVAL '120 days'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  hotel_id = EXCLUDED.hotel_id,
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  channel = EXCLUDED.channel,
+  status = EXCLUDED.status,
+  content = EXCLUDED.content,
+  created_by_staff_user_id = EXCLUDED.created_by_staff_user_id,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- AUTOMATIONS (Communication rules)
+-- =============================================================================
+INSERT INTO automations (
+  id,
+  hotel_id,
+  name,
+  description,
+  trigger,
+  status,
+  config,
+  created_by_staff_user_id,
+  created_at,
+  updated_at
+)
+VALUES
+  (
+    'AUTO-1001',
+    'H-FOURSEASONS',
+    'Check-in invitation',
+    'Send a check-in invite 24 hours before arrival.',
+    'check_in_invitation',
+    'active',
+    '{
+      "templateId": "MT-1001",
+      "channel": "email",
+      "offset": { "type": "before_arrival", "hours": 24 }
+    }'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '35 days',
+    NOW() - INTERVAL '3 days'
+  ),
+  (
+    'AUTO-1002',
+    'H-FOURSEASONS',
+    'Reservation confirmed',
+    'Send confirmation after booking is created.',
+    'reservation_confirmed',
+    'paused',
+    '{
+      "templateId": "MT-1002",
+      "channel": "app",
+      "when": "immediate"
+    }'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '80 days',
+    NOW() - INTERVAL '14 days'
+  ),
+  (
+    'AUTO-1003',
+    'H-FOURSEASONS',
+    'Unlocked room',
+    'Notify guest when the room is ready.',
+    'unlocked_room',
+    'active',
+    '{
+      "templateId": "MT-1003",
+      "channel": "sms",
+      "when": "on_room_ready"
+    }'::jsonb,
+    'SU-0001',
+    NOW() - INTERVAL '18 days',
+    NOW() - INTERVAL '8 days'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  hotel_id = EXCLUDED.hotel_id,
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  trigger = EXCLUDED.trigger,
+  status = EXCLUDED.status,
+  config = EXCLUDED.config,
+  created_by_staff_user_id = EXCLUDED.created_by_staff_user_id,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- UPSELL SERVICES (Hotel upselling catalog)
+-- =============================================================================
+INSERT INTO upsell_services (
+  id,
+  hotel_id,
+  category,
+  name,
+  touchpoint,
+  price_cents,
+  currency,
+  availability_weekdays,
+  enabled,
+  sort_order,
+  created_by_staff_user_id,
+  created_at,
+  updated_at
+)
+VALUES
+  (
+    'UP-1001',
+    'H-FOURSEASONS',
+    'Category 1',
+    'Parking',
+    'before_and_during',
+    15000,
+    'EUR',
+    ARRAY['mon','tue','wed','thu','fri','sat','sun'],
+    TRUE,
+    10,
+    'SU-0001',
+    NOW() - INTERVAL '45 days',
+    NOW() - INTERVAL '6 days'
+  ),
+  (
+    'UP-1002',
+    'H-FOURSEASONS',
+    'Category 1',
+    'Champagne on arrival',
+    'during_stay',
+    10000,
+    'EUR',
+    ARRAY['fri','sat'],
+    FALSE,
+    20,
+    'SU-0001',
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  (
+    'UP-1003',
+    'H-FOURSEASONS',
+    'Category 1',
+    'Airport transfer',
+    'before_stay',
+    9000,
+    'EUR',
+    ARRAY['mon','tue','wed','thu','fri','sat','sun'],
+    TRUE,
+    30,
+    'SU-0001',
+    NOW() - INTERVAL '15 days',
+    NOW() - INTERVAL '3 days'
+  ),
+  (
+    'UP-2001',
+    'H-FOURSEASONS',
+    'Sports & recreation',
+    'Private yoga session',
+    'during_stay',
+    12000,
+    'EUR',
+    ARRAY['mon','wed','fri'],
+    TRUE,
+    10,
+    'SU-0001',
+    NOW() - INTERVAL '22 days',
+    NOW() - INTERVAL '7 days'
+  ),
+  (
+    'UP-2002',
+    'H-FOURSEASONS',
+    'Sports & recreation',
+    'Tennis court booking',
+    'during_stay',
+    8000,
+    'EUR',
+    ARRAY['tue','thu','sat','sun'],
+    TRUE,
+    20,
+    'SU-0001',
+    NOW() - INTERVAL '22 days',
+    NOW() - INTERVAL '5 days'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  hotel_id = EXCLUDED.hotel_id,
+  category = EXCLUDED.category,
+  name = EXCLUDED.name,
+  touchpoint = EXCLUDED.touchpoint,
+  price_cents = EXCLUDED.price_cents,
+  currency = EXCLUDED.currency,
+  availability_weekdays = EXCLUDED.availability_weekdays,
+  enabled = EXCLUDED.enabled,
+  sort_order = EXCLUDED.sort_order,
+  created_by_staff_user_id = EXCLUDED.created_by_staff_user_id,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- ROOM IMAGES (Room photo carousels)
+-- =============================================================================
+INSERT INTO room_images (
+  id,
+  hotel_id,
+  category,
+  title,
+  description,
+  image_url,
+  sort_order,
+  is_active,
+  created_by_staff_user_id,
+  created_at,
+  updated_at
+)
+VALUES
+  -- Four Seasons Paris room images
+  (
+    'RI-1001',
+    'H-FOURSEASONS',
+    'room',
+    'Bedroom',
+    'Luxurious bedroom with king-size bed',
+    'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=1200&fit=crop',
+    1,
+    TRUE,
+    'SU-0001',
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  (
+    'RI-1002',
+    'H-FOURSEASONS',
+    'room',
+    'Living Area',
+    'Spacious living area with city views',
+    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&fit=crop',
+    2,
+    TRUE,
+    'SU-0001',
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  (
+    'RI-1003',
+    'H-FOURSEASONS',
+    'room',
+    'Bathroom',
+    'Marble bathroom with soaking tub',
+    'https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=1200&fit=crop',
+    3,
+    TRUE,
+    'SU-0001',
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  (
+    'RI-1004',
+    'H-FOURSEASONS',
+    'room',
+    'Terrace',
+    'Private terrace overlooking Paris',
+    'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200&fit=crop',
+    4,
+    TRUE,
+    'SU-0001',
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  -- Four Seasons Geneva room images
+  (
+    'RI-2001',
+    'H-FSGENEVA',
+    'room',
+    'Lake View Suite',
+    'Suite with panoramic lake views',
+    'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=1200&fit=crop',
+    1,
+    TRUE,
+    'SU-0010',
+    NOW() - INTERVAL '25 days',
+    NOW() - INTERVAL '25 days'
+  ),
+  (
+    'RI-2002',
+    'H-FSGENEVA',
+    'room',
+    'Alpine Suite',
+    'Suite with mountain views',
+    'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=1200&fit=crop',
+    2,
+    TRUE,
+    'SU-0010',
+    NOW() - INTERVAL '25 days',
+    NOW() - INTERVAL '25 days'
+  ),
+  -- Bulgari Milan room images
+  (
+    'RI-3001',
+    'H-BULGARI',
+    'room',
+    'Garden Suite',
+    'Suite overlooking private garden',
+    'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=1200&fit=crop',
+    1,
+    TRUE,
+    'SU-0020',
+    NOW() - INTERVAL '20 days',
+    NOW() - INTERVAL '20 days'
+  ),
+  (
+    'RI-3002',
+    'H-BULGARI',
+    'room',
+    'Design Suite',
+    'Contemporary Italian design suite',
+    'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1200&fit=crop',
+    2,
+    TRUE,
+    'SU-0020',
+    NOW() - INTERVAL '20 days',
+    NOW() - INTERVAL '20 days'
+  ),
+  -- La Mamounia Marrakech room images
+  (
+    'RI-4001',
+    'H-MAMOUNIA',
+    'room',
+    'Royal Suite',
+    'Traditional Moroccan royal suite',
+    'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200&fit=crop',
+    1,
+    TRUE,
+    'SU-0030',
+    NOW() - INTERVAL '15 days',
+    NOW() - INTERVAL '15 days'
+  ),
+  (
+    'RI-4002',
+    'H-MAMOUNIA',
+    'room',
+    'Garden View',
+    'Room with garden and pool views',
+    'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=1200&fit=crop',
+    2,
+    TRUE,
+    'SU-0030',
+    NOW() - INTERVAL '15 days',
+    NOW() - INTERVAL '15 days'
+  )
+ON CONFLICT (id) DO UPDATE SET
+  hotel_id = EXCLUDED.hotel_id,
+  category = EXCLUDED.category,
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
+  image_url = EXCLUDED.image_url,
+  sort_order = EXCLUDED.sort_order,
+  is_active = EXCLUDED.is_active,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- EXPERIENCE SECTIONS (Configurable home page carousels)
+-- =============================================================================
+INSERT INTO experience_sections (
+  id,
+  hotel_id,
+  slug,
+  title_fr,
+  title_en,
+  sort_order,
+  is_active,
+  created_at,
+  updated_at
+) VALUES
+  -- Four Seasons Paris
+  ('ES-1001', 'H-FOURSEASONS', 'tailored', 'Plaisirs sur mesure', 'Tailored experiences', 1, TRUE, NOW(), NOW()),
+  ('ES-1002', 'H-FOURSEASONS', 'culinary', 'Expériences culinaires', 'Culinary experiences', 2, TRUE, NOW(), NOW()),
+  ('ES-1003', 'H-FOURSEASONS', 'activities', 'Moments à vivre', 'Things to do', 3, TRUE, NOW(), NOW()),
+  -- Four Seasons Geneva
+  ('ES-2001', 'H-FSGENEVA', 'tailored', 'Plaisirs sur mesure', 'Tailored experiences', 1, TRUE, NOW(), NOW()),
+  ('ES-2002', 'H-FSGENEVA', 'culinary', 'Expériences culinaires', 'Culinary experiences', 2, TRUE, NOW(), NOW()),
+  ('ES-2003', 'H-FSGENEVA', 'activities', 'Moments à vivre', 'Things to do', 3, TRUE, NOW(), NOW()),
+  -- La Mamounia
+  ('ES-3001', 'H-MAMOUNIA', 'tailored', 'Plaisirs sur mesure', 'Tailored experiences', 1, TRUE, NOW(), NOW()),
+  ('ES-3002', 'H-MAMOUNIA', 'culinary', 'Expériences culinaires', 'Culinary experiences', 2, TRUE, NOW(), NOW()),
+  ('ES-3003', 'H-MAMOUNIA', 'activities', 'Moments à vivre', 'Things to do', 3, TRUE, NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET
+  title_fr = EXCLUDED.title_fr,
+  title_en = EXCLUDED.title_en,
+  sort_order = EXCLUDED.sort_order,
+  is_active = EXCLUDED.is_active,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
+-- EXPERIENCE ITEMS (Items within experience sections)
+-- =============================================================================
+INSERT INTO experience_items (
+  id,
+  section_id,
+  hotel_id,
+  label,
+  image_url,
+  link_url,
+  sort_order,
+  is_active,
+  created_at,
+  updated_at
+) VALUES
+  -- Four Seasons Paris - Tailored (Plaisirs sur mesure)
+  ('EI-1001', 'ES-1001', 'H-FOURSEASONS', 'FLEURS', '/images/experiences/fleurs.jpg', '/services', 1, TRUE, NOW(), NOW()),
+  ('EI-1002', 'ES-1001', 'H-FOURSEASONS', 'CHAMPAGNE', '/images/experiences/champagne.jpg', '/services', 2, TRUE, NOW(), NOW()),
+  ('EI-1003', 'ES-1001', 'H-FOURSEASONS', 'LETTRE', '/images/experiences/lettre.jpg', '/services', 3, TRUE, NOW(), NOW()),
+  ('EI-1004', 'ES-1001', 'H-FOURSEASONS', 'MAGAZINE', '/images/experiences/magazine.jpg', '/services', 4, TRUE, NOW(), NOW()),
+  ('EI-1005', 'ES-1001', 'H-FOURSEASONS', 'VOS UPSELLS', '/images/experiences/vos-upsells.jpg', '/services', 5, TRUE, NOW(), NOW()),
+  
+  -- Four Seasons Paris - Culinary (Expériences culinaires)
+  ('EI-1101', 'ES-1002', 'H-FOURSEASONS', 'SEA FU', '/images/experiences/sea-fu.jpg', '/restaurants', 1, TRUE, NOW(), NOW()),
+  ('EI-1102', 'ES-1002', 'H-FOURSEASONS', 'COYA', '/images/experiences/coya.jpg', '/restaurants', 2, TRUE, NOW(), NOW()),
+  ('EI-1103', 'ES-1002', 'H-FOURSEASONS', 'MIMI KAKUSHI', '/images/experiences/mimi-kakushi.jpg', '/restaurants', 3, TRUE, NOW(), NOW()),
+  ('EI-1104', 'ES-1002', 'H-FOURSEASONS', 'SCALINI', '/images/experiences/scalini.jpg', '/restaurants', 4, TRUE, NOW(), NOW()),
+  ('EI-1105', 'ES-1002', 'H-FOURSEASONS', 'VERDE', '/images/experiences/verde.jpg', '/restaurants', 5, TRUE, NOW(), NOW()),
+  ('EI-1106', 'ES-1002', 'H-FOURSEASONS', 'PASTRIES', '/images/experiences/pastries.jpg', '/restaurants', 6, TRUE, NOW(), NOW()),
+  ('EI-1107', 'ES-1002', 'H-FOURSEASONS', 'NUSR-ET', '/images/experiences/nusr-et.jpg', '/restaurants', 7, TRUE, NOW(), NOW()),
+  ('EI-1108', 'ES-1002', 'H-FOURSEASONS', 'NAMMOS', '/images/experiences/nammos.jpg', '/restaurants', 8, TRUE, NOW(), NOW()),
+  
+  -- Four Seasons Paris - Activities (Moments à vivre)
+  ('EI-1201', 'ES-1003', 'H-FOURSEASONS', 'SAFARI', '/images/experiences/safari.jpg', '/services', 1, TRUE, NOW(), NOW()),
+  ('EI-1202', 'ES-1003', 'H-FOURSEASONS', 'BURJ AL ARAB TOUR', '/images/experiences/burj-al-arab-tour.jpg', '/services', 2, TRUE, NOW(), NOW()),
+  ('EI-1203', 'ES-1003', 'H-FOURSEASONS', 'PADEL', '/images/experiences/padel.jpg', '/services', 3, TRUE, NOW(), NOW()),
+  ('EI-1204', 'ES-1003', 'H-FOURSEASONS', 'JET SKI', '/images/experiences/jet-ski.jpg', '/services', 4, TRUE, NOW(), NOW()),
+  ('EI-1205', 'ES-1003', 'H-FOURSEASONS', 'SURF', '/images/experiences/surf.jpg', '/services', 5, TRUE, NOW(), NOW()),
+  ('EI-1206', 'ES-1003', 'H-FOURSEASONS', 'HELICOPTER TOUR', '/images/experiences/helicopter-tour.jpg', '/services', 6, TRUE, NOW(), NOW()),
+  ('EI-1207', 'ES-1003', 'H-FOURSEASONS', 'SUNRISE BALLOON', '/images/experiences/sunrise-balloon.jpg', '/services', 7, TRUE, NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  image_url = EXCLUDED.image_url,
+  link_url = EXCLUDED.link_url,
+  sort_order = EXCLUDED.sort_order,
+  is_active = EXCLUDED.is_active,
+  updated_at = EXCLUDED.updated_at;
 
 -- =============================================================================
 -- DONE

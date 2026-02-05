@@ -65,9 +65,11 @@ export async function ensureRealtimeListener() {
       const eventHotelId = typeof event.hotelId === "string" ? event.hotelId : null;
       const eventDepartment = typeof event.department === "string" ? event.department : null;
       const eventTicketId = typeof event.ticketId === "string" ? event.ticketId : null;
+      const eventStayId = typeof event.stayId === "string" ? event.stayId : null;
 
       for (const subscriber of subscribers.values()) {
         if (subscriber.hotelId && eventHotelId !== subscriber.hotelId) continue;
+        if (subscriber.stayId && eventStayId !== subscriber.stayId) continue;
         if (subscriber.threadId && subscriber.threadId !== event.threadId) continue;
         if (subscriber.ticketId && subscriber.ticketId !== eventTicketId) continue;
         if (Array.isArray(subscriber.departments) && subscriber.departments.length > 0) {
@@ -83,7 +85,7 @@ export async function ensureRealtimeListener() {
   return listenerStarting;
 }
 
-export function subscribeMessages({ res, threadId, ticketId, hotelId, departments }) {
+export function subscribeMessages({ res, threadId, ticketId, hotelId, stayId, departments }) {
   const id = randomUUID();
   const normalizedDepartments = Array.isArray(departments)
     ? departments.filter((dept) => typeof dept === "string").map((dept) => dept.trim()).filter(Boolean)
@@ -94,6 +96,7 @@ export function subscribeMessages({ res, threadId, ticketId, hotelId, department
     threadId,
     ticketId,
     hotelId,
+    stayId,
     departments: normalizedDepartments && normalizedDepartments.length > 0 ? normalizedDepartments : null
   });
   startPing();

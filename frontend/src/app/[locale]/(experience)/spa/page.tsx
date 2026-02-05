@@ -144,7 +144,7 @@ export default function SpaPage() {
       <div className="border-b border-gray-100 px-4 py-4">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Clock className="h-4 w-4" />
-          <span>Ouvert aujourd'hui : 9h00 - 21h00</span>
+          <span>Ouvert aujourd&apos;hui : 9h00 - 21h00</span>
         </div>
       </div>
 
@@ -190,7 +190,7 @@ export default function SpaPage() {
           department="spa-gym"
           guestToken={session.guestToken}
           stayId={session.stayId}
-          roomNumber={session.roomNumber}
+          roomNumber={session.roomNumber ?? null}
           onRequestSubmitted={handleRequestSubmitted}
         />
       </div>

@@ -122,7 +122,7 @@ export function ServiceRequestDialog({
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
                 <X className="h-8 w-8 text-red-600" />
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">Échec de l'envoi</h3>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">Échec de l&apos;envoi</h3>
               <p className="mb-6 text-sm text-gray-500">{submitMessage}</p>
               <div className="flex gap-3">
                 <button 

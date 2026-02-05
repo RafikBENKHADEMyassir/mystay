@@ -9,6 +9,7 @@ SKIP_DB=0
 SKIP_MIGRATE=0
 SKIP_SEED=0
 SKIP_MOCKS=0
+KILL_PORTS=1
 
 usage() {
   cat <<'EOF'
@@ -20,6 +21,7 @@ Options:
   --no-migrate   Skip migrations
   --no-seed      Skip seed data
   --skip-mocks   Do not start Opera/SpaBooker mock servers
+  --no-kill-ports Do not kill processes holding default ports
   -h, --help     Show this help
 
 Defaults:
@@ -48,6 +50,7 @@ while [[ $# -gt 0 ]]; do
     --no-migrate) SKIP_MIGRATE=1 ;;
     --no-seed) SKIP_SEED=1 ;;
     --skip-mocks) SKIP_MOCKS=1 ;;
+    --no-kill-ports) KILL_PORTS=0 ;;
     -h|--help)
       usage
       exit 0
@@ -89,6 +92,45 @@ if [[ ! -f admin/.env ]]; then
   fi
 fi
 
+free_ports() {
+  if [[ "$KILL_PORTS" -eq 0 ]]; then
+    return
+  fi
+
+  if ! command -v lsof >/dev/null 2>&1; then
+    echo "⚠️  Warning: \`lsof\` not found; skipping port cleanup."
+    return
+  fi
+
+  local ports=()
+  if [[ "$SKIP_MOCKS" -eq 0 ]]; then
+    ports+=(4010 4011)
+  fi
+  ports+=(4000 3000 3001)
+
+  local pid_lines=""
+  local port
+  for port in "${ports[@]}"; do
+    pid_lines+=$'\n'"$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null || true)"
+  done
+
+  pid_lines="$(echo "$pid_lines" | awk 'NF' | sort -u || true)"
+  if [[ -z "${pid_lines//[[:space:]]/}" ]]; then
+    return
+  fi
+
+  echo ""
+  echo "⚠️  Ports already in use. Killing processes with \`kill -9\`..."
+  while IFS= read -r pid; do
+    [[ -z "$pid" ]] && continue
+    local cmd=""
+    cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    echo "   - PID $pid ${cmd:-"(unknown)"}"
+    kill -9 "$pid" >/dev/null 2>&1 || true
+  done <<< "$pid_lines"
+  echo "✅ Freed ports: ${ports[*]}"
+}
+
 # Database setup
 if [[ "$SKIP_DB" -eq 0 ]]; then
   if [[ "$RESET_DB" -eq 1 ]]; then
@@ -111,6 +153,8 @@ if [[ "$SKIP_DB" -eq 0 ]]; then
     fi
   fi
 fi
+
+free_ports
 
 pids=()
 stopping=0

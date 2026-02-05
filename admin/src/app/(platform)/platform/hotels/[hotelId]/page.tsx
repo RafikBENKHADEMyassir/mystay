@@ -115,12 +115,20 @@ export default async function HotelDetailPage({
             )}
           </div>
         </div>
-        <Button asChild>
-          <Link href={`/platform/hotels/${hotelId}/edit`}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Hotel
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/platform/hotels/${hotelId}/setup`}>
+              <Settings className="mr-2 h-4 w-4" />
+              Property setup
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href={`/platform/hotels/${hotelId}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Hotel
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Cover Image / Branding Preview */}
@@ -296,13 +304,13 @@ export default async function HotelDetailPage({
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Button variant="outline" asChild>
-            <Link href={`/platform/hotels/${hotelId}/integrations`}>
-              Configure Integrations
+            <Link href={`/platform/hotels/${hotelId}/setup/sync`}>
+              Data synchronization
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link href={`/platform/hotels/${hotelId}/notifications`}>
-              Notification Settings
+            <Link href={`/platform/hotels/${hotelId}/setup/notification-center`}>
+              Notification center
             </Link>
           </Button>
           <Button variant="outline" asChild>

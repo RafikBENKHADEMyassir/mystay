@@ -1,27 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  AlertCircle,
-  BriefcaseBusiness,
-  CloudUpload,
-  CreditCard,
-  Smile,
-  X
-} from "lucide-react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AlertCircle, CheckCircle2, Handshake } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
+import { setDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
 
-type SignupStep = "personal" | "identity" | "payment" | "complete";
-type StayReason = "personal" | "business";
+type SignupStep = "profile" | "password" | "created" | "link" | "welcome";
 
 type SignupFormState = {
-  reason: StayReason;
   firstName: string;
   lastName: string;
   email: string;
@@ -29,153 +21,185 @@ type SignupFormState = {
   phoneNumber: string;
   password: string;
   confirmPassword: string;
+  confirmationNumber: string;
+};
+
+type LinkedStay = {
+  id: string;
+  hotelId: string;
+  hotelName: string;
+  confirmationNumber: string;
+  roomNumber: string | null;
+  checkIn: string;
+  checkOut: string;
+  guests: { adults: number; children: number };
 };
 
 function getSignupStrings(locale: string) {
   if (locale === "fr") {
     return {
       topbarTitle: "Inscription",
-      personalTitle: "Informations personnelles",
-      interfaceLanguage: "Langue de l'interface",
-      stayReason: "Raison de votre séjour",
-      reasonPersonal: "Personnel",
-      reasonBusiness: "Travail",
-      yourInfo: "Vos informations",
+      profileTitle: "Inscription",
+      profileCardTitle: "Vos informations",
       firstName: "Prénom",
       lastName: "Nom de famille",
       email: "Adresse e-mail",
       phone: "Téléphone",
+      validate: "Valider",
+      passwordTitle: "Choisissez votre mot de passe",
       password: "Mot de passe",
-      confirmPassword: "Confirmer le mot de passe",
-      validate: "Continuer",
-      identityTitle: "Dépôt de pièce d'identité",
-      idLabel: "Téléchargez votre pièce d'identité",
-      uploadHint: "Cliquez pour télécharger ou glissez-déposez",
-      accepted: "Formats acceptés : PNG, JPG, PDF",
-      maxFiles: "Maximum 2 fichiers",
-      maxSize: "Taille maximale : 10 Mo par fichier",
-      readable: "Le document doit être lisible",
-      skip: "Passer cette étape",
-      paymentTitle: "Enregistrer une carte bancaire",
-      paymentDesc: "Enregistrez une carte pour des paiements rapides pendant votre séjour",
-      cardPlaceholder: "Vos informations de carte sont sécurisées",
-      completeTitle: "Compte créé !",
-      completeDesc: "Votre compte a été créé avec succès. Vous pouvez maintenant lier une réservation ou explorer nos hôtels partenaires.",
-      linkReservation: "Lier une réservation",
-      exploreHotels: "Explorer les hôtels",
+      confirmPassword: "Répétez votre mot de passe",
+      passwordRuleTitle: "Votre mot de passe doit contenir au moins :",
+      ruleLength: "8 caractères minimum",
+      ruleUpper: "Une majuscule",
+      ruleSpecial: "Un caractère spécial",
+      createdTitle: "Votre compte a bien été créé.",
+      nextStep: "Passer à l’étape suivante",
+      linkTitle: "Rattachez votre compte à votre hôtel",
+      linkSubtitle: "Ensuite, nous nous occupons du reste.",
+      confirmationLabel: "Votre numéro de confirmation de réservation",
+      confirmationPlaceholder: "01234 56789",
+      linkHint:
+        "Vous avez reçu votre numéro de réservation par mail lors de votre réservation avec votre hôtel.\nVous ne l’avez pas reçu ?",
+      contactSupport: "Contacter l’assistance",
+      confirm: "Confirmer",
+      welcomeTitle: "Votre hôtel vous souhaite la bienvenue.",
+      welcomeSubtitle: "Vous pouvez maintenant réaliser votre check‑in.",
+      doCheckIn: "Je réalise mon check‑in",
       alreadyAccount: "Vous avez déjà un compte ?",
       signIn: "Se connecter",
-      required: "Ce champ est requis",
-      invalidEmail: "Adresse e-mail invalide",
-      passwordMismatch: "Les mots de passe ne correspondent pas",
-      passwordTooShort: "Le mot de passe doit contenir au moins 6 caractères",
-      emailExists: "Un compte avec cet e-mail existe déjà",
-      unexpectedError: "Une erreur inattendue s'est produite"
+      required: "Ce champ est requis.",
+      invalidEmail: "Adresse e‑mail invalide.",
+      passwordMismatch: "Les mots de passe ne correspondent pas.",
+      passwordTooWeak: "Mot de passe trop faible.",
+      emailExists: "Un compte avec cet e‑mail existe déjà.",
+      reservationNotFound: "Aucune réservation trouvée avec ce numéro.",
+      reservationLinked: "Cette réservation est déjà liée à un compte.",
+      unexpectedError: "Une erreur inattendue s'est produite."
     };
   }
 
   return {
     topbarTitle: "Sign Up",
-    personalTitle: "Personal Information",
-    interfaceLanguage: "Interface language",
-    stayReason: "Reason for your stay",
-    reasonPersonal: "Personal",
-    reasonBusiness: "Business",
-    yourInfo: "Your information",
+    profileTitle: "Sign up",
+    profileCardTitle: "Your information",
     firstName: "First name",
     lastName: "Last name",
     email: "Email address",
     phone: "Phone",
-    password: "Password",
-    confirmPassword: "Confirm password",
     validate: "Continue",
-    identityTitle: "Identity Document",
-    idLabel: "Upload your ID document",
-    uploadHint: "Click to upload or drag and drop",
-    accepted: "Accepted formats: PNG, JPG, PDF",
-    maxFiles: "Maximum 2 files",
-    maxSize: "Maximum size: 10 MB per file",
-    readable: "Document must be readable",
-    skip: "Skip this step",
-    paymentTitle: "Add Payment Method",
-    paymentDesc: "Save a card for quick payments during your stay",
-    cardPlaceholder: "Your card details are securely encrypted",
-    completeTitle: "Account Created!",
-    completeDesc: "Your account has been created successfully. You can now link a reservation or explore our partner hotels.",
-    linkReservation: "Link a Reservation",
-    exploreHotels: "Explore Hotels",
+    passwordTitle: "Choose your password",
+    password: "Password",
+    confirmPassword: "Repeat your password",
+    passwordRuleTitle: "Your password must include at least:",
+    ruleLength: "8 characters",
+    ruleUpper: "One uppercase letter",
+    ruleSpecial: "One special character",
+    createdTitle: "Your account has been created.",
+    nextStep: "Next step",
+    linkTitle: "Attach your account to your hotel",
+    linkSubtitle: "Then we’ll take care of the rest.",
+    confirmationLabel: "Your reservation confirmation number",
+    confirmationPlaceholder: "01234 56789",
+    linkHint:
+      "You received your reservation number by email when booking.\nDidn’t receive it?",
+    contactSupport: "Contact support",
+    confirm: "Confirm",
+    welcomeTitle: "Your hotel welcomes you.",
+    welcomeSubtitle: "You can now complete your check‑in.",
+    doCheckIn: "Complete my check‑in",
     alreadyAccount: "Already have an account?",
     signIn: "Sign in",
-    required: "This field is required",
-    invalidEmail: "Invalid email address",
-    passwordMismatch: "Passwords do not match",
-    passwordTooShort: "Password must be at least 6 characters",
-    emailExists: "An account with this email already exists",
-    unexpectedError: "An unexpected error occurred"
+    required: "This field is required.",
+    invalidEmail: "Invalid email address.",
+    passwordMismatch: "Passwords do not match.",
+    passwordTooWeak: "Password is too weak.",
+    emailExists: "An account with this email already exists.",
+    reservationNotFound: "No reservation found with this number.",
+    reservationLinked: "This reservation is already linked.",
+    unexpectedError: "An unexpected error occurred."
   };
 }
 
 function requiredMessage(locale: string) {
-  return locale === "fr" ? "Ce champ est requis" : "This field is required";
+  return locale === "fr" ? "Ce champ est requis." : "This field is required.";
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function passwordRules(password: string) {
+  const trimmed = password ?? "";
+  return {
+    length: trimmed.length >= 8,
+    upper: /[A-Z]/.test(trimmed),
+    special: /[^A-Za-z0-9]/.test(trimmed)
+  };
 }
 
 export default function SignupPage() {
   const locale = useLocale();
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [step, setStep] = useState<SignupStep>("personal");
+  const [step, setStep] = useState<SignupStep>("profile");
   const [form, setForm] = useState<SignupFormState>({
-    reason: "personal",
     firstName: "",
     lastName: "",
     email: "",
     phoneCountryCode: "+33",
     phoneNumber: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    confirmationNumber: ""
   });
 
   const [submitted, setSubmitted] = useState(false);
-  const [identityFiles, setIdentityFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkedStay, setLinkedStay] = useState<LinkedStay | null>(null);
 
   const strings = useMemo(() => getSignupStrings(locale), [locale]);
 
-  // Validation errors
+  const emailError =
+    submitted && !form.email.trim()
+      ? requiredMessage(locale)
+      : submitted && !isValidEmail(form.email.trim())
+        ? strings.invalidEmail
+        : null;
+
   const firstNameError = submitted && !form.firstName.trim() ? requiredMessage(locale) : null;
   const lastNameError = submitted && !form.lastName.trim() ? requiredMessage(locale) : null;
-  const emailError = submitted && !form.email.trim() 
-    ? requiredMessage(locale) 
-    : submitted && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) 
-    ? strings.invalidEmail 
-    : null;
-  const passwordError = submitted && !form.password 
-    ? requiredMessage(locale) 
-    : submitted && form.password.length < 6 
-    ? strings.passwordTooShort 
-    : null;
-  const confirmPasswordError = submitted && form.password !== form.confirmPassword 
-    ? strings.passwordMismatch 
-    : null;
 
-  async function handleCreateAccount() {
+  const rules = useMemo(() => passwordRules(form.password), [form.password]);
+  const passwordTooWeak = submitted && step === "password" && (!rules.length || !rules.upper || !rules.special);
+  const passwordError = passwordTooWeak ? strings.passwordTooWeak : null;
+
+  const confirmPasswordError =
+    submitted && step === "password" && form.password !== form.confirmPassword ? strings.passwordMismatch : null;
+
+  const confirmationError = submitted && step === "link" && !form.confirmationNumber.trim() ? requiredMessage(locale) : null;
+
+  function goToPasswordStep() {
     setSubmitted(true);
     setError(null);
 
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.password) {
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      return;
-    }
-    if (form.password.length < 6) {
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      return;
-    }
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) return;
+    if (!isValidEmail(form.email.trim())) return;
+
+    setSubmitted(false);
+    setStep("password");
+  }
+
+  async function createAccount() {
+    setSubmitted(true);
+    setError(null);
+
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) return;
+    if (!isValidEmail(form.email.trim())) return;
+    if (!form.password) return;
+    if (form.password !== form.confirmPassword) return;
+    if (!rules.length || !rules.upper || !rules.special) return;
 
     setIsLoading(true);
 
@@ -195,13 +219,10 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (res.ok) {
-        setStep("identity");
+        setStep("created");
       } else {
-        if (data.error === "email_already_exists") {
-          setError(strings.emailExists);
-        } else {
-          setError(data.error || strings.unexpectedError);
-        }
+        if (data.error === "email_already_exists") setError(strings.emailExists);
+        else setError(data.error || strings.unexpectedError);
       }
     } catch {
       setError(strings.unexpectedError);
@@ -210,109 +231,115 @@ export default function SignupPage() {
     }
   }
 
-  function handleSkipIdentity() {
-    setStep("payment");
+  async function linkReservation() {
+    setSubmitted(true);
+    setError(null);
+
+    if (!form.confirmationNumber.trim()) return;
+
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/link-reservation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmationNumber: form.confirmationNumber })
+      });
+      const data = (await res.json()) as { error?: string; stay?: LinkedStay };
+
+      if (!res.ok) {
+        if (data.error === "reservation_not_found") setError(strings.reservationNotFound);
+        else if (data.error === "reservation_already_linked") setError(strings.reservationLinked);
+        else setError(data.error || strings.unexpectedError);
+        return;
+      }
+
+      const stay = data.stay ?? null;
+      if (!stay) {
+        setError(strings.unexpectedError);
+        return;
+      }
+
+      setLinkedStay(stay);
+
+      const sessionRes = await fetch("/api/auth/session", { method: "GET" });
+      const sessionData = (await sessionRes.json()) as { backendToken?: string | null };
+      const token = typeof sessionData.backendToken === "string" ? sessionData.backendToken : "";
+
+      if (token) {
+        setDemoSession({
+          hotelId: stay.hotelId,
+          hotelName: stay.hotelName,
+          stayId: stay.id,
+          confirmationNumber: stay.confirmationNumber,
+          guestToken: token,
+          roomNumber: stay.roomNumber,
+          checkIn: stay.checkIn,
+          checkOut: stay.checkOut,
+          guests: stay.guests,
+          guestFirstName: form.firstName,
+          guestLastName: form.lastName,
+          guestEmail: form.email,
+          guestPhone: form.phoneNumber ? `${form.phoneCountryCode}${form.phoneNumber}` : null
+        });
+      }
+
+      setStep("welcome");
+    } catch {
+      setError(strings.unexpectedError);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  function handleUploadIdentity() {
-    // TODO: Implement actual upload
-    setStep("payment");
+  function startLinking() {
+    setSubmitted(false);
+    setError(null);
+    setStep("link");
   }
 
-  function handleSkipPayment() {
-    setStep("complete");
-  }
-
-  function handleAddPayment() {
-    // TODO: Implement Stripe integration
-    setStep("complete");
-  }
-
-  function onIdentityFilesPicked(files: FileList | null) {
-    if (!files?.length) return;
-    const next = [...identityFiles, ...Array.from(files)].slice(0, 2);
-    setIdentityFiles(next);
-  }
-
-  function removeIdentityFile(index: number) {
-    setIdentityFiles((current) => current.filter((_, i) => i !== index));
+  function goToCheckIn() {
+    router.push(withLocale(locale, "/reception/check-in"));
   }
 
   return (
     <div>
-      <Topbar 
-        title={strings.topbarTitle} 
-        backHref={withLocale(locale, "/")} 
-      />
+      <Topbar title={strings.topbarTitle} backHref={withLocale(locale, "/")} />
 
-      <main className="mx-auto max-w-md space-y-4 px-4 pb-10 pt-4">
-        {step === "personal" && (
+      <main className="mx-auto max-w-md space-y-4 px-4 pb-10 pt-6">
+        {error ? (
+          <div className="flex items-start gap-2 rounded-2xl bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        ) : null}
+
+        {step === "profile" ? (
           <>
-            <h1 className="text-2xl font-semibold text-foreground">{strings.personalTitle}</h1>
-
-            {error && (
-              <div className="flex items-start gap-2 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
-                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
-              <p className="text-sm font-semibold text-foreground">{strings.stayReason}</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setForm((current) => ({ ...current, reason: "personal" }))}
-                  className={cn(
-                    "flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold shadow-sm ring-1 ring-border transition",
-                    form.reason === "personal" ? "bg-foreground text-background" : "bg-background text-foreground"
-                  )}
-                >
-                  <Smile className="h-4 w-4" />
-                  {strings.reasonPersonal}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm((current) => ({ ...current, reason: "business" }))}
-                  className={cn(
-                    "flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold shadow-sm ring-1 ring-border transition",
-                    form.reason === "business" ? "bg-foreground text-background" : "bg-background text-foreground"
-                  )}
-                >
-                  <BriefcaseBusiness className="h-4 w-4" />
-                  {strings.reasonBusiness}
-                </button>
-              </div>
-            </section>
-
-            <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
-              <p className="text-sm font-semibold text-foreground">{strings.yourInfo}</p>
-
+            <h1 className="text-2xl font-semibold text-foreground">{strings.profileTitle}</h1>
+            <section className="space-y-3 rounded-2xl bg-muted/10 p-4 ring-1 ring-border">
+              <p className="text-sm font-semibold text-foreground">{strings.profileCardTitle}</p>
               <LabeledField
                 label={strings.firstName}
                 value={form.firstName}
                 onChange={(value) => setForm((current) => ({ ...current, firstName: value }))}
                 error={firstNameError}
               />
-
               <LabeledField
                 label={strings.lastName}
                 value={form.lastName}
                 onChange={(value) => setForm((current) => ({ ...current, lastName: value }))}
                 error={lastNameError}
               />
-
               <LabeledField
                 label={strings.email}
                 value={form.email}
                 onChange={(value) => setForm((current) => ({ ...current, email: value }))}
-                placeholder="email@email.com"
+                placeholder="exemple@email.com"
                 type="email"
                 error={emailError}
               />
-
               <div className="grid grid-cols-[88px,1fr] gap-3">
-                <div className="rounded-xl bg-background px-4 py-3 shadow-sm ring-1 ring-border">
+                <div className="rounded-xl bg-muted/30 px-4 py-3 ring-1 ring-border">
                   <select
                     className="w-full bg-transparent text-sm font-medium text-foreground outline-none"
                     value={form.phoneCountryCode}
@@ -327,14 +354,26 @@ export default function SignupPage() {
                   label={strings.phone}
                   value={form.phoneNumber}
                   onChange={(value) => setForm((current) => ({ ...current, phoneNumber: value }))}
-                  placeholder="1 23 45 67 89"
+                  placeholder="Téléphone"
                 />
               </div>
             </section>
 
-            <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
-              <p className="text-sm font-semibold text-foreground">{strings.password}</p>
+            <button
+              type="button"
+              onClick={goToPasswordStep}
+              className="mt-4 w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm"
+            >
+              {strings.validate}
+            </button>
+          </>
+        ) : null}
 
+        {step === "password" ? (
+          <>
+            <h1 className="text-2xl font-semibold text-foreground">{strings.passwordTitle}</h1>
+
+            <section className="space-y-3 rounded-2xl bg-muted/10 p-4 ring-1 ring-border">
               <LabeledField
                 label={strings.password}
                 value={form.password}
@@ -343,7 +382,6 @@ export default function SignupPage() {
                 placeholder="••••••••"
                 error={passwordError}
               />
-
               <LabeledField
                 label={strings.confirmPassword}
                 value={form.confirmPassword}
@@ -352,162 +390,124 @@ export default function SignupPage() {
                 placeholder="••••••••"
                 error={confirmPasswordError}
               />
+
+              <div className="pt-2 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground">{strings.passwordRuleTitle}</p>
+                <ul className="mt-2 space-y-1">
+                  <RuleItem ok={rules.length} label={strings.ruleLength} />
+                  <RuleItem ok={rules.upper} label={strings.ruleUpper} />
+                  <RuleItem ok={rules.special} label={strings.ruleSpecial} />
+                </ul>
+              </div>
             </section>
 
             <button
               type="button"
-              onClick={handleCreateAccount}
+              onClick={createAccount}
               disabled={isLoading}
               className="mt-4 w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm disabled:opacity-50"
             >
               {isLoading ? "..." : strings.validate}
             </button>
-
-            <p className="text-center text-sm text-muted-foreground">
-              {strings.alreadyAccount}{" "}
-              <Link href={withLocale(locale, "/login")} className="font-semibold text-foreground underline">
-                {strings.signIn}
-              </Link>
-            </p>
           </>
-        )}
+        ) : null}
 
-        {step === "identity" && (
+        {step === "created" ? (
+          <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
+            <CheckCircle2 className="h-12 w-12 text-emerald-600" />
+            <p className="text-xl font-semibold text-foreground">{strings.createdTitle}</p>
+            <button
+              type="button"
+              onClick={startLinking}
+              className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm"
+            >
+              {strings.nextStep}
+            </button>
+          </div>
+        ) : null}
+
+        {step === "link" ? (
           <>
-            <h1 className="text-2xl font-semibold text-foreground">{strings.identityTitle}</h1>
+            <h1 className="text-2xl font-semibold text-foreground">{strings.linkTitle}</h1>
+            <p className="text-sm text-muted-foreground">{strings.linkSubtitle}</p>
 
-            <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
-              <p className="text-sm font-semibold text-foreground">{strings.idLabel}</p>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,application/pdf"
-                className="hidden"
-                onChange={(event) => onIdentityFilesPicked(event.target.files)}
+            <section className="space-y-3 rounded-2xl bg-muted/10 p-4 ring-1 ring-border">
+              <p className="text-sm font-semibold text-foreground">{strings.confirmationLabel}</p>
+              <LabeledField
+                label={strings.confirmationLabel}
+                value={form.confirmationNumber}
+                onChange={(value) => setForm((current) => ({ ...current, confirmationNumber: value }))}
+                placeholder={strings.confirmationPlaceholder}
+                error={confirmationError}
               />
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-background px-4 py-6 text-sm text-muted-foreground"
-              >
-                <CloudUpload className="h-6 w-6" />
-                <span>{strings.uploadHint}</span>
-              </button>
-
-              {identityFiles.length > 0 && (
-                <div className="space-y-2">
-                  {identityFiles.map((file, index) => (
-                    <div
-                      key={`${file.name}-${index}`}
-                      className="flex items-center justify-between rounded-xl bg-muted/30 px-4 py-3 text-sm"
-                    >
-                      <p className="truncate text-foreground">{file.name}</p>
-                      <button
-                        type="button"
-                        onClick={() => removeIdentityFile(index)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                        aria-label="Remove file"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-                <li>{strings.accepted}</li>
-                <li>{strings.maxFiles}</li>
-                <li>{strings.maxSize}</li>
-                <li>{strings.readable}</li>
-              </ul>
             </section>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleSkipIdentity}
-                className="flex-1 rounded-2xl border border-border bg-background py-3 text-sm font-semibold text-foreground shadow-sm"
-              >
-                {strings.skip}
-              </button>
-              <button
-                type="button"
-                onClick={handleUploadIdentity}
-                disabled={identityFiles.length === 0}
-                className="flex-1 rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm disabled:opacity-50"
-              >
-                {strings.validate}
-              </button>
-            </div>
+            <p className="whitespace-pre-line text-xs text-muted-foreground">
+              {strings.linkHint}{" "}
+              <a href="mailto:support@mystay.com" className="font-semibold text-foreground underline">
+                {strings.contactSupport}
+              </a>
+            </p>
+
+            <button
+              type="button"
+              onClick={linkReservation}
+              disabled={isLoading}
+              className="mt-2 w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm disabled:opacity-50"
+            >
+              {isLoading ? "..." : strings.confirm}
+            </button>
           </>
-        )}
+        ) : null}
 
-        {step === "payment" && (
-          <>
-            <h1 className="text-2xl font-semibold text-foreground">{strings.paymentTitle}</h1>
-
-            <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
-              <p className="text-sm text-muted-foreground">{strings.paymentDesc}</p>
-
-              <div className="flex flex-col items-center justify-center rounded-xl border bg-background px-4 py-8">
-                <CreditCard className="mb-4 h-12 w-12 text-muted-foreground" />
-                <p className="text-center text-sm text-muted-foreground">{strings.cardPlaceholder}</p>
-              </div>
-            </section>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleSkipPayment}
-                className="flex-1 rounded-2xl border border-border bg-background py-3 text-sm font-semibold text-foreground shadow-sm"
-              >
-                {strings.skip}
-              </button>
-              <button
-                type="button"
-                onClick={handleAddPayment}
-                className="flex-1 rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm"
-              >
-                {strings.validate}
-              </button>
+        {step === "welcome" ? (
+          <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
+            <Handshake className="h-12 w-12 text-foreground" />
+            <div className="space-y-2">
+              <p className="text-xl font-semibold text-foreground">{strings.welcomeTitle}</p>
+              <p className="text-sm text-muted-foreground">{strings.welcomeSubtitle}</p>
+              {linkedStay ? (
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">{linkedStay.hotelName}</span> ·{" "}
+                  <span className="font-mono">{linkedStay.confirmationNumber}</span>
+                </p>
+              ) : null}
             </div>
-          </>
-        )}
+            <button
+              type="button"
+              onClick={goToCheckIn}
+              className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm"
+            >
+              {strings.doCheckIn}
+            </button>
+          </div>
+        ) : null}
 
-        {step === "complete" && (
-          <>
-            <div className="flex flex-col items-center pt-8 text-center">
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-                <svg className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 className="mb-2 text-2xl font-semibold text-foreground">{strings.completeTitle}</h1>
-              <p className="mb-8 text-sm text-muted-foreground">{strings.completeDesc}</p>
-
-              <div className="flex w-full flex-col gap-3">
-                <Link
-                  href={withLocale(locale, "/link-reservation")}
-                  className="w-full rounded-2xl bg-foreground py-3 text-center text-sm font-semibold text-background shadow-sm"
-                >
-                  {strings.linkReservation}
-                </Link>
-                <Link
-                  href={withLocale(locale, "/hotels")}
-                  className="w-full rounded-2xl border border-border bg-background py-3 text-center text-sm font-semibold text-foreground shadow-sm"
-                >
-                  {strings.exploreHotels}
-                </Link>
-              </div>
-            </div>
-          </>
-        )}
+        <p className="pt-6 text-center text-sm text-muted-foreground">
+          {strings.alreadyAccount}{" "}
+          <Link href={withLocale(locale, "/login")} className="font-semibold text-foreground underline">
+            {strings.signIn}
+          </Link>
+        </p>
       </main>
     </div>
+  );
+}
+
+function RuleItem({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <span
+        className={cn(
+          "inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px]",
+          ok ? "border-emerald-500 text-emerald-600" : "border-muted-foreground/40 text-muted-foreground/60"
+        )}
+        aria-hidden="true"
+      >
+        {ok ? "✓" : "○"}
+      </span>
+      <span className={cn(ok ? "text-foreground" : "text-muted-foreground")}>{label}</span>
+    </li>
   );
 }
 
@@ -523,12 +523,7 @@ type LabeledFieldProps = {
 function LabeledField({ label, value, onChange, placeholder, type = "text", error }: LabeledFieldProps) {
   return (
     <div className="space-y-1">
-      <div
-        className={cn(
-          "relative rounded-xl bg-background px-4 py-3 shadow-sm ring-1 ring-border",
-          error && "ring-destructive"
-        )}
-      >
+      <div className={cn("relative rounded-xl bg-muted/30 px-4 py-3 ring-1 ring-border", error && "ring-destructive")}>
         <p className="text-xs text-muted-foreground">{label}</p>
         <input
           value={value}

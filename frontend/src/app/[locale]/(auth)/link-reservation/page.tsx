@@ -7,6 +7,7 @@ import { AlertCircle, Hotel } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
+import { setDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +82,27 @@ export default function LinkReservationPage() {
       const data = await res.json();
 
       if (res.ok) {
+        try {
+          const sessionRes = await fetch("/api/auth/session", { method: "GET" });
+          const sessionData = (await sessionRes.json()) as { backendToken?: string | null };
+          const token = typeof sessionData.backendToken === "string" ? sessionData.backendToken : "";
+
+          if (token && data.stay) {
+            setDemoSession({
+              hotelId: data.stay.hotelId,
+              hotelName: data.stay.hotelName ?? "Hotel",
+              stayId: data.stay.id,
+              confirmationNumber: data.stay.confirmationNumber,
+              guestToken: token,
+              roomNumber: data.stay.roomNumber,
+              checkIn: data.stay.checkIn,
+              checkOut: data.stay.checkOut,
+              guests: data.stay.guests ?? null
+            });
+          }
+        } catch {
+          // Ignore session sync errors; cookie session still exists.
+        }
         router.push(withLocale(locale, "/"));
       } else {
         if (data.error === "reservation_not_found") {

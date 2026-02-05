@@ -21,6 +21,9 @@ const command = process.argv[2] ?? "help";
 const databaseUrl =
   process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/mystay";
 
+const migrationsTable = process.env.DRIZZLE_MIGRATIONS_TABLE ?? "__drizzle_migrations";
+const migrationsSchema = process.env.DRIZZLE_MIGRATIONS_SCHEMA ?? "public";
+
 const { Pool } = pg;
 
 const pool = new Pool({ connectionString: databaseUrl });
@@ -41,7 +44,7 @@ async function migrateDb() {
       `missing_migrations_folder:${migrationsFolder} (run \`npm run db:generate\` once, then commit migrations)`
     );
   }
-  await migrate(db, { migrationsFolder });
+  await migrate(db, { migrationsFolder, migrationsTable, migrationsSchema });
   console.log(`migrated: ${databaseUrl}`);
 }
 
@@ -66,6 +69,7 @@ async function seedDb() {
 async function resetDb() {
   await withClient(async (client) => {
     await client.query("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
+    await client.query("DROP SCHEMA IF EXISTS drizzle CASCADE;");
   });
   await migrateDb();
   await seedDb();
@@ -91,7 +95,18 @@ try {
   else if (command === "reset") await resetDb();
   else help();
 } catch (error) {
-  console.error(error instanceof Error ? error.message : error);
+  if (error instanceof Error) {
+    console.error(error.message);
+    const cause = error.cause;
+    if (cause instanceof Error) {
+      console.error(cause.message);
+    } else if (cause !== undefined) {
+      console.error(cause);
+    }
+    if (error.stack) console.error(error.stack);
+  } else {
+    console.error(error);
+  }
   process.exitCode = 1;
 } finally {
   await pool.end().catch(() => {});

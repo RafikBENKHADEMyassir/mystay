@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, date, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const guests = pgTable(
   "guests",
@@ -99,6 +99,169 @@ export const hotelNotifications = pgTable("hotel_notifications", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+export const pmsSyncRuns = pgTable(
+  "pms_sync_runs",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    summary: jsonb("summary").notNull().default({}),
+    errorMessage: text("error_message"),
+    errorDetails: text("error_details")
+  },
+  (table) => ({
+    hotelIdx: index("idx_pms_sync_runs_hotel_id").on(table.hotelId),
+    statusIdx: index("idx_pms_sync_runs_status").on(table.status),
+    startedAtIdx: index("idx_pms_sync_runs_started_at").on(table.startedAt)
+  })
+);
+
+export const audienceContacts = pgTable(
+  "audience_contacts",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    guestId: text("guest_id").references(() => guests.id, { onDelete: "set null" }),
+    status: text("status").notNull(),
+    statusAt: timestamp("status_at", { withTimezone: true }),
+    name: text("name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    channel: text("channel").notNull(),
+    syncedWithPms: boolean("synced_with_pms").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_audience_contacts_hotel_id").on(table.hotelId),
+    statusIdx: index("idx_audience_contacts_status").on(table.hotelId, table.status),
+    statusAtIdx: index("idx_audience_contacts_status_at").on(table.hotelId, table.statusAt),
+    hotelEmailUnique: uniqueIndex("audience_contacts_hotel_email_unique").on(table.hotelId, table.email)
+  })
+);
+
+export const signupForms = pgTable(
+  "signup_forms",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    channel: text("channel").notNull(),
+    status: text("status").notNull().default("active"),
+    config: jsonb("config").notNull().default({}),
+    createdByStaffUserId: text("created_by_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_signup_forms_hotel_id").on(table.hotelId),
+    channelIdx: index("idx_signup_forms_channel").on(table.hotelId, table.channel),
+    statusIdx: index("idx_signup_forms_status").on(table.hotelId, table.status),
+    updatedAtIdx: index("idx_signup_forms_updated_at").on(table.hotelId, table.updatedAt)
+  })
+);
+
+export const hotelDirectoryPages = pgTable(
+  "hotel_directory_pages",
+  {
+    hotelId: text("hotel_id")
+      .primaryKey()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    draft: jsonb("draft").notNull().default({}),
+    published: jsonb("published").notNull().default({}),
+    draftSavedAt: timestamp("draft_saved_at", { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    updatedAtIdx: index("idx_hotel_directory_pages_updated_at").on(table.hotelId, table.updatedAt)
+  })
+);
+
+export const automations = pgTable(
+  "automations",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    trigger: text("trigger").notNull(),
+    status: text("status").notNull().default("active"),
+    config: jsonb("config").notNull().default({}),
+    createdByStaffUserId: text("created_by_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_automations_hotel_id").on(table.hotelId),
+    statusIdx: index("idx_automations_status").on(table.hotelId, table.status),
+    updatedAtIdx: index("idx_automations_updated_at").on(table.hotelId, table.updatedAt)
+  })
+);
+
+export const messageTemplates = pgTable(
+  "message_templates",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    channel: text("channel").notNull(),
+    status: text("status").notNull().default("draft"),
+    content: jsonb("content").notNull().default({}),
+    createdByStaffUserId: text("created_by_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_message_templates_hotel_id").on(table.hotelId),
+    channelIdx: index("idx_message_templates_channel").on(table.hotelId, table.channel),
+    statusIdx: index("idx_message_templates_status").on(table.hotelId, table.status),
+    updatedAtIdx: index("idx_message_templates_updated_at").on(table.hotelId, table.updatedAt)
+  })
+);
+
+export const upsellServices = pgTable(
+  "upsell_services",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    name: text("name").notNull(),
+    touchpoint: text("touchpoint").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    currency: text("currency").notNull().default("EUR"),
+    availabilityWeekdays: text("availability_weekdays").array().notNull().default(sql`ARRAY[]::text[]`),
+    enabled: boolean("enabled").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdByStaffUserId: text("created_by_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_upsell_services_hotel_id").on(table.hotelId),
+    categoryIdx: index("idx_upsell_services_category").on(table.hotelId, table.category),
+    enabledIdx: index("idx_upsell_services_enabled").on(table.hotelId, table.enabled),
+    updatedAtIdx: index("idx_upsell_services_updated_at").on(table.hotelId, table.updatedAt)
+  })
+);
+
 export const staffUsers = pgTable(
   "staff_users",
   {
@@ -156,6 +319,12 @@ export const stays = pgTable(
       .references(() => hotels.id, { onDelete: "cascade" }),
     guestId: text("guest_id").references(() => guests.id, { onDelete: "set null" }),
     confirmationNumber: text("confirmation_number").notNull(),
+    pmsReservationId: text("pms_reservation_id"),
+    pmsStatus: text("pms_status"),
+    guestFirstName: text("guest_first_name"),
+    guestLastName: text("guest_last_name"),
+    guestEmail: text("guest_email"),
+    guestPhone: text("guest_phone"),
     roomNumber: text("room_number"),
     checkIn: date("check_in").notNull(),
     checkOut: date("check_out").notNull(),
@@ -168,7 +337,9 @@ export const stays = pgTable(
     confirmationUnique: uniqueIndex("stays_confirmation_number_unique").on(table.confirmationNumber),
     confirmationIdx: index("idx_stays_confirmation_number").on(table.confirmationNumber),
     hotelIdx: index("idx_stays_hotel_id").on(table.hotelId),
-    guestIdx: index("idx_stays_guest_id").on(table.guestId)
+    guestIdx: index("idx_stays_guest_id").on(table.guestId),
+    pmsReservationIdx: index("idx_stays_pms_reservation_id").on(table.hotelId, table.pmsReservationId),
+    guestEmailIdx: index("idx_stays_guest_email").on(table.hotelId, table.guestEmail)
   })
 );
 
@@ -210,6 +381,7 @@ export const threads = pgTable(
     status: text("status").notNull(),
     title: text("title").notNull(),
     assignedStaffUserId: text("assigned_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
+    guestLastReadAt: timestamp("guest_last_read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -218,7 +390,8 @@ export const threads = pgTable(
     stayIdx: index("idx_threads_stay_id").on(table.stayId),
     deptIdx: index("idx_threads_department").on(table.department),
     statusIdx: index("idx_threads_status").on(table.status),
-    assignedIdx: index("idx_threads_assigned_staff_user_id").on(table.assignedStaffUserId)
+    assignedIdx: index("idx_threads_assigned_staff_user_id").on(table.assignedStaffUserId),
+    guestLastReadAtIdx: index("idx_threads_guest_last_read_at").on(table.hotelId, table.stayId, table.guestLastReadAt)
   })
 );
 
@@ -309,6 +482,45 @@ export const invoices = pgTable(
     hotelIdx: index("idx_invoices_hotel_id").on(table.hotelId),
     stayIdx: index("idx_invoices_stay_id").on(table.stayId),
     issuedAtIdx: index("idx_invoices_issued_at").on(table.issuedAt)
+  })
+);
+
+export const paymentLinks = pgTable(
+  "payment_links",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    stayId: text("stay_id").references(() => stays.id, { onDelete: "set null" }),
+    guestId: text("guest_id").references(() => guests.id, { onDelete: "set null" }),
+    payerType: text("payer_type").notNull().default("guest"),
+    payerName: text("payer_name"),
+    payerEmail: text("payer_email"),
+    payerPhone: text("payer_phone"),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull().default("EUR"),
+    reasonCategory: text("reason_category"),
+    reasonText: text("reason_text"),
+    pmsStatus: text("pms_status").notNull().default("not_configured"),
+    paymentStatus: text("payment_status").notNull().default("created"),
+    paymentProvider: text("payment_provider"),
+    providerReference: text("provider_reference"),
+    publicToken: text("public_token").notNull(),
+    publicUrl: text("public_url").notNull(),
+    createdByStaffUserId: text("created_by_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_payment_links_hotel_id").on(table.hotelId),
+    stayIdx: index("idx_payment_links_stay_id").on(table.stayId),
+    guestIdx: index("idx_payment_links_guest_id").on(table.guestId),
+    statusIdx: index("idx_payment_links_payment_status").on(table.hotelId, table.paymentStatus),
+    createdAtIdx: index("idx_payment_links_created_at").on(table.hotelId, table.createdAt),
+    publicTokenUnique: uniqueIndex("payment_links_public_token_unique").on(table.publicToken)
   })
 );
 
@@ -476,5 +688,78 @@ export const staffActivityLog = pgTable(
     hotelIdx: index("idx_staff_activity_log_hotel").on(table.hotelId, table.createdAt),
     staffIdx: index("idx_staff_activity_log_staff").on(table.staffUserId, table.createdAt),
     deptIdx: index("idx_staff_activity_log_department").on(table.hotelId, table.department, table.createdAt)
+  })
+);
+
+export const roomImages = pgTable(
+  "room_images",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    category: text("category").notNull().default("room"),
+    title: text("title"),
+    description: text("description"),
+    imageUrl: text("image_url").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    roomType: text("room_type"),
+    roomNumber: text("room_number"),
+    createdByStaffUserId: text("created_by_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_room_images_hotel_id").on(table.hotelId),
+    categoryIdx: index("idx_room_images_category").on(table.hotelId, table.category),
+    isActiveIdx: index("idx_room_images_is_active").on(table.hotelId, table.isActive),
+    sortOrderIdx: index("idx_room_images_sort_order").on(table.hotelId, table.sortOrder),
+    roomIdx: index("idx_room_images_room").on(table.hotelId, table.roomNumber)
+  })
+);
+
+export const experienceSections = pgTable(
+  "experience_sections",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(), // 'tailored', 'culinary', 'activities'
+    titleFr: text("title_fr").notNull(),
+    titleEn: text("title_en").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_experience_sections_hotel").on(table.hotelId),
+    hotelSlugUnique: uniqueIndex("experience_sections_hotel_slug_unique").on(table.hotelId, table.slug)
+  })
+);
+
+export const experienceItems = pgTable(
+  "experience_items",
+  {
+    id: text("id").primaryKey(),
+    sectionId: text("section_id")
+      .notNull()
+      .references(() => experienceSections.id, { onDelete: "cascade" }),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    imageUrl: text("image_url").notNull(),
+    linkUrl: text("link_url"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    sectionIdx: index("idx_experience_items_section").on(table.sectionId),
+    hotelIdx: index("idx_experience_items_hotel").on(table.hotelId)
   })
 );

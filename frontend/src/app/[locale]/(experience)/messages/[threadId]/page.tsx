@@ -91,6 +91,8 @@ export default function ThreadPage({ params }: ThreadPageProps) {
       setThread((await threadRes.json()) as Thread);
       const data = (await messagesRes.json()) as { items?: Message[] };
       setMessages(Array.isArray(data.items) ? data.items : []);
+
+      window.dispatchEvent(new Event("mystay:refresh-unread"));
     } catch {
       setError("Backend unreachable. Start `npm run dev:backend` then refresh.");
     } finally {

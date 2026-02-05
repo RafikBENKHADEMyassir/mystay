@@ -44,7 +44,7 @@ export function getDemoSession(): DemoSession | null {
       hotelName: parsed.hotelName,
       stayId: parsed.stayId,
       confirmationNumber: parsed.confirmationNumber,
-      guestToken: parsed.guestToken,
+      guestToken: typeof parsed.guestToken === "string" ? parsed.guestToken : "",
       roomNumber: parsed.roomNumber ?? null,
       checkIn: typeof parsed.checkIn === "string" ? parsed.checkIn : parsed.checkIn ?? null,
       checkOut: typeof parsed.checkOut === "string" ? parsed.checkOut : parsed.checkOut ?? null,

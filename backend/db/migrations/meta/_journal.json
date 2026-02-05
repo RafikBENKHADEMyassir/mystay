@@ -43,6 +43,76 @@
       "when": 1737590400000,
       "tag": "0005_add_service_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1769328000000,
+      "tag": "0006_add_payment_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1769356800000,
+      "tag": "0007_add_pms_sync_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1769443200000,
+      "tag": "0008_add_audience_and_signup_forms",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1769529600000,
+      "tag": "0009_add_hotel_directory",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1769616000000,
+      "tag": "0010_add_automations_and_message_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1769702400000,
+      "tag": "0011_add_upsell_services",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1769788800000,
+      "tag": "0012_add_stay_pms_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1769497265131,
+      "tag": "0013_add_thread_read_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1769875200000,
+      "tag": "0014_add_room_images",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1769961600000,
+      "tag": "0015_add_experience_sections",
+      "breakpoints": true
     }
   ]
 }

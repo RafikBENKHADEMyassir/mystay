@@ -100,7 +100,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
     const status = String(formData.get("status") ?? "").trim();
     if (!statusOptions.includes(status)) {
-      redirect(`/inbox/${encodeURIComponent(ticketId)}?error=invalid_status`);
+      redirect(`/requests/${encodeURIComponent(ticketId)}?error=invalid_status`);
     }
 
     const token = requireStaffToken();
@@ -112,12 +112,11 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      const errorCode =
-        typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
-      redirect(`/inbox/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
+      const errorCode = typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
+      redirect(`/requests/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
     }
 
-    redirect(`/inbox/${encodeURIComponent(ticketId)}?saved=1`);
+    redirect(`/requests/${encodeURIComponent(ticketId)}?saved=1`);
   }
 
   async function takeOwnership() {
@@ -132,12 +131,11 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      const errorCode =
-        typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
-      redirect(`/inbox/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
+      const errorCode = typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
+      redirect(`/requests/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
     }
 
-    redirect(`/inbox/${encodeURIComponent(ticketId)}?saved=1`);
+    redirect(`/requests/${encodeURIComponent(ticketId)}?saved=1`);
   }
 
   async function unassign() {
@@ -152,19 +150,18 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      const errorCode =
-        typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
-      redirect(`/inbox/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
+      const errorCode = typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
+      redirect(`/requests/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
     }
 
-    redirect(`/inbox/${encodeURIComponent(ticketId)}?saved=1`);
+    redirect(`/requests/${encodeURIComponent(ticketId)}?saved=1`);
   }
 
   async function addNote(formData: FormData) {
     "use server";
 
     const bodyText = String(formData.get("bodyText") ?? "").trim();
-    if (!bodyText) redirect(`/inbox/${encodeURIComponent(ticketId)}?error=missing_note`);
+    if (!bodyText) redirect(`/requests/${encodeURIComponent(ticketId)}?error=missing_note`);
 
     const token = requireStaffToken();
     const response = await fetch(`${backendUrl}/api/v1/tickets/${encodeURIComponent(ticketId)}/notes`, {
@@ -176,12 +173,11 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      const errorCode =
-        typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
-      redirect(`/inbox/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
+      const errorCode = typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
+      redirect(`/requests/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
     }
 
-    redirect(`/inbox/${encodeURIComponent(ticketId)}?saved=1`);
+    redirect(`/requests/${encodeURIComponent(ticketId)}?saved=1`);
   }
 
   if (!ticket) {
@@ -193,7 +189,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
             <h1 className="text-2xl font-semibold">Ticket</h1>
           </div>
           <Button variant="outline" asChild>
-            <Link href="/inbox">Back to inbox</Link>
+            <Link href="/requests">Back to requests</Link>
           </Button>
         </header>
 
@@ -231,7 +227,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
             <Badge variant="outline">Unassigned</Badge>
           )}
           <Button variant="outline" asChild>
-            <Link href="/inbox">Back to inbox</Link>
+            <Link href="/requests">Back to requests</Link>
           </Button>
         </div>
       </header>
@@ -351,3 +347,4 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
     </div>
   );
 }
+

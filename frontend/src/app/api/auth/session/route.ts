@@ -6,11 +6,12 @@ export async function GET() {
   const session = await getSession();
 
   if (!session?.user) {
-    return NextResponse.json({ authenticated: false, user: null, stay: null });
+    return NextResponse.json({ authenticated: false, user: null, stay: null, backendToken: null });
   }
 
   return NextResponse.json({
     authenticated: true,
+    backendToken: session.backendToken ?? null,
     user: {
       guestId: session.user.guestId,
       firstName: session.user.firstName,

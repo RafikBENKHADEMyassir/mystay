@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Building2, Palette, MapPin, Globe, Save, Users } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Building2, Palette, MapPin, Globe, Save, Users, Upload, X } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,10 @@ export default function HotelSettingsPage() {
     currency: "EUR",
     starRating: ""
   });
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function loadHotel() {
@@ -112,6 +116,53 @@ export default function HotelSettingsPage() {
   function handleChange(field: keyof FormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setSuccess(null);
+  }
+
+  async function handleFileUpload(file: File, type: "logo" | "cover") {
+    const setUploading = type === "logo" ? setIsUploadingLogo : setIsUploadingCover;
+    
+    try {
+      setUploading(true);
+      setError(null);
+
+      const formData = new window.FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to upload file");
+      }
+
+      const data = await response.json();
+      const field = type === "logo" ? "logoUrl" : "coverImageUrl";
+      handleChange(field, data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload file");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "cover") {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file, type);
+    }
+  }
+
+  function clearImage(type: "logo" | "cover") {
+    const field = type === "logo" ? "logoUrl" : "coverImageUrl";
+    handleChange(field, "");
+    if (type === "logo" && logoInputRef.current) {
+      logoInputRef.current.value = "";
+    } else if (type === "cover" && coverInputRef.current) {
+      coverInputRef.current.value = "";
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -302,23 +353,104 @@ export default function HotelSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
+              {/* Logo Upload */}
               <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo URL</Label>
-                <Input
-                  id="logoUrl"
-                  value={form.logoUrl}
-                  onChange={(e) => handleChange("logoUrl", e.target.value)}
-                  placeholder="https://..."
-                />
+                <Label htmlFor="logoFile">Logo</Label>
+                <div className="space-y-2">
+                  <input
+                    ref={logoInputRef}
+                    id="logoFile"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/svg+xml"
+                    onChange={(e) => handleFileInputChange(e, "logo")}
+                    className="hidden"
+                  />
+                  {form.logoUrl ? (
+                    <div className="relative flex items-center gap-2 rounded-md border border-input bg-background p-3">
+                      <img
+                        src={form.logoUrl}
+                        alt="Logo preview"
+                        className="h-16 w-16 rounded object-contain"
+                      />
+                      <div className="flex-1 truncate text-sm text-muted-foreground">
+                        {form.logoUrl.split("/").pop()}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => clearImage("logo")}
+                        disabled={isUploadingLogo}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={isUploadingLogo}
+                      className="w-full"
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {isUploadingLogo ? "Uploading..." : "Upload Logo"}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  JPEG, PNG, WebP, or SVG. Max 5MB.
+                </p>
               </div>
+
+              {/* Cover Image Upload */}
               <div className="space-y-2">
-                <Label htmlFor="coverImageUrl">Cover Image URL</Label>
-                <Input
-                  id="coverImageUrl"
-                  value={form.coverImageUrl}
-                  onChange={(e) => handleChange("coverImageUrl", e.target.value)}
-                  placeholder="https://..."
-                />
+                <Label htmlFor="coverFile">Cover Image</Label>
+                <div className="space-y-2">
+                  <input
+                    ref={coverInputRef}
+                    id="coverFile"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/svg+xml"
+                    onChange={(e) => handleFileInputChange(e, "cover")}
+                    className="hidden"
+                  />
+                  {form.coverImageUrl ? (
+                    <div className="relative flex items-center gap-2 rounded-md border border-input bg-background p-3">
+                      <img
+                        src={form.coverImageUrl}
+                        alt="Cover preview"
+                        className="h-16 w-16 rounded object-cover"
+                      />
+                      <div className="flex-1 truncate text-sm text-muted-foreground">
+                        {form.coverImageUrl.split("/").pop()}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => clearImage("cover")}
+                        disabled={isUploadingCover}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={isUploadingCover}
+                      className="w-full"
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {isUploadingCover ? "Uploading..." : "Upload Cover Image"}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  JPEG, PNG, WebP, or SVG. Max 5MB.
+                </p>
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">

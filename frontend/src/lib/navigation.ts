@@ -4,19 +4,20 @@ import {
   CalendarRange,
   ConciergeBell,
   Dumbbell,
-  LayoutDashboard,
+  LayoutGrid,
   MessageCircle,
   Settings2,
   UserRound,
   Utensils,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Wand2
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const iconMap = {
-  overview: LayoutDashboard,
+  overview: LayoutGrid, // Changed to match Figma grid icon
   agenda: CalendarRange,
-  concierge: ConciergeBell,
+  concierge: Wand2, // Changed to match Figma services wand icon
   housekeeping: Brush,
   "room-service": UtensilsCrossed,
   "spa-gym": Dumbbell,

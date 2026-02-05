@@ -15,6 +15,14 @@ class PMSConnector {
     this.config = config;
   }
 
+  buildBasicAuthHeader() {
+    const username = typeof this.config?.username === "string" ? this.config.username : "";
+    const password = typeof this.config?.password === "string" ? this.config.password : "";
+    if (!username || !password) return {};
+    const auth = Buffer.from(`${username}:${password}`).toString("base64");
+    return { Authorization: `Basic ${auth}` };
+  }
+
   /**
    * Test the connection to the PMS
    * @returns {Promise<Object>} Connection status
@@ -54,6 +62,55 @@ class PMSConnector {
         return this.getCloudbedsReservation(confirmationNumber);
       case "mock":
         return this.getMockReservation(confirmationNumber);
+      default:
+        throw new Error(`Unsupported PMS provider: ${this.provider}`);
+    }
+  }
+
+  /**
+   * List reservations for the current hotel/property
+   * @param {Object} filters
+   * @returns {Promise<Array>} Normalized reservations
+   */
+  async listReservations(filters = {}) {
+    switch (this.provider) {
+      case "opera":
+        return this.listOperaReservations(filters);
+      case "mock":
+        return this.listMockReservations(filters);
+      default:
+        throw new Error(`Unsupported PMS provider: ${this.provider}`);
+    }
+  }
+
+  /**
+   * Create a reservation in the PMS
+   * @param {Object} payload
+   * @returns {Promise<Object>} Normalized reservation
+   */
+  async createReservation(payload) {
+    switch (this.provider) {
+      case "opera":
+        return this.createOperaReservation(payload);
+      case "mock":
+        return this.createMockReservation(payload);
+      default:
+        throw new Error(`Unsupported PMS provider: ${this.provider}`);
+    }
+  }
+
+  /**
+   * Update a reservation in the PMS
+   * @param {string} reservationId
+   * @param {Object} patch
+   * @returns {Promise<Object>} Normalized reservation
+   */
+  async updateReservation(reservationId, patch) {
+    switch (this.provider) {
+      case "opera":
+        return this.updateOperaReservation(reservationId, patch);
+      case "mock":
+        return this.updateMockReservation(reservationId, patch);
       default:
         throw new Error(`Unsupported PMS provider: ${this.provider}`);
     }
@@ -102,16 +159,13 @@ class PMSConnector {
 
   // Opera Cloud Property API implementations
   async getOperaReservation(confirmationNumber) {
-    const { baseUrl, resortId, username, password } = this.config;
-    const auth = Buffer.from(`${username}:${password}`).toString("base64");
+    const { baseUrl, resortId } = this.config;
+    const headers = { ...this.buildBasicAuthHeader(), "Content-Type": "application/json" };
 
     const response = await fetch(
-      `${baseUrl}/v1/hotels/${resortId}/reservations?confirmationNumber=${confirmationNumber}`,
+      `${baseUrl}/v1/hotels/${resortId}/reservations?confirmationNumber=${encodeURIComponent(confirmationNumber)}`,
       {
-        headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/json",
-        },
+        headers
       }
     );
 
@@ -120,7 +174,8 @@ class PMSConnector {
     }
 
     const data = await response.json();
-    return this.normalizeReservation(data, "opera");
+    const reservation = Array.isArray(data?.reservations) ? data.reservations[0] : data?.reservation ?? null;
+    return reservation ? this.normalizeReservation(reservation, "opera") : null;
   }
 
   async getOperaFolio(reservationId) {
@@ -166,6 +221,69 @@ class PMSConnector {
     }
 
     return await response.json();
+  }
+
+  async listOperaReservations(filters = {}) {
+    const { baseUrl, resortId } = this.config;
+    const url = new URL(`${baseUrl}/v1/hotels/${resortId}/reservations`);
+
+    if (typeof filters.confirmationNumber === "string" && filters.confirmationNumber.trim()) {
+      url.searchParams.set("confirmationNumber", filters.confirmationNumber.trim());
+    }
+    if (typeof filters.guestEmail === "string" && filters.guestEmail.trim()) {
+      url.searchParams.set("guestEmail", filters.guestEmail.trim());
+    }
+    if (typeof filters.status === "string" && filters.status.trim()) {
+      url.searchParams.set("status", filters.status.trim());
+    }
+
+    const response = await fetch(url.toString(), {
+      headers: { ...this.buildBasicAuthHeader(), "Content-Type": "application/json" }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Opera API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const reservations = Array.isArray(data?.reservations) ? data.reservations : [];
+    return reservations.map((reservation) => this.normalizeReservation(reservation, "opera"));
+  }
+
+  async createOperaReservation(payload) {
+    const { baseUrl, resortId } = this.config;
+    const response = await fetch(`${baseUrl}/v1/hotels/${resortId}/reservations`, {
+      method: "POST",
+      headers: { ...this.buildBasicAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload ?? {})
+    });
+
+    if (!response.ok) {
+      throw new Error(`Opera API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const reservation = data?.reservation ?? null;
+    if (!reservation) return null;
+    return this.normalizeReservation(reservation, "opera");
+  }
+
+  async updateOperaReservation(reservationId, patch) {
+    const { baseUrl, resortId } = this.config;
+    const response = await fetch(`${baseUrl}/v1/hotels/${resortId}/reservations/${encodeURIComponent(reservationId)}`, {
+      method: "PATCH",
+      headers: { ...this.buildBasicAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify(patch ?? {})
+    });
+
+    if (!response.ok) {
+      throw new Error(`Opera API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const reservation = data?.reservation ?? null;
+    if (!reservation) return null;
+    return this.normalizeReservation(reservation, "opera");
   }
 
   // Mews API implementations
@@ -369,6 +487,62 @@ class PMSConnector {
     }
     
     return this.normalizeReservation(reservation, "mock");
+  }
+
+  async listMockReservations(filters = {}) {
+    const { baseUrl, resortId } = this.config;
+    const url = new URL(`${baseUrl}/v1/hotels/${resortId}/reservations`);
+    if (typeof filters.confirmationNumber === "string" && filters.confirmationNumber.trim()) {
+      url.searchParams.set("confirmationNumber", filters.confirmationNumber.trim());
+    }
+    if (typeof filters.guestEmail === "string" && filters.guestEmail.trim()) {
+      url.searchParams.set("guestEmail", filters.guestEmail.trim());
+    }
+    if (typeof filters.status === "string" && filters.status.trim()) {
+      url.searchParams.set("status", filters.status.trim());
+    }
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`Mock PMS error: ${response.statusText}`);
+    }
+    const data = await response.json();
+    const reservations = Array.isArray(data?.reservations) ? data.reservations : [];
+    return reservations.map((reservation) => this.normalizeReservation(reservation, "mock"));
+  }
+
+  async createMockReservation(payload) {
+    const { baseUrl, resortId } = this.config;
+    const response = await fetch(`${baseUrl}/v1/hotels/${resortId}/reservations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload ?? {})
+    });
+
+    if (!response.ok) {
+      throw new Error(`Mock PMS error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const reservation = data?.reservation ?? null;
+    return reservation ? this.normalizeReservation(reservation, "mock") : null;
+  }
+
+  async updateMockReservation(reservationId, patch) {
+    const { baseUrl, resortId } = this.config;
+    const response = await fetch(`${baseUrl}/v1/hotels/${resortId}/reservations/${encodeURIComponent(reservationId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch ?? {})
+    });
+
+    if (!response.ok) {
+      throw new Error(`Mock PMS error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const reservation = data?.reservation ?? null;
+    return reservation ? this.normalizeReservation(reservation, "mock") : null;
   }
 
   async getMockFolio(reservationId) {
@@ -641,9 +815,13 @@ class PMSConnector {
   normalizeReservation(data, provider) {
     // Transform provider-specific data to standard format
     const guest = data.guest || {};
+    const guestFirstName = data.guestFirstName ?? guest.firstName ?? null;
+    const guestLastName = data.guestLastName ?? guest.lastName ?? null;
     return {
       id: data.id || data.reservationId,
       confirmationNumber: data.confirmationNumber,
+      guestFirstName,
+      guestLastName,
       guestName: data.guestName || `${guest.firstName || ""} ${guest.lastName || ""}`.trim() || guest.name,
       guestEmail: data.guestEmail || guest.email,
       guestPhone: data.guestPhone || guest.phone,

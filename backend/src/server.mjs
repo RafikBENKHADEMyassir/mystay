@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
+import { createReadStream, existsSync } from "node:fs";
+import { writeFile, mkdir } from "node:fs/promises";
+import { join, extname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { hashPassword, verifyPassword } from "./auth/password.mjs";
 import { signToken, verifyToken } from "./auth/token.mjs";
@@ -52,12 +56,22 @@ function sendJson(res, status, payload) {
   res.end(body);
 }
 
+function sendText(res, status, body, { contentType = "text/plain; charset=utf-8", headers = {} } = {}) {
+  const buffer = Buffer.from(body ?? "", "utf8");
+  res.writeHead(status, {
+    "Content-Type": contentType,
+    "Content-Length": buffer.length,
+    ...headers
+  });
+  res.end(buffer);
+}
+
 function setCors(req, res) {
   const origin = req.headers.origin;
   const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : "*";
 
   res.setHeader("Access-Control-Allow-Origin", allowOrigin);
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Max-Age", "600");
   if (allowOrigin !== "*") res.setHeader("Vary", "Origin");
@@ -82,6 +96,160 @@ function addEqualsFilter(where, params, column, value) {
   if (!normalized) return;
   params.push(normalized);
   where.push(`${column} = $${params.length}`);
+}
+
+function parseIsoDate(value) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  if (!normalized) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+  const date = new Date(`${normalized}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  if (date.toISOString().slice(0, 10) !== normalized) return null;
+  return normalized;
+}
+
+function parsePositiveInt(value, fallback) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  const asInt = Math.floor(parsed);
+  if (asInt <= 0) return fallback;
+  return asInt;
+}
+
+function normalizeText(value) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  return raw || null;
+}
+
+function normalizeEmail(value) {
+  const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return raw || null;
+}
+
+function normalizeDateLike(value) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+  const date = raw.slice(0, 10);
+  return parseIsoDate(date);
+}
+
+function toAmountCents(amount) {
+  if (typeof amount !== "number" || !Number.isFinite(amount)) return 0;
+  return Math.round(amount * 100);
+}
+
+async function resolveGuestIdByEmail(email) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return null;
+  const guestRows = await query(`SELECT id FROM guests WHERE LOWER(email) = $1 LIMIT 1`, [normalized]);
+  return typeof guestRows[0]?.id === "string" && guestRows[0].id.trim() ? guestRows[0].id.trim() : null;
+}
+
+async function upsertStayFromPmsReservation(hotelId, reservation) {
+  if (!reservation || typeof reservation !== "object") throw new Error("invalid_reservation");
+
+  const confirmationNumber = normalizeText(reservation.confirmationNumber);
+  if (!confirmationNumber) throw new Error("missing_confirmation_number");
+
+  const checkInDate = normalizeDateLike(reservation.checkInDate);
+  const checkOutDate = normalizeDateLike(reservation.checkOutDate);
+  if (!checkInDate || !checkOutDate) throw new Error("invalid_stay_dates");
+
+  const pmsReservationId = normalizeText(reservation.id);
+  const pmsStatus = normalizeText(reservation.status);
+
+  const guestFirstName = normalizeText(reservation.guestFirstName);
+  const guestLastName = normalizeText(reservation.guestLastName);
+  const guestEmail = normalizeEmail(reservation.guestEmail);
+  const guestPhone = normalizeText(reservation.guestPhone);
+
+  const roomNumber = normalizeText(reservation.roomNumber);
+  const adults = typeof reservation.adults === "number" && reservation.adults > 0 ? Math.floor(reservation.adults) : 1;
+  const children = typeof reservation.children === "number" && reservation.children >= 0 ? Math.floor(reservation.children) : 0;
+
+  const linkedGuestId = await resolveGuestIdByEmail(guestEmail);
+
+  const stayId = `S-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+  const rows = await query(
+    `
+      INSERT INTO stays (
+        id,
+        hotel_id,
+        guest_id,
+        confirmation_number,
+        pms_reservation_id,
+        pms_status,
+        guest_first_name,
+        guest_last_name,
+        guest_email,
+        guest_phone,
+        room_number,
+        check_in,
+        check_out,
+        adults,
+        children,
+        created_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14, $15, NOW(), NOW())
+      ON CONFLICT (confirmation_number) DO UPDATE
+      SET
+        guest_id = COALESCE(stays.guest_id, EXCLUDED.guest_id),
+        pms_reservation_id = COALESCE(NULLIF(EXCLUDED.pms_reservation_id, ''), stays.pms_reservation_id),
+        pms_status = COALESCE(NULLIF(EXCLUDED.pms_status, ''), stays.pms_status),
+        guest_first_name = COALESCE(NULLIF(EXCLUDED.guest_first_name, ''), stays.guest_first_name),
+        guest_last_name = COALESCE(NULLIF(EXCLUDED.guest_last_name, ''), stays.guest_last_name),
+        guest_email = COALESCE(NULLIF(EXCLUDED.guest_email, ''), stays.guest_email),
+        guest_phone = COALESCE(NULLIF(EXCLUDED.guest_phone, ''), stays.guest_phone),
+        room_number = COALESCE(EXCLUDED.room_number, stays.room_number),
+        check_in = EXCLUDED.check_in,
+        check_out = EXCLUDED.check_out,
+        adults = EXCLUDED.adults,
+        children = EXCLUDED.children,
+        updated_at = NOW()
+      WHERE stays.hotel_id = EXCLUDED.hotel_id
+      RETURNING
+        id,
+        hotel_id AS "hotelId",
+        guest_id AS "guestId",
+        confirmation_number AS "confirmationNumber",
+        pms_reservation_id AS "pmsReservationId",
+        pms_status AS "pmsStatus"
+    `,
+    [
+      stayId,
+      hotelId,
+      linkedGuestId,
+      confirmationNumber,
+      pmsReservationId,
+      pmsStatus,
+      guestFirstName,
+      guestLastName,
+      guestEmail,
+      guestPhone,
+      roomNumber,
+      checkInDate,
+      checkOutDate,
+      adults,
+      children
+    ]
+  );
+
+  if (rows.length === 0) {
+    throw new Error("stay_upsert_conflict");
+  }
+
+  return rows[0];
+}
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return "";
+  const raw = String(value);
+  if (!/[",\n\r]/.test(raw)) return raw;
+  return `"${raw.replace(/"/g, '""')}"`;
 }
 
 function getRequestToken(req, url) {
@@ -358,6 +526,134 @@ async function handleRequest(req, res) {
   if (req.method === "GET" && url.pathname === "/health") {
     sendJson(res, 200, { ok: true, service: "mystay-backend", time: new Date().toISOString() });
     return;
+  }
+
+  // Serve static files from /uploads
+  if (req.method === "GET" && url.pathname.startsWith("/uploads/")) {
+    const backendDir = join(fileURLToPath(import.meta.url), "../..");
+    const uploadsDir = join(backendDir, "public", "uploads");
+    const filename = url.pathname.substring("/uploads/".length);
+    const filepath = join(uploadsDir, filename);
+
+    // Security: prevent path traversal
+    if (!filepath.startsWith(uploadsDir)) {
+      res.writeHead(403);
+      res.end("Forbidden");
+      return;
+    }
+
+    if (!existsSync(filepath)) {
+      res.writeHead(404);
+      res.end("Not Found");
+      return;
+    }
+
+    const ext = extname(filepath).toLowerCase();
+    const mimeTypes = {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".webp": "image/webp",
+      ".svg": "image/svg+xml"
+    };
+    const contentType = mimeTypes[ext] || "application/octet-stream";
+
+    res.writeHead(200, { "Content-Type": contentType });
+    createReadStream(filepath).pipe(res);
+    return;
+  }
+
+  // Upload endpoint
+  if (req.method === "POST" && url.pathname === "/api/v1/upload") {
+    try {
+      const contentType = req.headers["content-type"] || "";
+      if (!contentType.includes("multipart/form-data")) {
+        sendJson(res, 400, { error: "Content-Type must be multipart/form-data" });
+        return;
+      }
+
+      const boundary = contentType.split("boundary=")[1];
+      if (!boundary) {
+        sendJson(res, 400, { error: "Missing boundary in Content-Type" });
+        return;
+      }
+
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const buffer = Buffer.concat(chunks);
+
+      // Parse multipart form data
+      const boundaryBuffer = Buffer.from(`--${boundary}`);
+      const parts = [];
+      let start = 0;
+      while (true) {
+        const pos = buffer.indexOf(boundaryBuffer, start);
+        if (pos === -1) break;
+        if (start > 0) {
+          parts.push(buffer.slice(start, pos));
+        }
+        start = pos + boundaryBuffer.length;
+      }
+
+      // Find file part
+      let fileData = null;
+      let filename = null;
+      for (const part of parts) {
+        const headerEnd = part.indexOf(Buffer.from("\r\n\r\n"));
+        if (headerEnd === -1) continue;
+
+        const headers = part.slice(0, headerEnd).toString();
+        const filenameMatch = headers.match(/filename="([^"]+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+          fileData = part.slice(headerEnd + 4, part.length - 2); // Remove \r\n at end
+          break;
+        }
+      }
+
+      if (!fileData || !filename) {
+        sendJson(res, 400, { error: "No file provided" });
+        return;
+      }
+
+      // Validate file size (5MB max)
+      if (fileData.length > 5 * 1024 * 1024) {
+        sendJson(res, 400, { error: "File too large. Maximum size is 5MB." });
+        return;
+      }
+
+      // Validate file type
+      const ext = extname(filename).toLowerCase();
+      const allowedExts = [".jpg", ".jpeg", ".png", ".webp", ".svg"];
+      if (!allowedExts.includes(ext)) {
+        sendJson(res, 400, { error: "Invalid file type. Only JPEG, PNG, WebP, and SVG are allowed." });
+        return;
+      }
+
+      // Save file
+      const backendDir = join(fileURLToPath(import.meta.url), "../..");
+      const uploadsDir = join(backendDir, "public", "uploads");
+      if (!existsSync(uploadsDir)) {
+        await mkdir(uploadsDir, { recursive: true });
+      }
+
+      const timestamp = Date.now();
+      const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const newFilename = `${timestamp}-${safeFilename}`;
+      const filepath = join(uploadsDir, newFilename);
+
+      await writeFile(filepath, fileData);
+
+      const url = `/uploads/${newFilename}`;
+      sendJson(res, 200, { url });
+      return;
+    } catch (error) {
+      console.error("Upload error:", error);
+      sendJson(res, 500, { error: "Failed to upload file" });
+      return;
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/v1/auth/staff/login") {
@@ -684,80 +980,82 @@ async function handleRequest(req, res) {
       [confirmationNumber]
     );
 
-    let stay = stayRows[0];
+    let stay = stayRows[0] ?? null;
 
-    // If stay doesn't exist, try to look it up from PMS
+    // If stay doesn't exist, try to locate it via PMS and upsert into cache
     if (!stay) {
-      // Try to find an appropriate hotel
-      const hotels = await query(`SELECT id FROM hotels ORDER BY name ASC LIMIT 1`);
-      if (!hotels[0]) {
+      const hotels = await query(`SELECT id FROM hotels ORDER BY name ASC LIMIT 50`);
+      let matchedHotelId = null;
+      let matchedReservation = null;
+
+      for (const hotel of hotels) {
+        const hotelId = typeof hotel?.id === "string" ? hotel.id.trim() : "";
+        if (!hotelId) continue;
+        try {
+          const integrations = await getHotelIntegrations(hotelId);
+          const integrationManager = new IntegrationManager(integrations);
+          const reservation = await integrationManager.getPMS().getReservation(confirmationNumber);
+          if (reservation) {
+            matchedHotelId = hotelId;
+            matchedReservation = reservation;
+            break;
+          }
+        } catch {
+          // Ignore PMS errors for individual hotels; try the next one.
+        }
+      }
+
+      if (!matchedHotelId || !matchedReservation) {
         sendJson(res, 404, { error: "stay_not_found" });
         return;
       }
 
-      const hotelId = hotels[0].id;
-      const integrations = await getHotelIntegrations(hotelId);
-      const integrationManager = new IntegrationManager(integrations);
-
-      let reservation = null;
       try {
-        reservation = await integrationManager.getPMS().getReservation(confirmationNumber);
+        await upsertStayFromPmsReservation(matchedHotelId, matchedReservation);
       } catch (error) {
-        console.error("pms_lookup_failed", error);
-        sendJson(res, 404, { error: "stay_not_found" });
+        console.error("stay_upsert_failed", error);
+        sendJson(res, 502, { error: "pms_sync_failed" });
         return;
       }
 
-      if (!reservation) {
-        sendJson(res, 404, { error: "stay_not_found" });
-        return;
-      }
-
-      const checkIn = typeof reservation?.checkInDate === "string" ? reservation.checkInDate.trim() : "";
-      const checkOut = typeof reservation?.checkOutDate === "string" ? reservation.checkOutDate.trim() : "";
-      const roomNumber = typeof reservation?.roomNumber === "string" ? reservation.roomNumber.trim() : null;
-
-      if (!checkIn || !checkOut) {
-        sendJson(res, 404, { error: "stay_not_found" });
-        return;
-      }
-
-      const stayId = `S-${randomUUID().slice(0, 8).toUpperCase()}`;
-      await query(
+      const refreshedRows = await query(
         `
-          INSERT INTO stays (
-            id, hotel_id, guest_id, confirmation_number, room_number, check_in, check_out, adults, children
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          SELECT
+            s.id AS "stayId",
+            s.hotel_id AS "hotelId",
+            s.guest_id AS "guestId",
+            s.confirmation_number AS "confirmationNumber",
+            s.room_number AS "roomNumber",
+            s.check_in AS "checkIn",
+            s.check_out AS "checkOut",
+            s.adults,
+            s.children,
+            h.name AS "hotelName"
+          FROM stays s
+          JOIN hotels h ON h.id = s.hotel_id
+          WHERE s.confirmation_number = $1
+          LIMIT 1
         `,
-        [stayId, hotelId, principal.guestId, confirmationNumber, roomNumber, checkIn, checkOut, 1, 0]
+        [confirmationNumber]
       );
+      stay = refreshedRows[0] ?? null;
+    }
 
-      const hotelRow = await query(`SELECT name FROM hotels WHERE id = $1`, [hotelId]);
-      stay = {
-        stayId,
-        hotelId,
-        guestId: principal.guestId,
-        confirmationNumber,
-        roomNumber,
-        checkIn,
-        checkOut,
-        adults: 1,
-        children: 0,
-        hotelName: hotelRow[0]?.name ?? "Hotel"
-      };
-    } else {
-      // Stay exists - check if already linked to another guest
-      if (stay.guestId && stay.guestId !== principal.guestId) {
-        sendJson(res, 409, { error: "reservation_already_linked" });
-        return;
-      }
+    if (!stay) {
+      sendJson(res, 404, { error: "stay_not_found" });
+      return;
+    }
 
-      // Link to this guest
-      if (!stay.guestId) {
-        await query(`UPDATE stays SET guest_id = $1, updated_at = NOW() WHERE id = $2`, [principal.guestId, stay.stayId]);
-        stay.guestId = principal.guestId;
-      }
+    // Stay exists - check if already linked to another guest
+    if (stay.guestId && stay.guestId !== principal.guestId) {
+      sendJson(res, 409, { error: "reservation_already_linked" });
+      return;
+    }
+
+    // Link to this guest
+    if (!stay.guestId) {
+      await query(`UPDATE stays SET guest_id = $1, updated_at = NOW() WHERE id = $2`, [principal.guestId, stay.stayId]);
+      stay.guestId = principal.guestId;
     }
 
     // Generate a new token with the hotel/stay context
@@ -815,6 +1113,117 @@ async function handleRequest(req, res) {
     );
 
     sendJson(res, 200, { items: hotelRows });
+    return;
+  }
+
+  // =====================================================
+  // PUBLIC: PAY BY LINK
+  // =====================================================
+
+  // GET /api/v1/public/payment-links/:token - Fetch payment link details (public)
+  const publicPaymentLinkMatch = url.pathname.match(/^\/api\/v1\/public\/payment-links\/([^/]+)$/);
+  if (req.method === "GET" && publicPaymentLinkMatch) {
+    const token = decodeURIComponent(publicPaymentLinkMatch[1]);
+    if (!token) {
+      sendJson(res, 400, { error: "missing_token" });
+      return;
+    }
+
+    const rows = await query(
+      `
+        SELECT
+          pl.id,
+          pl.hotel_id AS "hotelId",
+          h.name AS "hotelName",
+          pl.amount_cents AS "amountCents",
+          pl.currency,
+          pl.reason_text AS "reasonText",
+          pl.payment_status AS "paymentStatus",
+          pl.expires_at AS "expiresAt",
+          pl.created_at AS "createdAt"
+        FROM payment_links pl
+        JOIN hotels h ON h.id = pl.hotel_id
+        WHERE pl.public_token = $1
+        LIMIT 1
+      `,
+      [token]
+    );
+
+    const row = rows[0] ?? null;
+    if (!row) {
+      sendJson(res, 404, { error: "payment_link_not_found" });
+      return;
+    }
+
+    const now = new Date();
+    const isExpired = row.paymentStatus !== "paid" && row.expiresAt && new Date(row.expiresAt).getTime() <= now.getTime();
+    const paymentStatus = isExpired ? "expired" : row.paymentStatus;
+
+    sendJson(res, 200, {
+      id: row.id,
+      hotel: { id: row.hotelId, name: row.hotelName },
+      amountCents: row.amountCents,
+      currency: row.currency,
+      reasonText: row.reasonText,
+      paymentStatus,
+      expiresAt: row.expiresAt,
+      createdAt: row.createdAt
+    });
+    return;
+  }
+
+  // POST /api/v1/public/payment-links/:token/pay - Simulate payment completion (public)
+  const publicPaymentLinkPayMatch = url.pathname.match(/^\/api\/v1\/public\/payment-links\/([^/]+)\/pay$/);
+  if (req.method === "POST" && publicPaymentLinkPayMatch) {
+    const token = decodeURIComponent(publicPaymentLinkPayMatch[1]);
+    if (!token) {
+      sendJson(res, 400, { error: "missing_token" });
+      return;
+    }
+
+    const rows = await query(
+      `
+        SELECT
+          id,
+          hotel_id AS "hotelId",
+          payment_status AS "paymentStatus",
+          expires_at AS "expiresAt"
+        FROM payment_links
+        WHERE public_token = $1
+        LIMIT 1
+      `,
+      [token]
+    );
+
+    const row = rows[0] ?? null;
+    if (!row) {
+      sendJson(res, 404, { error: "payment_link_not_found" });
+      return;
+    }
+
+    const now = new Date();
+    const isExpired =
+      row.paymentStatus !== "paid" && row.expiresAt && new Date(row.expiresAt).getTime() <= now.getTime();
+    if (isExpired || row.paymentStatus === "expired") {
+      sendJson(res, 400, { error: "payment_link_expired" });
+      return;
+    }
+
+    if (row.paymentStatus === "paid") {
+      sendJson(res, 200, { ok: true, status: "paid" });
+      return;
+    }
+
+    await query(
+      `
+        UPDATE payment_links
+        SET payment_status = 'paid', paid_at = NOW(), updated_at = NOW()
+        WHERE id = $1
+      `,
+      [row.id]
+    );
+
+    sendJson(res, 200, { ok: true, status: "paid" });
     return;
   }
 
@@ -877,6 +1286,39 @@ async function handleRequest(req, res) {
     res.flushHeaders?.();
 
     const unsubscribe = subscribeMessages({ res, threadId, hotelId: scope.hotelId });
+    req.on("close", () => {
+      unsubscribe();
+    });
+	    return;
+	  }
+
+  // GET /api/v1/realtime/stay - SSE endpoint for guest stay-level events (messages, threads)
+  if (req.method === "GET" && url.pathname === "/api/v1/realtime/stay") {
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    if (!principal.hotelId || !principal.stayId) {
+      sendJson(res, 400, { error: "missing_stay_context" });
+      return;
+    }
+
+    try {
+      await ensureRealtimeListener();
+    } catch {
+      sendJson(res, 500, { error: "realtime_unavailable" });
+      return;
+    }
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no"
+    });
+    res.write(": connected\n\n");
+    res.flushHeaders?.();
+
+    const unsubscribe = subscribeMessages({ res, hotelId: principal.hotelId, stayId: principal.stayId });
     req.on("close", () => {
       unsubscribe();
     });
@@ -1317,6 +1759,178 @@ async function handleRequest(req, res) {
   }
 
   // =====================================================
+  // PMS SYNC MONITORING (platform admin)
+  // =====================================================
+
+  // GET /api/v1/admin/hotels/:hotelId/pms-sync - PMS sync status + recent runs
+  if (req.method === "GET" && url.pathname.match(/^\/api\/v1\/admin\/hotels\/[^/]+\/pms-sync$/)) {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    const hotelId = url.pathname.split("/")[5];
+
+    const hotels = await query(`SELECT id, name FROM hotels WHERE id = $1 LIMIT 1`, [hotelId]);
+    const hotel = hotels[0] ?? null;
+    if (!hotel) {
+      sendJson(res, 404, { error: "hotel_not_found" });
+      return;
+    }
+
+    const latestRows = await query(
+      `
+        SELECT
+          id,
+          status,
+          started_at AS "startedAt",
+          finished_at AS "finishedAt",
+          summary,
+          error_message AS "errorMessage",
+          error_details AS "errorDetails"
+        FROM pms_sync_runs
+        WHERE hotel_id = $1
+        ORDER BY started_at DESC
+        LIMIT 1
+      `,
+      [hotelId]
+    );
+
+    const runs = await query(
+      `
+        SELECT
+          id,
+          status,
+          started_at AS "startedAt",
+          finished_at AS "finishedAt",
+          summary,
+          error_message AS "errorMessage"
+        FROM pms_sync_runs
+        WHERE hotel_id = $1
+        ORDER BY started_at DESC
+        LIMIT 25
+      `,
+      [hotelId]
+    );
+
+    sendJson(res, 200, {
+      hotel: { id: hotel.id, name: hotel.name },
+      latest: latestRows[0] ?? null,
+      runs
+    });
+    return;
+  }
+
+  // POST /api/v1/admin/hotels/:hotelId/pms-sync/run - Trigger a PMS sync job
+  if (req.method === "POST" && url.pathname.match(/^\/api\/v1\/admin\/hotels\/[^/]+\/pms-sync\/run$/)) {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    const hotelId = url.pathname.split("/")[5];
+
+    const hotels = await query(`SELECT id, name FROM hotels WHERE id = $1 LIMIT 1`, [hotelId]);
+    const hotel = hotels[0] ?? null;
+    if (!hotel) {
+      sendJson(res, 404, { error: "hotel_not_found" });
+      return;
+    }
+
+    const runId = `PS-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const startedAtIso = new Date().toISOString();
+
+    await query(
+      `
+        INSERT INTO pms_sync_runs (id, hotel_id, status, started_at, summary)
+        VALUES ($1, $2, 'running', NOW(), $3::jsonb)
+      `,
+      [runId, hotelId, JSON.stringify({ triggeredAt: startedAtIso, triggeredBy: principal.sub })]
+    );
+
+    let status = "ok";
+    let errorMessage = null;
+    let errorDetails = null;
+    let summary = { triggeredAt: startedAtIso, triggeredBy: principal.sub };
+
+    try {
+      const integrations = await getHotelIntegrations(hotelId);
+      const provider = integrations?.pms?.provider ?? null;
+      const config = integrations?.pms?.config ?? {};
+
+      if (!provider || provider === "none") {
+        throw new Error("pms_not_configured");
+      }
+
+      if (!config?.baseUrl || !config?.resortId) {
+        throw new Error("pms_missing_config");
+      }
+
+      const integrationManager = new IntegrationManager(integrations);
+      const pms = integrationManager.getPMS();
+
+      const connection = await pms.testConnection();
+      if (!connection?.connected) {
+        const reason = typeof connection?.error === "string" ? connection.error : "connection_failed";
+        throw new Error(`pms_connection_failed:${reason}`);
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [arrivals, departures] = await Promise.all([
+        pms.getArrivals(today),
+        pms.getDepartures(today)
+      ]);
+
+      const reservationMap = new Map();
+      for (const reservation of [...(arrivals ?? []), ...(departures ?? [])]) {
+        const confirmationNumber =
+          typeof reservation?.confirmationNumber === "string" ? reservation.confirmationNumber.trim() : "";
+        if (!confirmationNumber) continue;
+        reservationMap.set(confirmationNumber, reservation);
+      }
+
+      let processed = 0;
+      let linkedGuests = 0;
+
+      for (const reservation of reservationMap.values()) {
+        const normalized = pms.normalizeReservation(reservation, provider);
+        try {
+          const stay = await upsertStayFromPmsReservation(hotelId, normalized);
+          processed += 1;
+          if (stay.guestId) linkedGuests += 1;
+        } catch (error) {
+          console.error("pms_sync_upsert_failed", error);
+        }
+      }
+
+      summary = {
+        ...summary,
+        provider,
+        resortId: config.resortId,
+        baseUrl: config.baseUrl,
+        connection,
+        fetchedAt: new Date().toISOString(),
+        fetched: { arrivals: Array.isArray(arrivals) ? arrivals.length : 0, departures: Array.isArray(departures) ? departures.length : 0 },
+        upserted: { stays: processed, linkedGuests }
+      };
+    } catch (error) {
+      status = "error";
+      errorMessage = error instanceof Error ? error.message : "sync_failed";
+      errorDetails = error instanceof Error ? error.stack ?? error.message : String(error);
+      summary = { ...summary, error: errorMessage };
+    }
+
+    await query(
+      `
+        UPDATE pms_sync_runs
+        SET status = $1, finished_at = NOW(), summary = $2::jsonb, error_message = $3, error_details = $4
+        WHERE id = $5 AND hotel_id = $6
+      `,
+      [status, JSON.stringify(summary), errorMessage, errorDetails, runId, hotelId]
+    );
+
+    sendJson(res, 200, { ok: status === "ok", runId, status, summary, error: errorMessage });
+    return;
+  }
+
+  // =====================================================
   // HOTEL STAFF MANAGEMENT ENDPOINTS
   // =====================================================
 
@@ -1601,7 +2215,7 @@ async function handleRequest(req, res) {
     const principal = requirePrincipal(req, res, url, ["staff"]);
     if (!principal) return;
 
-    if (principal.role !== "admin") {
+    if (principal.role !== "admin" && principal.role !== "manager") {
       sendJson(res, 403, { error: "forbidden" });
       return;
     }
@@ -2081,7 +2695,13 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (segments[0] === "api" && segments[1] === "v1" && segments[2] === "hotels" && segments[3]) {
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "hotels" &&
+    segments[3] &&
+    (segments.length === 4 || segments[4] === "integrations" || segments[4] === "notifications")
+  ) {
     const hotelId = decodeURIComponent(segments[3]);
     const principal = requirePrincipal(req, res, url, ["staff"]);
     if (!principal) return;
@@ -2354,39 +2974,15 @@ async function handleRequest(req, res) {
     const checkOut = typeof reservation?.checkOutDate === "string" ? reservation.checkOutDate.trim() : "";
 
     if (reservation && checkIn && checkOut) {
-      const roomNumber = typeof reservation?.roomNumber === "string" ? reservation.roomNumber.trim() : null;
-      const numberOfGuests =
-        typeof reservation?.numberOfGuests === "number" && Number.isFinite(reservation.numberOfGuests)
-          ? reservation.numberOfGuests
-          : 1;
-      const adults = Math.max(1, Math.floor(numberOfGuests));
-      const children = 0;
-
-      const stayId = stayRow?.stay_id ?? `S-${randomUUID().slice(0, 8).toUpperCase()}`;
-      await query(
-        `
-          INSERT INTO stays (
-            id,
-            hotel_id,
-            confirmation_number,
-            room_number,
-            check_in,
-            check_out,
-            adults,
-            children
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (confirmation_number) DO UPDATE
-          SET
-            room_number = EXCLUDED.room_number,
-            check_in = EXCLUDED.check_in,
-            check_out = EXCLUDED.check_out,
-            adults = EXCLUDED.adults,
-            children = EXCLUDED.children,
-            updated_at = NOW()
-        `,
-        [stayId, hotelId, trimmedConfirmation, roomNumber, checkIn, checkOut, adults, children]
-      );
+      try {
+        await upsertStayFromPmsReservation(hotelId, reservation);
+      } catch (error) {
+        console.error("stay_upsert_failed", error);
+        if (!stayRow) {
+          sendJson(res, 502, { error: "pms_sync_failed" });
+          return;
+        }
+      }
 
       const refreshed = await query(
         `
@@ -2431,6 +3027,534 @@ async function handleRequest(req, res) {
         checkOut: stayRow.check_out,
         guests: { adults: stayRow.adults, children: stayRow.children }
       }
+    });
+    return;
+  }
+
+  // =====================================================
+  // GUEST: STAY OVERVIEW, CHECK-IN, CHECK-OUT (AeroGuest-inspired)
+  // =====================================================
+
+  // GET /api/v1/guest/overview - Fetch hotel + stay snapshot for the guest
+  if (req.method === "GET" && url.pathname === "/api/v1/guest/overview") {
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    if (!principal.hotelId || !principal.stayId) {
+      sendJson(res, 400, { error: "missing_stay_context" });
+      return;
+    }
+
+    const stayRows = await query(
+      `
+        SELECT
+          s.id AS "stayId",
+          s.hotel_id AS "hotelId",
+          s.guest_id AS "guestId",
+          s.confirmation_number AS "confirmationNumber",
+          s.room_number AS "roomNumber",
+          s.check_in AS "checkIn",
+          s.check_out AS "checkOut",
+          s.adults,
+          s.children,
+          s.pms_reservation_id AS "pmsReservationId",
+          s.pms_status AS "pmsStatus",
+          s.guest_first_name AS "stayGuestFirstName",
+          s.guest_last_name AS "stayGuestLastName",
+          s.guest_email AS "stayGuestEmail",
+          s.guest_phone AS "stayGuestPhone",
+          h.name AS "hotelName",
+          h.logo_url AS "logoUrl",
+          h.cover_image_url AS "coverImageUrl",
+          h.primary_color AS "primaryColor",
+          h.secondary_color AS "secondaryColor",
+          h.city,
+          h.country,
+          h.currency
+        FROM stays s
+        JOIN hotels h ON h.id = s.hotel_id
+        WHERE s.id = $1 AND s.hotel_id = $2
+        LIMIT 1
+      `,
+      [principal.stayId, principal.hotelId]
+    );
+
+    const stay = stayRows[0] ?? null;
+    if (!stay) {
+      sendJson(res, 404, { error: "stay_not_found" });
+      return;
+    }
+
+    const guestId = typeof stay.guestId === "string" && stay.guestId.trim() ? stay.guestId.trim() : null;
+    const guestRows = guestId
+      ? await query(
+          `
+            SELECT
+              id,
+              first_name AS "firstName",
+              last_name AS "lastName",
+              email,
+              phone,
+              email_verified AS "emailVerified",
+              id_document_verified AS "idDocumentVerified",
+              payment_method_id AS "paymentMethodId"
+            FROM guests
+            WHERE id = $1
+            LIMIT 1
+          `,
+          [guestId]
+        )
+      : [];
+
+    const guest = guestRows[0]
+      ? {
+          id: guestRows[0].id,
+          firstName: guestRows[0].firstName,
+          lastName: guestRows[0].lastName,
+          email: guestRows[0].email,
+          phone: guestRows[0].phone,
+          emailVerified: guestRows[0].emailVerified,
+          idDocumentVerified: guestRows[0].idDocumentVerified,
+          hasPaymentMethod: !!guestRows[0].paymentMethodId
+        }
+      : {
+          id: null,
+          firstName: stay.stayGuestFirstName,
+          lastName: stay.stayGuestLastName,
+          email: stay.stayGuestEmail,
+          phone: stay.stayGuestPhone,
+          emailVerified: null,
+          idDocumentVerified: null,
+          hasPaymentMethod: null
+        };
+
+    sendJson(res, 200, {
+      hotel: {
+        id: stay.hotelId,
+        name: stay.hotelName,
+        logoUrl: stay.logoUrl,
+        coverImageUrl: stay.coverImageUrl,
+        primaryColor: stay.primaryColor,
+        secondaryColor: stay.secondaryColor,
+        city: stay.city,
+        country: stay.country,
+        currency: stay.currency
+      },
+      stay: {
+        id: stay.stayId,
+        confirmationNumber: stay.confirmationNumber,
+        roomNumber: stay.roomNumber,
+        checkIn: stay.checkIn,
+        checkOut: stay.checkOut,
+        guests: { adults: stay.adults, children: stay.children },
+        pmsReservationId: stay.pmsReservationId,
+        pmsStatus: stay.pmsStatus
+      },
+      guest
+    });
+    return;
+  }
+
+  // GET /api/v1/guest/unread - Unread counters for guest messaging
+  if (req.method === "GET" && url.pathname === "/api/v1/guest/unread") {
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    if (!principal.hotelId || !principal.stayId) {
+      sendJson(res, 400, { error: "missing_stay_context" });
+      return;
+    }
+
+    const rows = await query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM threads t
+        LEFT JOIN LATERAL (
+          SELECT MAX(created_at) AS last_staff_message_at
+          FROM messages m
+          WHERE m.thread_id = t.id AND m.sender_type = 'staff'
+        ) lm ON true
+        WHERE t.hotel_id = $1
+          AND t.stay_id = $2
+          AND t.status <> 'archived'
+          AND lm.last_staff_message_at IS NOT NULL
+          AND (t.guest_last_read_at IS NULL OR lm.last_staff_message_at > t.guest_last_read_at)
+      `,
+      [principal.hotelId, principal.stayId]
+    );
+
+    const unreadThreads = typeof rows[0]?.count === "number" ? rows[0].count : 0;
+    sendJson(res, 200, { unreadThreads });
+    return;
+  }
+
+  // POST /api/v1/guest/check-in - Update guest profile + trigger PMS check-in
+  if (req.method === "POST" && url.pathname === "/api/v1/guest/check-in") {
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    if (!principal.hotelId || !principal.stayId || !principal.guestId) {
+      sendJson(res, 401, { error: "unauthorized" });
+      return;
+    }
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
+    const lastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
+    const phoneRaw = typeof body.phone === "string" ? body.phone.trim() : "";
+    const phone = phoneRaw ? phoneRaw.replace(/[^\d+]/g, "") : null;
+    const roomNumber = typeof body.roomNumber === "string" ? body.roomNumber.trim() : null;
+
+    const idDocumentUploaded = Boolean(body.idDocumentUploaded);
+    const paymentMethodProvided = Boolean(body.paymentMethodProvided);
+
+    if (!firstName || !lastName) {
+      sendJson(res, 400, { error: "missing_fields", required: ["firstName", "lastName"] });
+      return;
+    }
+
+    if (!phone) {
+      sendJson(res, 400, { error: "missing_phone" });
+      return;
+    }
+
+    if (!/^\+\d{8,15}$/.test(phone)) {
+      sendJson(res, 400, { error: "invalid_phone" });
+      return;
+    }
+
+    if (!idDocumentUploaded) {
+      sendJson(res, 400, { error: "missing_id_document" });
+      return;
+    }
+
+    if (!paymentMethodProvided) {
+      sendJson(res, 400, { error: "missing_payment_method" });
+      return;
+    }
+
+    const stayRows = await query(
+      `
+        SELECT
+          id AS "stayId",
+          confirmation_number AS "confirmationNumber",
+          pms_reservation_id AS "pmsReservationId"
+        FROM stays
+        WHERE id = $1 AND hotel_id = $2 AND guest_id = $3
+        LIMIT 1
+      `,
+      [principal.stayId, principal.hotelId, principal.guestId]
+    );
+
+    const stay = stayRows[0] ?? null;
+    if (!stay) {
+      sendJson(res, 404, { error: "stay_not_found" });
+      return;
+    }
+
+    const integrations = await getHotelIntegrations(principal.hotelId);
+    const integrationManager = new IntegrationManager(integrations);
+    const pms = integrationManager.getPMS();
+
+    let pmsReservationId = normalizeText(stay.pmsReservationId);
+    if (!pmsReservationId) {
+      try {
+        const reservation = await pms.getReservation(stay.confirmationNumber);
+        if (!reservation) {
+          sendJson(res, 404, { error: "reservation_not_found" });
+          return;
+        }
+        await upsertStayFromPmsReservation(principal.hotelId, reservation);
+        pmsReservationId = normalizeText(reservation.id);
+      } catch (error) {
+        console.error("pms_lookup_failed", error);
+        sendJson(res, 502, { error: "pms_unavailable" });
+        return;
+      }
+    }
+
+    let checkinResult;
+    try {
+      checkinResult = await pms.checkIn(pmsReservationId, roomNumber ? { roomNumber } : {});
+    } catch (error) {
+      console.error("pms_checkin_failed", error);
+      sendJson(res, 502, { error: "pms_checkin_failed" });
+      return;
+    }
+
+    try {
+      const normalized = pms.normalizeReservation(checkinResult?.reservation ?? {}, pms.provider);
+      await upsertStayFromPmsReservation(principal.hotelId, normalized);
+    } catch (error) {
+      console.error("stay_upsert_failed", error);
+    }
+
+    const paymentMethodId = paymentMethodProvided ? `pm_demo_${randomUUID().replace(/-/g, "").slice(0, 12)}` : null;
+
+    await query(
+      `
+        UPDATE guests
+        SET
+          first_name = $1,
+          last_name = $2,
+          phone = COALESCE($3, phone),
+          id_document_url = CASE WHEN $4::boolean THEN COALESCE(id_document_url, 'demo://id-document') ELSE id_document_url END,
+          id_document_verified = CASE WHEN $4::boolean THEN true ELSE id_document_verified END,
+          payment_method_id = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE payment_method_id END,
+          payment_provider = CASE WHEN $5::text IS NOT NULL THEN 'demo' ELSE payment_provider END,
+          updated_at = NOW()
+        WHERE id = $6
+      `,
+      [firstName, lastName, phone, idDocumentUploaded, paymentMethodId, principal.guestId]
+    );
+
+    sendJson(res, 200, {
+      ok: true,
+      digitalKey: checkinResult?.digitalKey ?? null
+    });
+    return;
+  }
+
+  // GET /api/v1/guest/checkout - Preview checkout folio + totals
+  if (req.method === "GET" && url.pathname === "/api/v1/guest/checkout") {
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    if (!principal.hotelId || !principal.stayId) {
+      sendJson(res, 400, { error: "missing_stay_context" });
+      return;
+    }
+
+    const stayRows = await query(
+      `
+        SELECT
+          id AS "stayId",
+          confirmation_number AS "confirmationNumber",
+          room_number AS "roomNumber",
+          check_in AS "checkIn",
+          check_out AS "checkOut",
+          pms_reservation_id AS "pmsReservationId"
+        FROM stays
+        WHERE id = $1 AND hotel_id = $2
+        LIMIT 1
+      `,
+      [principal.stayId, principal.hotelId]
+    );
+
+    const stay = stayRows[0] ?? null;
+    if (!stay) {
+      sendJson(res, 404, { error: "stay_not_found" });
+      return;
+    }
+
+    const integrations = await getHotelIntegrations(principal.hotelId);
+    const integrationManager = new IntegrationManager(integrations);
+    const pms = integrationManager.getPMS();
+
+    let pmsReservationId = normalizeText(stay.pmsReservationId);
+    if (!pmsReservationId) {
+      try {
+        const reservation = await pms.getReservation(stay.confirmationNumber);
+        if (!reservation) {
+          sendJson(res, 404, { error: "reservation_not_found" });
+          return;
+        }
+        await upsertStayFromPmsReservation(principal.hotelId, reservation);
+        pmsReservationId = normalizeText(reservation.id);
+      } catch (error) {
+        console.error("pms_lookup_failed", error);
+        sendJson(res, 502, { error: "pms_unavailable" });
+        return;
+      }
+    }
+
+    let folio;
+    try {
+      folio = await pms.getFolio(pmsReservationId);
+    } catch (error) {
+      console.error("pms_folio_failed", error);
+      sendJson(res, 502, { error: "pms_unavailable" });
+      return;
+    }
+
+    const charges = Array.isArray(folio?.charges) ? folio.charges : [];
+    const payments = Array.isArray(folio?.payments) ? folio.payments : [];
+
+    sendJson(res, 200, {
+      stay: {
+        id: stay.stayId,
+        confirmationNumber: stay.confirmationNumber,
+        roomNumber: stay.roomNumber,
+        checkIn: stay.checkIn,
+        checkOut: stay.checkOut
+      },
+      folio: {
+        reservationId: folio?.reservationId ?? null,
+        currency: typeof folio?.currency === "string" ? folio.currency : "EUR",
+        balanceCents: toAmountCents(Number(folio?.balance ?? 0)),
+        charges: charges.map((charge) => ({
+          id: charge.id,
+          date: charge.date,
+          description: charge.description,
+          category: charge.category ?? null,
+          amountCents: toAmountCents(Number(charge.amount ?? 0))
+        })),
+        payments: payments.map((payment) => ({
+          id: payment.id,
+          date: payment.date,
+          description: payment.description,
+          method: payment.method ?? null,
+          amountCents: toAmountCents(Number(payment.amount ?? 0))
+        }))
+      }
+    });
+    return;
+  }
+
+  // POST /api/v1/guest/checkout/confirm - Pay (demo) + trigger PMS checkout + create invoice
+  if (req.method === "POST" && url.pathname === "/api/v1/guest/checkout/confirm") {
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    if (!principal.hotelId || !principal.stayId) {
+      sendJson(res, 400, { error: "missing_stay_context" });
+      return;
+    }
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const tipPercent = typeof body.tipPercent === "number" && Number.isFinite(body.tipPercent) ? body.tipPercent : null;
+    const tipAmountCents =
+      typeof body.tipAmountCents === "number" && Number.isFinite(body.tipAmountCents) ? Math.floor(body.tipAmountCents) : null;
+
+    if (tipPercent !== null && (tipPercent < 0 || tipPercent > 50)) {
+      sendJson(res, 400, { error: "invalid_tip_percent" });
+      return;
+    }
+
+    if (tipAmountCents !== null && tipAmountCents < 0) {
+      sendJson(res, 400, { error: "invalid_tip_amount" });
+      return;
+    }
+
+    const stayRows = await query(
+      `
+        SELECT
+          id AS "stayId",
+          confirmation_number AS "confirmationNumber",
+          pms_reservation_id AS "pmsReservationId"
+        FROM stays
+        WHERE id = $1 AND hotel_id = $2
+        LIMIT 1
+      `,
+      [principal.stayId, principal.hotelId]
+    );
+
+    const stay = stayRows[0] ?? null;
+    if (!stay) {
+      sendJson(res, 404, { error: "stay_not_found" });
+      return;
+    }
+
+    const integrations = await getHotelIntegrations(principal.hotelId);
+    const integrationManager = new IntegrationManager(integrations);
+    const pms = integrationManager.getPMS();
+
+    let pmsReservationId = normalizeText(stay.pmsReservationId);
+    if (!pmsReservationId) {
+      try {
+        const reservation = await pms.getReservation(stay.confirmationNumber);
+        if (!reservation) {
+          sendJson(res, 404, { error: "reservation_not_found" });
+          return;
+        }
+        await upsertStayFromPmsReservation(principal.hotelId, reservation);
+        pmsReservationId = normalizeText(reservation.id);
+      } catch (error) {
+        console.error("pms_lookup_failed", error);
+        sendJson(res, 502, { error: "pms_unavailable" });
+        return;
+      }
+    }
+
+    let folio;
+    try {
+      folio = await pms.getFolio(pmsReservationId);
+    } catch (error) {
+      console.error("pms_folio_failed", error);
+      sendJson(res, 502, { error: "pms_unavailable" });
+      return;
+    }
+
+    const balanceCents = toAmountCents(Number(folio?.balance ?? 0));
+    const computedTipCents =
+      tipAmountCents !== null
+        ? tipAmountCents
+        : tipPercent !== null
+          ? Math.round((balanceCents * tipPercent) / 100)
+          : 0;
+
+    const totalCents = balanceCents + computedTipCents;
+    const currency = typeof folio?.currency === "string" ? folio.currency : "EUR";
+
+    let checkoutResult;
+    try {
+      checkoutResult = await pms.checkOut(pmsReservationId);
+    } catch (error) {
+      console.error("pms_checkout_failed", error);
+      sendJson(res, 502, { error: "pms_checkout_failed" });
+      return;
+    }
+
+    try {
+      const normalized = pms.normalizeReservation(checkoutResult?.reservation ?? {}, pms.provider);
+      await upsertStayFromPmsReservation(principal.hotelId, normalized);
+    } catch (error) {
+      console.error("stay_upsert_failed", error);
+    }
+
+    const invoiceId = `INV-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const invoiceUrl = typeof checkoutResult?.invoiceUrl === "string" ? checkoutResult.invoiceUrl : null;
+
+    await query(
+      `
+        INSERT INTO invoices (
+          id,
+          hotel_id,
+          stay_id,
+          title,
+          department,
+          amount_cents,
+          currency,
+          points_earned,
+          issued_at,
+          download_url,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 0, CURRENT_DATE, $8, NOW(), NOW())
+      `,
+      [invoiceId, principal.hotelId, principal.stayId, "Check-out", "reception", totalCents, currency, invoiceUrl]
+    );
+
+    sendJson(res, 200, {
+      ok: true,
+      totals: {
+        balanceCents,
+        tipCents: computedTipCents,
+        totalCents,
+        currency
+      },
+      invoice: { id: invoiceId, downloadUrl: invoiceUrl }
     });
     return;
   }
@@ -2954,6 +4078,1654 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // =====================================================
+  // STAFF: RESERVATIONS (AeroGuest-inspired)
+  // =====================================================
+
+  // GET /api/v1/staff/reservations?status=&from=&to=&search=&page=&pageSize=
+  if (url.pathname === "/api/v1/staff/reservations" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const allowedStatuses = ["arrivals", "checked_in", "checked_out", "cancelled"];
+    const status = typeof url.searchParams.get("status") === "string" ? url.searchParams.get("status").trim() : "";
+    if (status && !allowedStatuses.includes(status)) {
+      sendJson(res, 400, { error: "invalid_status", allowed: allowedStatuses });
+      return;
+    }
+
+    const fromRaw = url.searchParams.get("from");
+    const from = parseIsoDate(fromRaw);
+    if (fromRaw && !from) {
+      sendJson(res, 400, { error: "invalid_from" });
+      return;
+    }
+
+    const toRaw = url.searchParams.get("to");
+    const to = parseIsoDate(toRaw);
+    if (toRaw && !to) {
+      sendJson(res, 400, { error: "invalid_to" });
+      return;
+    }
+
+    const search = typeof url.searchParams.get("search") === "string" ? url.searchParams.get("search").trim() : "";
+
+    const page = Math.min(500, parsePositiveInt(url.searchParams.get("page"), 1));
+    const pageSize = Math.min(100, parsePositiveInt(url.searchParams.get("pageSize"), 25));
+    const offset = (page - 1) * pageSize;
+
+    const where = ["s.hotel_id = $1"];
+    const params = [principal.hotelId];
+
+    if (from) {
+      params.push(from);
+      where.push(`s.check_in >= $${params.length}::date`);
+    }
+
+    if (to) {
+      params.push(to);
+      where.push(`s.check_out <= $${params.length}::date`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      where.push(
+        `(
+          LOWER(s.confirmation_number) LIKE $${params.length}
+          OR LOWER(s.id) LIKE $${params.length}
+          OR LOWER(COALESCE(s.pms_reservation_id, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(s.room_number, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(g.first_name, s.guest_first_name, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(g.last_name, s.guest_last_name, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(g.email, s.guest_email, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(g.phone, s.guest_phone, '')) LIKE $${params.length}
+        )`
+      );
+    }
+
+    const innerWhere = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const statusParamIndex = params.length + 1;
+    const limitParamIndex = params.length + 2;
+    const offsetParamIndex = params.length + 3;
+
+    const items = await query(
+      `
+        SELECT
+          id,
+          hotel_id AS "hotelId",
+          guest_id AS "guestId",
+          confirmation_number AS "confirmationNumber",
+          guest_name AS "guestName",
+          phone,
+          email,
+          check_in AS "arrivalDate",
+          check_out AS "departureDate",
+          room_number AS "roomNumber",
+          status,
+          journey_status AS "journeyStatus",
+          updated_at AS "updatedAt"
+        FROM (
+          SELECT
+            s.id,
+            s.hotel_id,
+            s.guest_id,
+            s.confirmation_number,
+            TRIM(
+              COALESCE(NULLIF(g.first_name, ''), NULLIF(s.guest_first_name, ''), '') || ' ' ||
+              COALESCE(NULLIF(g.last_name, ''), NULLIF(s.guest_last_name, ''), '')
+            ) AS guest_name,
+            COALESCE(NULLIF(g.phone, ''), NULLIF(s.guest_phone, '')) AS phone,
+            COALESCE(NULLIF(g.email, ''), NULLIF(s.guest_email, '')) AS email,
+            s.check_in,
+            s.check_out,
+            s.room_number,
+            CASE
+              WHEN LOWER(COALESCE(s.pms_status, '')) IN ('cancelled', 'canceled') THEN 'cancelled'
+              WHEN LOWER(COALESCE(s.pms_status, '')) IN ('checked_out', 'checked-out', 'checkedout') THEN 'checked_out'
+              WHEN LOWER(COALESCE(s.pms_status, '')) IN ('checked_in', 'checked-in', 'checkedin') THEN 'checked_in'
+              WHEN s.check_out < CURRENT_DATE THEN 'checked_out'
+              WHEN s.check_in > CURRENT_DATE THEN 'arrivals'
+              WHEN s.check_in = CURRENT_DATE AND (s.room_number IS NULL OR s.room_number = '') THEN 'arrivals'
+              ELSE 'checked_in'
+            END AS status,
+            CASE
+              WHEN COALESCE(NULLIF(g.email, ''), NULLIF(s.guest_email, '')) IS NULL
+                OR COALESCE(NULLIF(g.phone, ''), NULLIF(s.guest_phone, '')) IS NULL
+              THEN 'Missing contact info'
+              ELSE NULL
+            END AS journey_status,
+            s.updated_at
+          FROM stays s
+          LEFT JOIN guests g ON g.id = s.guest_id
+          ${innerWhere}
+        ) AS sub
+        WHERE ($${statusParamIndex}::text IS NULL OR status = $${statusParamIndex})
+        ORDER BY check_in ASC, check_out ASC, confirmation_number ASC
+        LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
+      `,
+      [...params, status || null, pageSize, offset]
+    );
+
+    const totalRows = await query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM (
+          SELECT
+            CASE
+              WHEN LOWER(COALESCE(s.pms_status, '')) IN ('cancelled', 'canceled') THEN 'cancelled'
+              WHEN LOWER(COALESCE(s.pms_status, '')) IN ('checked_out', 'checked-out', 'checkedout') THEN 'checked_out'
+              WHEN LOWER(COALESCE(s.pms_status, '')) IN ('checked_in', 'checked-in', 'checkedin') THEN 'checked_in'
+              WHEN s.check_out < CURRENT_DATE THEN 'checked_out'
+              WHEN s.check_in > CURRENT_DATE THEN 'arrivals'
+              WHEN s.check_in = CURRENT_DATE AND (s.room_number IS NULL OR s.room_number = '') THEN 'arrivals'
+              ELSE 'checked_in'
+            END AS status
+          FROM stays s
+          LEFT JOIN guests g ON g.id = s.guest_id
+          ${innerWhere}
+        ) AS sub
+        WHERE ($${statusParamIndex}::text IS NULL OR status = $${statusParamIndex})
+      `,
+      [...params, status || null]
+    );
+
+    const total = typeof totalRows[0]?.count === "number" ? totalRows[0].count : 0;
+
+    sendJson(res, 200, {
+      items,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize))
+    });
+    return;
+  }
+
+  // POST /api/v1/staff/reservations/sync - pull latest reservations from PMS (manager/admin)
+  if (url.pathname === "/api/v1/staff/reservations/sync" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const integrations = await getHotelIntegrations(principal.hotelId);
+    const provider = integrations?.pms?.provider ?? null;
+    const config = integrations?.pms?.config ?? {};
+    if (!provider || provider === "none") {
+      sendJson(res, 400, { error: "pms_not_configured" });
+      return;
+    }
+    if (!config?.baseUrl || !config?.resortId) {
+      sendJson(res, 400, { error: "pms_missing_config" });
+      return;
+    }
+
+    const integrationManager = new IntegrationManager(integrations);
+    const pms = integrationManager.getPMS();
+
+    let processed = 0;
+    let linkedGuests = 0;
+
+    try {
+      const reservations = await pms.listReservations();
+      for (const reservation of reservations ?? []) {
+        try {
+          const stay = await upsertStayFromPmsReservation(principal.hotelId, reservation);
+          processed += 1;
+          if (stay.guestId) linkedGuests += 1;
+        } catch (error) {
+          console.error("pms_sync_upsert_failed", error);
+        }
+      }
+    } catch (error) {
+      console.error("pms_sync_failed", error);
+      sendJson(res, 503, { error: "pms_unavailable" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true, upserted: { stays: processed, linkedGuests } });
+    return;
+  }
+
+  // POST /api/v1/staff/reservations - create reservation in PMS (manager/admin)
+  if (url.pathname === "/api/v1/staff/reservations" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const arrivalDate = normalizeDateLike(body.arrivalDate);
+    const departureDate = normalizeDateLike(body.departureDate);
+    if (!arrivalDate || !departureDate) {
+      sendJson(res, 400, { error: "invalid_dates" });
+      return;
+    }
+
+    const guestFirstName = normalizeText(body.guestFirstName);
+    const guestLastName = normalizeText(body.guestLastName);
+    if (!guestFirstName && !guestLastName) {
+      sendJson(res, 400, { error: "missing_guest_name" });
+      return;
+    }
+
+    const guestEmail = normalizeEmail(body.guestEmail);
+    const guestPhone = normalizeText(body.guestPhone);
+
+    const roomNumber = normalizeText(body.roomNumber);
+    const adults = typeof body.adults === "number" && body.adults > 0 ? Math.floor(body.adults) : 1;
+    const children = typeof body.children === "number" && body.children >= 0 ? Math.floor(body.children) : 0;
+
+    const confirmationNumber = normalizeText(body.confirmationNumber);
+
+    const integrations = await getHotelIntegrations(principal.hotelId);
+    const provider = integrations?.pms?.provider ?? null;
+    const config = integrations?.pms?.config ?? {};
+    if (!provider || provider === "none") {
+      sendJson(res, 400, { error: "pms_not_configured" });
+      return;
+    }
+    if (!config?.baseUrl || !config?.resortId) {
+      sendJson(res, 400, { error: "pms_missing_config" });
+      return;
+    }
+
+    const integrationManager = new IntegrationManager(integrations);
+    const pms = integrationManager.getPMS();
+
+    let created = null;
+    try {
+      created = await pms.createReservation({
+        ...(confirmationNumber ? { confirmationNumber } : {}),
+        guest: {
+          ...(guestFirstName ? { firstName: guestFirstName } : {}),
+          ...(guestLastName ? { lastName: guestLastName } : {}),
+          ...(guestEmail ? { email: guestEmail } : {}),
+          ...(guestPhone ? { phone: guestPhone } : {})
+        },
+        arrival: arrivalDate,
+        departure: departureDate,
+        ...(roomNumber ? { roomNumber } : {}),
+        adults,
+        children
+      });
+    } catch (error) {
+      console.error("pms_create_reservation_failed", error);
+      sendJson(res, 503, { error: "pms_unavailable" });
+      return;
+    }
+
+    if (!created) {
+      sendJson(res, 502, { error: "pms_create_failed" });
+      return;
+    }
+
+    const stay = await upsertStayFromPmsReservation(principal.hotelId, created);
+    sendJson(res, 201, { stay });
+    return;
+  }
+
+  // GET /api/v1/staff/reservations/:stayId - Reservation detail for drawer
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "reservations" &&
+    segments[4] &&
+    req.method === "GET" &&
+    segments.length === 5
+  ) {
+    const stayId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const rows = await query(
+      `
+        SELECT
+          s.id,
+          s.hotel_id AS "hotelId",
+          h.name AS "hotelName",
+          s.guest_id AS "guestId",
+          s.confirmation_number AS "confirmationNumber",
+          s.pms_reservation_id AS "pmsReservationId",
+          s.pms_status AS "pmsStatus",
+          s.guest_first_name AS "guestSnapshotFirstName",
+          s.guest_last_name AS "guestSnapshotLastName",
+          s.guest_email AS "guestSnapshotEmail",
+          s.guest_phone AS "guestSnapshotPhone",
+          s.room_number AS "roomNumber",
+          s.check_in AS "checkIn",
+          s.check_out AS "checkOut",
+          s.adults,
+          s.children,
+          s.created_at AS "createdAt",
+          s.updated_at AS "updatedAt",
+          g.first_name AS "guestFirstName",
+          g.last_name AS "guestLastName",
+          g.email AS "guestEmail",
+          g.phone AS "guestPhone",
+          g.email_verified AS "guestEmailVerified",
+          g.id_document_verified AS "guestIdDocumentVerified"
+        FROM stays s
+        JOIN hotels h ON h.id = s.hotel_id
+        LEFT JOIN guests g ON g.id = s.guest_id
+        WHERE s.id = $1
+        LIMIT 1
+      `,
+      [stayId]
+    );
+
+    const stay = rows[0] ?? null;
+    if (!stay) {
+      sendJson(res, 404, { error: "reservation_not_found" });
+      return;
+    }
+
+    if (stay.hotelId !== principal.hotelId && principal.role !== "admin" && principal.role !== "manager") {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const checkInIso = typeof stay.checkIn === "string" ? stay.checkIn : todayIso;
+    const checkOutIso = typeof stay.checkOut === "string" ? stay.checkOut : todayIso;
+
+    let status = "checked_in";
+    const pmsStatus = typeof stay.pmsStatus === "string" ? stay.pmsStatus.trim().toLowerCase() : "";
+    if (["cancelled", "canceled"].includes(pmsStatus)) status = "cancelled";
+    else if (["checked_out", "checked-out", "checkedout"].includes(pmsStatus)) status = "checked_out";
+    else if (["checked_in", "checked-in", "checkedin"].includes(pmsStatus)) status = "checked_in";
+    else if (checkOutIso < todayIso) status = "checked_out";
+    else if (checkInIso > todayIso) status = "arrivals";
+    else if (checkInIso === todayIso && (!stay.roomNumber || !String(stay.roomNumber).trim())) status = "arrivals";
+
+    const guestFirstName = stay.guestFirstName ?? stay.guestSnapshotFirstName ?? null;
+    const guestLastName = stay.guestLastName ?? stay.guestSnapshotLastName ?? null;
+    const guestEmail = stay.guestEmail ?? stay.guestSnapshotEmail ?? null;
+    const guestPhone = stay.guestPhone ?? stay.guestSnapshotPhone ?? null;
+
+    const guestName = [guestFirstName, guestLastName].filter(Boolean).join(" ").trim();
+    const journeyStatus = !guestEmail || !guestPhone ? "Missing contact info" : null;
+
+    const [tickets, threads] = await Promise.all([
+      query(
+        `
+          SELECT
+            id,
+            room_number AS "roomNumber",
+            department,
+            status,
+            title,
+            updated_at AS "updatedAt"
+          FROM tickets
+          WHERE hotel_id = $1 AND stay_id = $2
+          ORDER BY updated_at DESC
+          LIMIT 25
+        `,
+        [stay.hotelId, stayId]
+      ),
+      query(
+        `
+          SELECT * FROM (
+            SELECT
+              t.id,
+              t.department,
+              t.status,
+              t.title,
+              t.updated_at AS "updatedAt",
+              (
+                SELECT body_text
+                FROM messages m
+                WHERE m.thread_id = t.id
+                ORDER BY m.created_at DESC
+                LIMIT 1
+              ) AS "lastMessage",
+              (
+                SELECT created_at
+                FROM messages m
+                WHERE m.thread_id = t.id
+                ORDER BY m.created_at DESC
+                LIMIT 1
+              ) AS "lastMessageAt"
+            FROM threads t
+            WHERE t.hotel_id = $1 AND t.stay_id = $2
+          ) AS sub
+          ORDER BY COALESCE("lastMessageAt", "updatedAt") DESC
+          LIMIT 25
+        `,
+        [stay.hotelId, stayId]
+      )
+    ]);
+
+    sendJson(res, 200, {
+      id: stay.id,
+      hotel: { id: stay.hotelId, name: stay.hotelName },
+      guest: {
+        id: stay.guestId ?? null,
+        name: guestName || null,
+        firstName: guestFirstName,
+        lastName: guestLastName,
+        email: guestEmail,
+        phone: guestPhone,
+        emailVerified: Boolean(stay.guestId && stay.guestEmailVerified),
+        idDocumentVerified: Boolean(stay.guestId && stay.guestIdDocumentVerified)
+      },
+      stay: {
+        id: stay.id,
+        confirmationNumber: stay.confirmationNumber,
+        pmsReservationId: stay.pmsReservationId ?? null,
+        pmsStatus: stay.pmsStatus ?? null,
+        roomNumber: stay.roomNumber,
+        checkIn: stay.checkIn,
+        checkOut: stay.checkOut,
+        guests: { adults: stay.adults, children: stay.children },
+        status,
+        journeyStatus
+      },
+      links: {
+        tickets,
+        threads
+      }
+    });
+    return;
+  }
+
+  // PATCH /api/v1/staff/reservations/:stayId - update reservation in PMS (manager/admin)
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "reservations" &&
+    segments[4] &&
+    req.method === "PATCH" &&
+    segments.length === 5
+  ) {
+    const stayId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const existingRows = await query(
+      `
+        SELECT
+          id,
+          hotel_id AS "hotelId",
+          pms_reservation_id AS "pmsReservationId"
+        FROM stays
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [stayId]
+    );
+
+    const existing = existingRows[0] ?? null;
+    if (!existing) {
+      sendJson(res, 404, { error: "reservation_not_found" });
+      return;
+    }
+
+    if (existing.hotelId !== principal.hotelId) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const pmsReservationId = normalizeText(existing.pmsReservationId);
+    if (!pmsReservationId) {
+      sendJson(res, 409, { error: "reservation_missing_pms_reference" });
+      return;
+    }
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const patch = {};
+    const arrivalDate = normalizeDateLike(body.arrivalDate);
+    const departureDate = normalizeDateLike(body.departureDate);
+    const roomNumber = normalizeText(body.roomNumber);
+
+    if (arrivalDate) patch.arrival = arrivalDate;
+    if (departureDate) patch.departure = departureDate;
+    if (roomNumber) patch.roomNumber = roomNumber;
+
+    const adults = typeof body.adults === "number" && body.adults > 0 ? Math.floor(body.adults) : null;
+    const children = typeof body.children === "number" && body.children >= 0 ? Math.floor(body.children) : null;
+    if (adults !== null) patch.adults = adults;
+    if (children !== null) patch.children = children;
+
+    const guestPatch = {};
+    const guestFirstName = normalizeText(body.guestFirstName);
+    const guestLastName = normalizeText(body.guestLastName);
+    const guestEmail = normalizeEmail(body.guestEmail);
+    const guestPhone = normalizeText(body.guestPhone);
+
+    if (guestFirstName) guestPatch.firstName = guestFirstName;
+    if (guestLastName) guestPatch.lastName = guestLastName;
+    if (guestEmail) guestPatch.email = guestEmail;
+    if (guestPhone) guestPatch.phone = guestPhone;
+
+    if (Object.keys(guestPatch).length) patch.guest = guestPatch;
+
+    if (Object.keys(patch).length === 0) {
+      sendJson(res, 400, { error: "missing_patch" });
+      return;
+    }
+
+    const integrations = await getHotelIntegrations(principal.hotelId);
+    const provider = integrations?.pms?.provider ?? null;
+    const config = integrations?.pms?.config ?? {};
+    if (!provider || provider === "none") {
+      sendJson(res, 400, { error: "pms_not_configured" });
+      return;
+    }
+    if (!config?.baseUrl || !config?.resortId) {
+      sendJson(res, 400, { error: "pms_missing_config" });
+      return;
+    }
+
+    const integrationManager = new IntegrationManager(integrations);
+    const pms = integrationManager.getPMS();
+
+    let updated = null;
+    try {
+      updated = await pms.updateReservation(pmsReservationId, patch);
+    } catch (error) {
+      console.error("pms_update_reservation_failed", error);
+      sendJson(res, 503, { error: "pms_unavailable" });
+      return;
+    }
+
+    if (!updated) {
+      sendJson(res, 502, { error: "pms_update_failed" });
+      return;
+    }
+
+    const stay = await upsertStayFromPmsReservation(principal.hotelId, updated);
+    sendJson(res, 200, { stay });
+    return;
+  }
+
+  // POST /api/v1/staff/reservations/:stayId/checkin-reminder - enqueue a reminder email (manager/admin only)
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "reservations" &&
+    segments[4] &&
+    segments[5] === "checkin-reminder" &&
+    req.method === "POST" &&
+    segments.length === 6
+  ) {
+    const stayId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const rows = await query(
+      `
+        SELECT
+          s.id,
+          s.hotel_id AS "hotelId",
+          h.name AS "hotelName",
+          s.confirmation_number AS "confirmationNumber",
+          s.check_in AS "checkIn",
+          g.email AS "guestEmail",
+          g.first_name AS "guestFirstName",
+          g.last_name AS "guestLastName"
+        FROM stays s
+        JOIN hotels h ON h.id = s.hotel_id
+        LEFT JOIN guests g ON g.id = s.guest_id
+        WHERE s.id = $1
+        LIMIT 1
+      `,
+      [stayId]
+    );
+
+    const stay = rows[0] ?? null;
+    if (!stay) {
+      sendJson(res, 404, { error: "reservation_not_found" });
+      return;
+    }
+
+    if (stay.hotelId !== principal.hotelId && principal.role !== "admin") {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const toAddress = typeof stay.guestEmail === "string" ? stay.guestEmail.trim() : "";
+    if (!toAddress) {
+      sendJson(res, 400, { error: "missing_contact_info" });
+      return;
+    }
+
+    const guestName = [stay.guestFirstName, stay.guestLastName].filter(Boolean).join(" ").trim();
+    const subject = `Check-in reminder • ${stay.hotelName}`;
+    const bodyText = [
+      `Hello${guestName ? ` ${guestName}` : ""},`,
+      "",
+      "This is a friendly reminder for your upcoming stay.",
+      "",
+      `Hotel: ${stay.hotelName}`,
+      `Arrival: ${stay.checkIn}`,
+      `Reservation: ${stay.confirmationNumber}`,
+      "",
+      "If you have any questions, simply reply to this message.",
+      "",
+      "MyStay"
+    ].join("\n");
+
+    const outbox = await enqueueEmailOutbox({
+      hotelId: stay.hotelId,
+      toAddress,
+      subject,
+      bodyText,
+      payload: { type: "checkin_reminder", stayId: stay.id, confirmationNumber: stay.confirmationNumber }
+    });
+
+    sendJson(res, 200, { ok: true, outbox });
+    return;
+  }
+
+  // =====================================================
+  // STAFF: CONVERSATIONS (AeroGuest-inspired inbox)
+  // =====================================================
+
+  // GET /api/v1/staff/conversations?tab=&stayId=&search=&page=&pageSize=
+  if (url.pathname === "/api/v1/staff/conversations" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const allowedTabs = ["messages", "archived", "ratings"];
+    const tab = typeof url.searchParams.get("tab") === "string" ? url.searchParams.get("tab").trim() : "";
+    if (tab && !allowedTabs.includes(tab)) {
+      sendJson(res, 400, { error: "invalid_tab", allowed: allowedTabs });
+      return;
+    }
+
+    const stayId = typeof url.searchParams.get("stayId") === "string" ? url.searchParams.get("stayId").trim() : "";
+    const department =
+      typeof url.searchParams.get("department") === "string" ? url.searchParams.get("department").trim() : "";
+    const search = typeof url.searchParams.get("search") === "string" ? url.searchParams.get("search").trim() : "";
+
+    const page = Math.min(500, parsePositiveInt(url.searchParams.get("page"), 1));
+    const pageSize = Math.min(100, parsePositiveInt(url.searchParams.get("pageSize"), 25));
+    const offset = (page - 1) * pageSize;
+
+    const where = ["t.hotel_id = $1"];
+    const params = [principal.hotelId];
+
+    const canSeeAllDepartments = principal.role === "admin";
+    const allowedDepartments = Array.isArray(principal.departments)
+      ? principal.departments
+          .filter((dept) => typeof dept === "string")
+          .map((dept) => dept.trim())
+          .filter(Boolean)
+      : [];
+
+    if (!canSeeAllDepartments) {
+      if (allowedDepartments.length === 0) {
+        sendJson(res, 200, { items: [], page, pageSize, total: 0, totalPages: 1 });
+        return;
+      }
+      params.push(allowedDepartments);
+      where.push(`t.department = ANY($${params.length}::text[])`);
+    }
+
+    if (stayId) {
+      params.push(stayId);
+      where.push(`t.stay_id = $${params.length}`);
+    }
+
+    if (department) {
+      params.push(department);
+      where.push(`t.department = $${params.length}`);
+    }
+
+    if (tab === "archived") {
+      where.push(`t.status = 'archived'`);
+    } else if (tab === "ratings") {
+      where.push(`t.status = 'resolved'`);
+    } else {
+      where.push(`t.status <> 'archived'`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      const idx = params.length;
+      where.push(
+        `(
+          LOWER(COALESCE(t.id, '')) LIKE $${idx}
+          OR LOWER(COALESCE(t.title, '')) LIKE $${idx}
+          OR LOWER(COALESCE(t.department, '')) LIKE $${idx}
+          OR LOWER(COALESCE(s.confirmation_number, '')) LIKE $${idx}
+          OR LOWER(COALESCE(s.room_number, '')) LIKE $${idx}
+          OR LOWER(TRIM(COALESCE(g.first_name, '') || ' ' || COALESCE(g.last_name, ''))) LIKE $${idx}
+          OR LOWER(COALESCE(g.email, '')) LIKE $${idx}
+          OR LOWER(COALESCE(g.phone, '')) LIKE $${idx}
+        )`
+      );
+    }
+
+    const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const limitParamIndex = params.length + 1;
+    const offsetParamIndex = params.length + 2;
+
+    const items = await query(
+      `
+        SELECT * FROM (
+          SELECT
+            t.id,
+            t.hotel_id AS "hotelId",
+            t.stay_id AS "stayId",
+            t.department,
+            t.status,
+            t.title,
+            t.assigned_staff_user_id AS "assignedStaffUserId",
+            t.created_at AS "createdAt",
+            t.updated_at AS "updatedAt",
+            s.confirmation_number AS "confirmationNumber",
+            s.room_number AS "roomNumber",
+            s.guest_id AS "guestId",
+            TRIM(COALESCE(g.first_name, '') || ' ' || COALESCE(g.last_name, '')) AS "guestName",
+            g.email AS "guestEmail",
+            g.phone AS "guestPhone",
+            (
+              SELECT body_text
+              FROM messages m
+              WHERE m.thread_id = t.id
+              ORDER BY m.created_at DESC
+              LIMIT 1
+            ) AS "lastMessage",
+            (
+              SELECT created_at
+              FROM messages m
+              WHERE m.thread_id = t.id
+              ORDER BY m.created_at DESC
+              LIMIT 1
+            ) AS "lastMessageAt"
+          FROM threads t
+          LEFT JOIN stays s ON s.id = t.stay_id
+          LEFT JOIN guests g ON g.id = s.guest_id
+          ${whereClause}
+        ) AS sub
+        ORDER BY COALESCE("lastMessageAt", "updatedAt") DESC
+        LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
+      `,
+      [...params, pageSize, offset]
+    );
+
+    const totalRows = await query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM threads t
+        LEFT JOIN stays s ON s.id = t.stay_id
+        LEFT JOIN guests g ON g.id = s.guest_id
+        ${whereClause}
+      `,
+      params
+    );
+    const total = typeof totalRows[0]?.count === "number" ? totalRows[0].count : 0;
+
+    sendJson(res, 200, { items, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
+    return;
+  }
+
+  // POST /api/v1/staff/conversations - create or return a conversation thread for a stay
+  if (url.pathname === "/api/v1/staff/conversations" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const stayId = typeof body.stayId === "string" ? body.stayId.trim() : "";
+    if (!stayId) {
+      sendJson(res, 400, { error: "missing_stay_id" });
+      return;
+    }
+
+    const requestedDepartment = typeof body.department === "string" ? body.department.trim() : "";
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+
+    const stayRows = await query(
+      `
+        SELECT
+          id,
+          hotel_id AS "hotelId",
+          confirmation_number AS "confirmationNumber",
+          room_number AS "roomNumber"
+        FROM stays
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [stayId]
+    );
+    const stay = stayRows[0] ?? null;
+    if (!stay) {
+      sendJson(res, 404, { error: "stay_not_found" });
+      return;
+    }
+
+    if (stay.hotelId !== principal.hotelId) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const canSeeAllDepartments = principal.role === "admin";
+    const allowedDepartments = Array.isArray(principal.departments)
+      ? principal.departments
+          .filter((dept) => typeof dept === "string")
+          .map((dept) => dept.trim())
+          .filter(Boolean)
+      : [];
+
+    let department = requestedDepartment;
+    if (department) {
+      if (!canSeeAllDepartments && !allowedDepartments.includes(department)) {
+        sendJson(res, 403, { error: "forbidden" });
+        return;
+      }
+    } else if (canSeeAllDepartments) {
+      department = "reception";
+    } else if (allowedDepartments.includes("reception")) {
+      department = "reception";
+    } else {
+      department = allowedDepartments[0] ?? "";
+    }
+
+    if (!department) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const threadQueryParams = [principal.hotelId, stayId];
+    let threadWhere = `hotel_id = $1 AND stay_id = $2 AND status <> 'archived'`;
+
+    if (requestedDepartment) {
+      threadQueryParams.push(department);
+      threadWhere += ` AND department = $${threadQueryParams.length}`;
+    } else if (!canSeeAllDepartments) {
+      threadQueryParams.push(allowedDepartments);
+      threadWhere += ` AND department = ANY($${threadQueryParams.length}::text[])`;
+    }
+
+    const existingThreads = await query(
+      `
+        SELECT
+          id,
+          department,
+          status,
+          title,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM threads
+        WHERE ${threadWhere}
+        ORDER BY updated_at DESC
+        LIMIT 1
+      `,
+      threadQueryParams
+    );
+
+    const existing = existingThreads[0] ?? null;
+    if (existing) {
+      sendJson(res, 200, {
+        conversation: {
+          id: existing.id,
+          hotelId: principal.hotelId,
+          stayId,
+          department: existing.department,
+          status: existing.status,
+          title: existing.title,
+          createdAt: existing.createdAt,
+          updatedAt: existing.updatedAt
+        }
+      });
+      return;
+    }
+
+    const id = `TH-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const threadTitle = title || "Conversation";
+
+    const insertedRows = await query(
+      `
+        INSERT INTO threads (id, hotel_id, stay_id, department, status, title, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, 'pending', $5, NOW(), NOW())
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          stay_id AS "stayId",
+          department,
+          status,
+          title,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [id, principal.hotelId, stayId, department, threadTitle]
+    );
+
+    const created = insertedRows[0];
+    try {
+      await emitRealtimeEvent({
+        type: "thread_created",
+        hotelId: created.hotelId,
+        threadId: created.id,
+        stayId: created.stayId,
+        department: created.department,
+        status: created.status
+      });
+    } catch (error) {
+      console.error("realtime_emit_failed", error);
+    }
+
+    sendJson(res, 201, {
+      conversation: {
+        ...created,
+        confirmationNumber: stay.confirmationNumber ?? null,
+        roomNumber: stay.roomNumber ?? null
+      }
+    });
+    return;
+  }
+
+  // PATCH /api/v1/staff/conversations/:id/archive - archive conversation (read-only)
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "conversations" &&
+    segments[4] &&
+    segments[5] === "archive" &&
+    req.method === "PATCH" &&
+    segments.length === 6
+  ) {
+    const conversationId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const scopeRows = await query(
+      `
+        SELECT
+          hotel_id AS "hotelId",
+          stay_id AS "stayId",
+          department,
+          status,
+          assigned_staff_user_id AS "assignedStaffUserId"
+        FROM threads
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [conversationId]
+    );
+
+    const scope = scopeRows[0];
+    if (!scope) {
+      sendJson(res, 404, { error: "conversation_not_found" });
+      return;
+    }
+
+    if (scope.hotelId !== principal.hotelId) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    if (!isDepartmentAllowed(principal, scope.department)) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    if (scope.status === "archived") {
+      sendJson(res, 200, { ok: true, status: "archived" });
+      return;
+    }
+
+    const updatedRows = await query(
+      `
+        UPDATE threads
+        SET status = 'archived', updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          stay_id AS "stayId",
+          department,
+          status,
+          title,
+          assigned_staff_user_id AS "assignedStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [conversationId]
+    );
+
+    const updated = updatedRows[0];
+    if (!updated) {
+      sendJson(res, 404, { error: "conversation_not_found" });
+      return;
+    }
+
+    try {
+      await emitRealtimeEvent({
+        type: "thread_updated",
+        hotelId: updated.hotelId,
+        threadId: updated.id,
+        stayId: updated.stayId,
+        department: updated.department,
+        status: updated.status,
+        assignedStaffUserId: updated.assignedStaffUserId ?? null,
+        updatedAt: updated.updatedAt
+      });
+    } catch (error) {
+      console.error("realtime_emit_failed", error);
+    }
+
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  // =====================================================
+  // STAFF: PAY BY LINK
+  // =====================================================
+
+  // GET /api/v1/staff/payment-links?from=&to=&status=&search=&page=&pageSize=
+  if (url.pathname === "/api/v1/staff/payment-links" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const allowedStatuses = ["created", "paid", "failed", "expired"];
+    const status = typeof url.searchParams.get("status") === "string" ? url.searchParams.get("status").trim() : "";
+    if (status && !allowedStatuses.includes(status)) {
+      sendJson(res, 400, { error: "invalid_status", allowed: allowedStatuses });
+      return;
+    }
+
+    const fromRaw = url.searchParams.get("from");
+    const from = parseIsoDate(fromRaw);
+    if (fromRaw && !from) {
+      sendJson(res, 400, { error: "invalid_from" });
+      return;
+    }
+
+    const toRaw = url.searchParams.get("to");
+    const to = parseIsoDate(toRaw);
+    if (toRaw && !to) {
+      sendJson(res, 400, { error: "invalid_to" });
+      return;
+    }
+
+    const search = typeof url.searchParams.get("search") === "string" ? url.searchParams.get("search").trim() : "";
+
+    const page = Math.min(500, parsePositiveInt(url.searchParams.get("page"), 1));
+    const pageSize = Math.min(100, parsePositiveInt(url.searchParams.get("pageSize"), 25));
+    const offset = (page - 1) * pageSize;
+
+    const where = ["pl.hotel_id = $1"];
+    const params = [principal.hotelId];
+
+    if (from) {
+      params.push(from);
+      where.push(`pl.created_at::date >= $${params.length}::date`);
+    }
+
+    if (to) {
+      params.push(to);
+      where.push(`pl.created_at::date <= $${params.length}::date`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      where.push(
+        `(
+          LOWER(COALESCE(pl.id, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(pl.public_token, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(pl.reason_text, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(pl.payer_name, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(pl.payer_email, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(s.confirmation_number, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(g.first_name, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(g.last_name, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(g.email, '')) LIKE $${params.length}
+          OR LOWER(COALESCE(g.phone, '')) LIKE $${params.length}
+        )`
+      );
+    }
+
+    const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const statusParamIndex = params.length + 1;
+    const limitParamIndex = params.length + 2;
+    const offsetParamIndex = params.length + 3;
+
+    const items = await query(
+      `
+        SELECT
+          pl.id,
+          pl.hotel_id AS "hotelId",
+          pl.stay_id AS "stayId",
+          pl.guest_id AS "guestId",
+          pl.payer_type AS "payerType",
+          COALESCE(
+            NULLIF(pl.payer_name, ''),
+            NULLIF(TRIM(COALESCE(g.first_name, '') || ' ' || COALESCE(g.last_name, '')), ''),
+            NULLIF(pl.payer_email, ''),
+            'Unknown'
+          ) AS "payerName",
+          COALESCE(NULLIF(pl.payer_email, ''), g.email) AS "payerEmail",
+          COALESCE(NULLIF(pl.payer_phone, ''), g.phone) AS "payerPhone",
+          pl.amount_cents AS "amountCents",
+          pl.currency,
+          pl.reason_category AS "reasonCategory",
+          pl.reason_text AS "reasonText",
+          pl.pms_status AS "pmsStatus",
+          pl.payment_status AS "paymentStatus",
+          pl.public_url AS "publicUrl",
+          s.confirmation_number AS "confirmationNumber",
+          pl.created_at AS "createdAt",
+          pl.updated_at AS "updatedAt"
+        FROM payment_links pl
+        LEFT JOIN stays s ON s.id = pl.stay_id
+        LEFT JOIN guests g ON g.id = pl.guest_id
+        ${whereClause}
+        AND ($${statusParamIndex}::text IS NULL OR pl.payment_status = $${statusParamIndex})
+        ORDER BY pl.created_at DESC
+        LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
+      `,
+      [...params, status || null, pageSize, offset]
+    );
+
+    const totalRows = await query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM payment_links pl
+        LEFT JOIN stays s ON s.id = pl.stay_id
+        LEFT JOIN guests g ON g.id = pl.guest_id
+        ${whereClause}
+        AND ($${statusParamIndex}::text IS NULL OR pl.payment_status = $${statusParamIndex})
+      `,
+      [...params, status || null]
+    );
+
+    const total = typeof totalRows[0]?.count === "number" ? totalRows[0].count : 0;
+
+    sendJson(res, 200, { items, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
+    return;
+  }
+
+  // POST /api/v1/staff/payment-links - Create payment link
+  if (url.pathname === "/api/v1/staff/payment-links" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const payerType = typeof body.payerType === "string" ? body.payerType.trim() : "guest";
+    if (payerType !== "guest" && payerType !== "visitor") {
+      sendJson(res, 400, { error: "invalid_payer_type" });
+      return;
+    }
+
+    const stayId = typeof body.stayId === "string" ? body.stayId.trim() : null;
+    const guestId = typeof body.guestId === "string" ? body.guestId.trim() : null;
+    const payerName = typeof body.payerName === "string" ? body.payerName.trim() : null;
+    const payerEmail = typeof body.payerEmail === "string" ? body.payerEmail.trim() : null;
+    const payerPhone = typeof body.payerPhone === "string" ? body.payerPhone.trim() : null;
+
+    const amountCents = typeof body.amountCents === "number" ? Math.floor(body.amountCents) : NaN;
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      sendJson(res, 400, { error: "invalid_amount" });
+      return;
+    }
+
+    const currency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : "";
+    const reasonCategory = typeof body.reasonCategory === "string" ? body.reasonCategory.trim() : null;
+    const reasonText = typeof body.reasonText === "string" ? body.reasonText.trim() : null;
+
+    const resolvedStayId = stayId || null;
+    let resolvedGuestId = guestId || null;
+
+    if (resolvedStayId) {
+      const rows = await query(
+        `
+          SELECT guest_id AS "guestId"
+          FROM stays
+          WHERE id = $1 AND hotel_id = $2
+          LIMIT 1
+        `,
+        [resolvedStayId, principal.hotelId]
+      );
+      if (!rows[0]) {
+        sendJson(res, 400, { error: "invalid_stay_id" });
+        return;
+      }
+      if (!resolvedGuestId && typeof rows[0]?.guestId === "string" && rows[0].guestId.trim()) {
+        resolvedGuestId = rows[0].guestId.trim();
+      }
+    }
+
+    if (payerType === "guest" && !resolvedStayId && !resolvedGuestId) {
+      sendJson(res, 400, { error: "missing_fields", required: ["stayId or guestId"] });
+      return;
+    }
+
+    if (payerType === "visitor" && !payerName && !payerEmail) {
+      sendJson(res, 400, { error: "missing_fields", required: ["payerName or payerEmail"] });
+      return;
+    }
+
+    const hotelRows = await query(`SELECT currency FROM hotels WHERE id = $1 LIMIT 1`, [principal.hotelId]);
+    const hotelCurrency = typeof hotelRows[0]?.currency === "string" ? hotelRows[0].currency.trim().toUpperCase() : "EUR";
+    const resolvedCurrency = currency || hotelCurrency || "EUR";
+
+    const integrations = await getHotelIntegrations(principal.hotelId);
+    const pmsConfigured = integrations?.pms?.provider && integrations.pms.provider !== "none";
+    const pmsStatus = pmsConfigured ? "configured" : "not_configured";
+
+    const id = `PL-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const publicToken = `pl_${randomUUID().replace(/-/g, "")}`;
+    const baseUrl = (process.env.PAYMENT_LINK_BASE_URL ?? "http://localhost:3000/pay").replace(/\/+$/, "");
+    const publicUrl = `${baseUrl}/${publicToken}`;
+
+    const rows = await query(
+      `
+        INSERT INTO payment_links (
+          id,
+          hotel_id,
+          stay_id,
+          guest_id,
+          payer_type,
+          payer_name,
+          payer_email,
+          payer_phone,
+          amount_cents,
+          currency,
+          reason_category,
+          reason_text,
+          pms_status,
+          payment_status,
+          public_token,
+          public_url,
+          created_by_staff_user_id,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'created', $14, $15, $16, NOW(), NOW())
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          stay_id AS "stayId",
+          guest_id AS "guestId",
+          payer_type AS "payerType",
+          payer_name AS "payerName",
+          payer_email AS "payerEmail",
+          payer_phone AS "payerPhone",
+          amount_cents AS "amountCents",
+          currency,
+          reason_category AS "reasonCategory",
+          reason_text AS "reasonText",
+          pms_status AS "pmsStatus",
+          payment_status AS "paymentStatus",
+          public_token AS "publicToken",
+          public_url AS "publicUrl",
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [
+        id,
+        principal.hotelId,
+        resolvedStayId,
+        resolvedGuestId,
+        payerType,
+        payerName,
+        payerEmail,
+        payerPhone,
+        amountCents,
+        resolvedCurrency,
+        reasonCategory,
+        reasonText,
+        pmsStatus,
+        publicToken,
+        publicUrl,
+        principal.staffUserId
+      ]
+    );
+
+    sendJson(res, 201, rows[0]);
+    return;
+  }
+
+  // GET /api/v1/staff/payment-links/:id - Payment link details
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "payment-links" &&
+    segments[4] &&
+    req.method === "GET" &&
+    segments.length === 5
+  ) {
+    const paymentLinkId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const rows = await query(
+      `
+        SELECT
+          pl.id,
+          pl.hotel_id AS "hotelId",
+          pl.stay_id AS "stayId",
+          pl.guest_id AS "guestId",
+          pl.payer_type AS "payerType",
+          pl.payer_name AS "payerName",
+          pl.payer_email AS "payerEmail",
+          pl.payer_phone AS "payerPhone",
+          pl.amount_cents AS "amountCents",
+          pl.currency,
+          pl.reason_category AS "reasonCategory",
+          pl.reason_text AS "reasonText",
+          pl.pms_status AS "pmsStatus",
+          pl.payment_status AS "paymentStatus",
+          pl.public_token AS "publicToken",
+          pl.public_url AS "publicUrl",
+          pl.paid_at AS "paidAt",
+          pl.expires_at AS "expiresAt",
+          pl.created_at AS "createdAt",
+          pl.updated_at AS "updatedAt",
+          s.confirmation_number AS "confirmationNumber",
+          s.room_number AS "roomNumber",
+          g.first_name AS "guestFirstName",
+          g.last_name AS "guestLastName",
+          g.email AS "guestEmail",
+          g.phone AS "guestPhone"
+        FROM payment_links pl
+        LEFT JOIN stays s ON s.id = pl.stay_id
+        LEFT JOIN guests g ON g.id = pl.guest_id
+        WHERE pl.id = $1 AND pl.hotel_id = $2
+        LIMIT 1
+      `,
+      [paymentLinkId, principal.hotelId]
+    );
+
+    const row = rows[0] ?? null;
+    if (!row) {
+      sendJson(res, 404, { error: "payment_link_not_found" });
+      return;
+    }
+
+    const guestName = [row.guestFirstName, row.guestLastName].filter(Boolean).join(" ").trim();
+    sendJson(res, 200, {
+      id: row.id,
+      hotelId: row.hotelId,
+      payer: {
+        type: row.payerType,
+        name: row.payerName || guestName || null,
+        email: row.payerEmail || row.guestEmail || null,
+        phone: row.payerPhone || row.guestPhone || null
+      },
+      stay: row.stayId
+        ? {
+            id: row.stayId,
+            confirmationNumber: row.confirmationNumber ?? null,
+            roomNumber: row.roomNumber ?? null
+          }
+        : null,
+      guest: row.guestId
+        ? {
+            id: row.guestId,
+            name: guestName || null,
+            email: row.guestEmail ?? null,
+            phone: row.guestPhone ?? null
+          }
+        : null,
+      amountCents: row.amountCents,
+      currency: row.currency,
+      reasonCategory: row.reasonCategory,
+      reasonText: row.reasonText,
+      pmsStatus: row.pmsStatus,
+      paymentStatus: row.paymentStatus,
+      publicToken: row.publicToken,
+      publicUrl: row.publicUrl,
+      paidAt: row.paidAt,
+      expiresAt: row.expiresAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    });
+    return;
+  }
+
+  // POST /api/v1/staff/payment-links/:id/send-email - Enqueue email with payment link
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "payment-links" &&
+    segments[4] &&
+    segments[5] === "send-email" &&
+    req.method === "POST" &&
+    segments.length === 6
+  ) {
+    const paymentLinkId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const rows = await query(
+      `
+        SELECT
+          pl.id,
+          pl.hotel_id AS "hotelId",
+          pl.amount_cents AS "amountCents",
+          pl.currency,
+          pl.reason_text AS "reasonText",
+          pl.public_url AS "publicUrl",
+          h.name AS "hotelName",
+          COALESCE(NULLIF(pl.payer_email, ''), g.email) AS "toEmail",
+          TRIM(COALESCE(g.first_name, '') || ' ' || COALESCE(g.last_name, '')) AS "guestName"
+        FROM payment_links pl
+        JOIN hotels h ON h.id = pl.hotel_id
+        LEFT JOIN guests g ON g.id = pl.guest_id
+        WHERE pl.id = $1 AND pl.hotel_id = $2
+        LIMIT 1
+      `,
+      [paymentLinkId, principal.hotelId]
+    );
+
+    const row = rows[0] ?? null;
+    if (!row) {
+      sendJson(res, 404, { error: "payment_link_not_found" });
+      return;
+    }
+
+    const toAddress = typeof row.toEmail === "string" ? row.toEmail.trim() : "";
+    if (!toAddress) {
+      sendJson(res, 400, { error: "missing_contact_info" });
+      return;
+    }
+
+    const guestName = typeof row.guestName === "string" ? row.guestName.trim() : "";
+    const formattedAmount = `${(row.amountCents / 100).toFixed(2)} ${row.currency}`;
+    const subject = `Payment link • ${row.hotelName}`;
+    const bodyText = [
+      `Hello${guestName ? ` ${guestName}` : ""},`,
+      "",
+      "Please use the link below to complete your payment.",
+      "",
+      row.reasonText ? `Reason: ${row.reasonText}` : null,
+      `Amount: ${formattedAmount}`,
+      "",
+      row.publicUrl,
+      "",
+      "MyStay"
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const outbox = await enqueueEmailOutbox({
+      hotelId: row.hotelId,
+      toAddress,
+      subject,
+      bodyText,
+      payload: { type: "payment_link", paymentLinkId: row.id }
+    });
+
+    sendJson(res, 200, { ok: true, outbox });
+    return;
+  }
+
+  // POST /api/v1/staff/payment-links/:id/send-message - Post link into a guest thread
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "payment-links" &&
+    segments[4] &&
+    segments[5] === "send-message" &&
+    req.method === "POST" &&
+    segments.length === 6
+  ) {
+    const paymentLinkId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const rows = await query(
+      `
+        SELECT
+          pl.id,
+          pl.hotel_id AS "hotelId",
+          pl.stay_id AS "stayId",
+          pl.amount_cents AS "amountCents",
+          pl.currency,
+          pl.reason_text AS "reasonText",
+          pl.public_url AS "publicUrl"
+        FROM payment_links pl
+        WHERE pl.id = $1 AND pl.hotel_id = $2
+        LIMIT 1
+      `,
+      [paymentLinkId, principal.hotelId]
+    );
+
+    const row = rows[0] ?? null;
+    if (!row) {
+      sendJson(res, 404, { error: "payment_link_not_found" });
+      return;
+    }
+
+    if (!row.stayId) {
+      sendJson(res, 400, { error: "missing_stay" });
+      return;
+    }
+
+    const canSeeAllDepartments = principal.role === "admin";
+    const allowedDepartments = Array.isArray(principal.departments)
+      ? principal.departments.filter((dept) => typeof dept === "string").map((dept) => dept.trim()).filter(Boolean)
+      : [];
+
+    if (!canSeeAllDepartments && allowedDepartments.length === 0) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const existingThreads = await query(
+      `
+        SELECT id, department
+        FROM threads
+        WHERE hotel_id = $1 AND stay_id = $2 AND status <> 'archived'
+        ${canSeeAllDepartments ? "" : "AND department = ANY($3::text[])"}
+        ORDER BY updated_at DESC
+        LIMIT 1
+      `,
+      canSeeAllDepartments ? [row.hotelId, row.stayId] : [row.hotelId, row.stayId, allowedDepartments]
+    );
+
+    let threadId = existingThreads[0]?.id ?? null;
+    let department = existingThreads[0]?.department ?? null;
+
+    if (!threadId) {
+      if (canSeeAllDepartments) department = "reception";
+      else if (allowedDepartments.includes("reception")) department = "reception";
+      else department = allowedDepartments[0] ?? "reception";
+
+      threadId = `TH-${randomUUID().slice(0, 8).toUpperCase()}`;
+      await query(
+        `
+          INSERT INTO threads (id, hotel_id, stay_id, department, status, title, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, 'pending', 'Payment link', NOW(), NOW())
+        `,
+        [threadId, row.hotelId, row.stayId, department]
+      );
+
+      try {
+        await emitRealtimeEvent({
+          type: "thread_created",
+          hotelId: row.hotelId,
+          threadId,
+          stayId: row.stayId,
+          department,
+          status: "pending"
+        });
+      } catch (error) {
+        console.error("realtime_emit_failed", error);
+      }
+    }
+
+    const formattedAmount = `${(row.amountCents / 100).toFixed(2)} ${row.currency}`;
+    const bodyText = [
+      "Here is your payment link:",
+      "",
+      row.reasonText ? `Reason: ${row.reasonText}` : null,
+      `Amount: ${formattedAmount}`,
+      "",
+      row.publicUrl
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const messageId = `M-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const senderName = principal.displayName ?? "Staff";
+
+    await query(
+      `
+        INSERT INTO messages (id, thread_id, sender_type, sender_name, body_text, payload, created_at)
+        VALUES ($1, $2, 'staff', $3, $4, $5::jsonb, NOW())
+      `,
+      [messageId, threadId, senderName, bodyText, JSON.stringify({ type: "payment_link", paymentLinkId: row.id })]
+    );
+
+    await query(`UPDATE threads SET updated_at = NOW() WHERE id = $1`, [threadId]);
+
+    try {
+      await emitRealtimeEvent({
+        type: "message_created",
+        hotelId: row.hotelId,
+        threadId,
+        messageId,
+        department: department ?? "reception"
+      });
+    } catch (error) {
+      console.error("realtime_emit_failed", error);
+    }
+
+    sendJson(res, 200, { ok: true, threadId, messageId });
+    return;
+  }
+
   // GET /api/v1/staff/responses - Get predefined responses for staff
   if (url.pathname === "/api/v1/staff/responses" && req.method === "GET") {
     const principal = requirePrincipal(req, res, url, ["staff"]);
@@ -2992,6 +5764,1609 @@ async function handleRequest(req, res) {
     );
 
     sendJson(res, 200, { responses });
+    return;
+  }
+
+  // =====================================================
+  // STAFF: AUDIENCE & CRM (AeroGuest-inspired)
+  // =====================================================
+
+  // GET /api/v1/staff/audience?from=&to=&search=&page=&pageSize=
+  if (url.pathname === "/api/v1/staff/audience" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const fromRaw = url.searchParams.get("from");
+    const from = parseIsoDate(fromRaw);
+    if (fromRaw && !from) {
+      sendJson(res, 400, { error: "invalid_from" });
+      return;
+    }
+
+    const toRaw = url.searchParams.get("to");
+    const to = parseIsoDate(toRaw);
+    if (toRaw && !to) {
+      sendJson(res, 400, { error: "invalid_to" });
+      return;
+    }
+
+    const search = typeof url.searchParams.get("search") === "string" ? url.searchParams.get("search").trim() : "";
+
+    const page = Math.min(500, parsePositiveInt(url.searchParams.get("page"), 1));
+    const pageSize = Math.min(100, parsePositiveInt(url.searchParams.get("pageSize"), 25));
+    const offset = (page - 1) * pageSize;
+
+    const statsRows = await query(
+      `
+        SELECT
+          SUM(CASE WHEN status = 'opted_in' THEN 1 ELSE 0 END)::int AS "totalContacts",
+          SUM(
+            CASE
+              WHEN status = 'opted_in' AND COALESCE(status_at, created_at) >= date_trunc('week', NOW())
+                THEN 1
+              ELSE 0
+            END
+          )::int AS "optedInThisWeek",
+          SUM(
+            CASE
+              WHEN status = 'skipped' AND COALESCE(status_at, created_at) >= date_trunc('week', NOW())
+                THEN 1
+              ELSE 0
+            END
+          )::int AS "skippedThisWeek"
+        FROM audience_contacts
+        WHERE hotel_id = $1
+      `,
+      [principal.hotelId]
+    );
+
+    const syncRows = await query(
+      `
+        SELECT
+          finished_at AS "syncedAt"
+        FROM pms_sync_runs
+        WHERE hotel_id = $1 AND status = 'ok' AND finished_at IS NOT NULL
+        ORDER BY finished_at DESC
+        LIMIT 1
+      `,
+      [principal.hotelId]
+    );
+
+    const where = ["hotel_id = $1", "status = 'opted_in'"];
+    const params = [principal.hotelId];
+
+    if (from) {
+      params.push(from);
+      where.push(`COALESCE(status_at, created_at) >= $${params.length}::date`);
+    }
+
+    if (to) {
+      params.push(to);
+      where.push(`COALESCE(status_at, created_at) < ($${params.length}::date + INTERVAL '1 day')`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      where.push(
+        `(
+          LOWER(name) LIKE $${params.length}
+          OR LOWER(COALESCE(email, '')) LIKE $${params.length}
+        )`
+      );
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const limitIndex = params.length + 1;
+    const offsetIndex = params.length + 2;
+
+    const rows = await query(
+      `
+        SELECT
+          id,
+          hotel_id AS "hotelId",
+          guest_id AS "guestId",
+          status,
+          status_at AS "statusAt",
+          name,
+          email,
+          phone,
+          channel,
+          synced_with_pms AS "syncedWithPms",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt",
+          COUNT(*) OVER()::int AS "total"
+        FROM audience_contacts
+        ${whereSql}
+        ORDER BY COALESCE(status_at, created_at) DESC, name ASC
+        LIMIT $${limitIndex} OFFSET $${offsetIndex}
+      `,
+      [...params, pageSize, offset]
+    );
+
+    const total = typeof rows[0]?.total === "number" ? rows[0].total : 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    const items = rows.map((row) => {
+      const { total: _ignored, ...rest } = row;
+      return rest;
+    });
+
+    const stats = statsRows[0] ?? { totalContacts: 0, optedInThisWeek: 0, skippedThisWeek: 0 };
+    const syncedAt = syncRows[0]?.syncedAt ?? null;
+
+    sendJson(res, 200, { stats: { ...stats, syncedAt }, items, page, pageSize, total, totalPages });
+    return;
+  }
+
+  // GET /api/v1/staff/audience/export?from=&to=&search=
+  if (url.pathname === "/api/v1/staff/audience/export" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const fromRaw = url.searchParams.get("from");
+    const from = parseIsoDate(fromRaw);
+    if (fromRaw && !from) {
+      sendJson(res, 400, { error: "invalid_from" });
+      return;
+    }
+
+    const toRaw = url.searchParams.get("to");
+    const to = parseIsoDate(toRaw);
+    if (toRaw && !to) {
+      sendJson(res, 400, { error: "invalid_to" });
+      return;
+    }
+
+    const search = typeof url.searchParams.get("search") === "string" ? url.searchParams.get("search").trim() : "";
+
+    const where = ["hotel_id = $1", "status = 'opted_in'"];
+    const params = [principal.hotelId];
+
+    if (from) {
+      params.push(from);
+      where.push(`COALESCE(status_at, created_at) >= $${params.length}::date`);
+    }
+
+    if (to) {
+      params.push(to);
+      where.push(`COALESCE(status_at, created_at) < ($${params.length}::date + INTERVAL '1 day')`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      where.push(
+        `(
+          LOWER(name) LIKE $${params.length}
+          OR LOWER(COALESCE(email, '')) LIKE $${params.length}
+        )`
+      );
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const rows = await query(
+      `
+        SELECT
+          COALESCE(status_at, created_at) AS "optInDate",
+          name,
+          email,
+          channel,
+          synced_with_pms AS "syncedWithPms",
+          status
+        FROM audience_contacts
+        ${whereSql}
+        ORDER BY COALESCE(status_at, created_at) DESC, name ASC
+      `,
+      params
+    );
+
+    const header = ["opt_in_date", "name", "email", "channel", "synced_with_pms", "status"];
+    const lines = [header.join(",")];
+
+    for (const row of rows) {
+      const values = [
+        row.optInDate ? new Date(row.optInDate).toISOString() : "",
+        row.name ?? "",
+        row.email ?? "",
+        row.channel ?? "",
+        row.syncedWithPms ? "yes" : "no",
+        row.status ?? ""
+      ];
+      lines.push(values.map(csvEscape).join(","));
+    }
+
+    const filename = `audience-${principal.hotelId}-${new Date().toISOString().slice(0, 10)}.csv`;
+    sendText(res, 200, `${lines.join("\n")}\n`, {
+      contentType: "text/csv; charset=utf-8",
+      headers: { "Content-Disposition": `attachment; filename="${filename}"` }
+    });
+    return;
+  }
+
+  // GET /api/v1/staff/signup-forms - list signup forms for hotel
+  if (url.pathname === "/api/v1/staff/signup-forms" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const forms = await query(
+      `
+        SELECT
+          f.id,
+          f.hotel_id AS "hotelId",
+          f.name,
+          f.description,
+          f.channel,
+          f.status,
+          f.config,
+          f.created_by_staff_user_id AS "createdByStaffUserId",
+          COALESCE(su.display_name, su.email) AS "createdBy",
+          f.created_at AS "createdAt",
+          f.updated_at AS "updatedAt"
+        FROM signup_forms f
+        LEFT JOIN staff_users su ON su.id = f.created_by_staff_user_id
+        WHERE f.hotel_id = $1
+        ORDER BY f.updated_at DESC, f.name ASC
+      `,
+      [principal.hotelId]
+    );
+
+    sendJson(res, 200, { items: forms });
+    return;
+  }
+
+  // POST /api/v1/staff/signup-forms - create signup form (manager/admin only)
+  if (url.pathname === "/api/v1/staff/signup-forms" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      sendJson(res, 400, { error: "missing_name" });
+      return;
+    }
+
+    const description = typeof body.description === "string" ? body.description.trim() : null;
+    const channel = typeof body.channel === "string" ? body.channel.trim() : "";
+    if (!channel) {
+      sendJson(res, 400, { error: "missing_channel" });
+      return;
+    }
+
+    const status = typeof body.status === "string" ? body.status.trim() : "active";
+    if (!["active", "archived"].includes(status)) {
+      sendJson(res, 400, { error: "invalid_status", allowed: ["active", "archived"] });
+      return;
+    }
+
+    const config = body.config === undefined ? {} : body.config;
+
+    const id = `SF-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    const rows = await query(
+      `
+        INSERT INTO signup_forms (
+          id,
+          hotel_id,
+          name,
+          description,
+          channel,
+          status,
+          config,
+          created_by_staff_user_id,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, NOW(), NOW())
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          name,
+          description,
+          channel,
+          status,
+          config,
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [id, principal.hotelId, name, description, channel, status, JSON.stringify(config ?? {}), principal.staffUserId]
+    );
+
+    sendJson(res, 201, { signupForm: rows[0] });
+    return;
+  }
+
+  // PATCH /api/v1/staff/signup-forms/:id - update signup form (manager/admin only)
+  if (req.method === "PATCH" && url.pathname.match(/^\/api\/v1\/staff\/signup-forms\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const formId = url.pathname.split("/").pop();
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const updates = [];
+    const params = [formId, principal.hotelId];
+
+    if (body.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) {
+        sendJson(res, 400, { error: "invalid_name" });
+        return;
+      }
+      params.push(name);
+      updates.push(`name = $${params.length}`);
+    }
+
+    if (body.description !== undefined) {
+      const description = typeof body.description === "string" ? body.description.trim() : null;
+      params.push(description);
+      updates.push(`description = $${params.length}`);
+    }
+
+    if (body.channel !== undefined) {
+      const channel = typeof body.channel === "string" ? body.channel.trim() : "";
+      if (!channel) {
+        sendJson(res, 400, { error: "invalid_channel" });
+        return;
+      }
+      params.push(channel);
+      updates.push(`channel = $${params.length}`);
+    }
+
+    if (body.status !== undefined) {
+      const status = typeof body.status === "string" ? body.status.trim() : "";
+      if (!["active", "archived"].includes(status)) {
+        sendJson(res, 400, { error: "invalid_status", allowed: ["active", "archived"] });
+        return;
+      }
+      params.push(status);
+      updates.push(`status = $${params.length}`);
+    }
+
+    if (body.config !== undefined) {
+      params.push(JSON.stringify(body.config ?? {}));
+      updates.push(`config = $${params.length}::jsonb`);
+    }
+
+    if (updates.length === 0) {
+      sendJson(res, 400, { error: "no_fields_to_update" });
+      return;
+    }
+
+    updates.push(`updated_at = NOW()`);
+
+    const rows = await query(
+      `
+        UPDATE signup_forms
+        SET ${updates.join(", ")}
+        WHERE id = $1 AND hotel_id = $2
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          name,
+          description,
+          channel,
+          status,
+          config,
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      params
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "signup_form_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { signupForm: rows[0] });
+    return;
+  }
+
+  // DELETE /api/v1/staff/signup-forms/:id - delete signup form (manager/admin only)
+  if (req.method === "DELETE" && url.pathname.match(/^\/api\/v1\/staff\/signup-forms\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const formId = url.pathname.split("/").pop();
+    const rows = await query(`DELETE FROM signup_forms WHERE id = $1 AND hotel_id = $2 RETURNING id`, [formId, principal.hotelId]);
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "signup_form_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  // GET /api/v1/staff/hotel-directory - fetch hotel directory draft + published docs
+  if (url.pathname === "/api/v1/staff/hotel-directory" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    await query(
+      `
+        INSERT INTO hotel_directory_pages (hotel_id)
+        VALUES ($1)
+        ON CONFLICT (hotel_id) DO NOTHING
+      `,
+      [principal.hotelId]
+    );
+
+    const rows = await query(
+      `
+        SELECT
+          hotel_id AS "hotelId",
+          draft,
+          published,
+          draft_saved_at AS "draftSavedAt",
+          published_at AS "publishedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM hotel_directory_pages
+        WHERE hotel_id = $1
+        LIMIT 1
+      `,
+      [principal.hotelId]
+    );
+
+    sendJson(res, 200, { page: rows[0] ?? null });
+    return;
+  }
+
+  // PATCH /api/v1/staff/hotel-directory - save draft / publish / restore (manager/admin only)
+  if (url.pathname === "/api/v1/staff/hotel-directory" && req.method === "PATCH") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const action = typeof body.action === "string" ? body.action.trim() : "";
+    const allowedActions = ["save_draft", "publish", "restore_published_to_draft"];
+    if (!action || !allowedActions.includes(action)) {
+      sendJson(res, 400, { error: "invalid_action", allowed: allowedActions });
+      return;
+    }
+
+    const document = body.document;
+    if (action !== "restore_published_to_draft") {
+      if (!document || typeof document !== "object" || Array.isArray(document)) {
+        sendJson(res, 400, { error: "invalid_document" });
+        return;
+      }
+    }
+
+    await query(
+      `
+        INSERT INTO hotel_directory_pages (hotel_id)
+        VALUES ($1)
+        ON CONFLICT (hotel_id) DO NOTHING
+      `,
+      [principal.hotelId]
+    );
+
+    let updateSql = "";
+    let params = [];
+
+    if (action === "save_draft") {
+      updateSql = `
+        UPDATE hotel_directory_pages
+        SET draft = $1::jsonb, draft_saved_at = NOW(), updated_at = NOW()
+        WHERE hotel_id = $2
+        RETURNING
+          hotel_id AS "hotelId",
+          draft,
+          published,
+          draft_saved_at AS "draftSavedAt",
+          published_at AS "publishedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `;
+      params = [JSON.stringify(document ?? {}), principal.hotelId];
+    } else if (action === "publish") {
+      updateSql = `
+        UPDATE hotel_directory_pages
+        SET draft = $1::jsonb, published = $1::jsonb, draft_saved_at = NOW(), published_at = NOW(), updated_at = NOW()
+        WHERE hotel_id = $2
+        RETURNING
+          hotel_id AS "hotelId",
+          draft,
+          published,
+          draft_saved_at AS "draftSavedAt",
+          published_at AS "publishedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `;
+      params = [JSON.stringify(document ?? {}), principal.hotelId];
+    } else {
+      updateSql = `
+        UPDATE hotel_directory_pages
+        SET draft = published, draft_saved_at = NOW(), updated_at = NOW()
+        WHERE hotel_id = $1
+        RETURNING
+          hotel_id AS "hotelId",
+          draft,
+          published,
+          draft_saved_at AS "draftSavedAt",
+          published_at AS "publishedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `;
+      params = [principal.hotelId];
+    }
+
+    const rows = await query(updateSql, params);
+    sendJson(res, 200, { page: rows[0] ?? null });
+    return;
+  }
+
+  // =====================================================
+  // STAFF: AUTOMATIONS & MESSAGE TEMPLATES (AeroGuest-inspired)
+  // =====================================================
+
+  // GET /api/v1/staff/automations?search=&status=&page=&pageSize=
+  if (url.pathname === "/api/v1/staff/automations" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const search = typeof url.searchParams.get("search") === "string" ? url.searchParams.get("search").trim() : "";
+    const status = typeof url.searchParams.get("status") === "string" ? url.searchParams.get("status").trim().toLowerCase() : "";
+    const allowedStatuses = ["active", "paused"];
+    if (status && !allowedStatuses.includes(status)) {
+      sendJson(res, 400, { error: "invalid_status", allowed: allowedStatuses });
+      return;
+    }
+
+    const page = Math.min(500, parsePositiveInt(url.searchParams.get("page"), 1));
+    const pageSize = Math.min(100, parsePositiveInt(url.searchParams.get("pageSize"), 25));
+    const offset = (page - 1) * pageSize;
+
+    const where = ["a.hotel_id = $1"];
+    const params = [principal.hotelId];
+
+    if (status) {
+      params.push(status);
+      where.push(`a.status = $${params.length}`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      where.push(`LOWER(a.name) LIKE $${params.length}`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const limitIndex = params.length + 1;
+    const offsetIndex = params.length + 2;
+
+    const rows = await query(
+      `
+        SELECT
+          a.id,
+          a.hotel_id AS "hotelId",
+          a.name,
+          a.description,
+          a.trigger,
+          a.status,
+          a.config,
+          a.created_by_staff_user_id AS "createdByStaffUserId",
+          COALESCE(su.display_name, su.email) AS "createdBy",
+          a.created_at AS "createdAt",
+          a.updated_at AS "updatedAt",
+          COUNT(*) OVER()::int AS "total"
+        FROM automations a
+        LEFT JOIN staff_users su ON su.id = a.created_by_staff_user_id
+        ${whereSql}
+        ORDER BY a.updated_at DESC
+        LIMIT $${limitIndex} OFFSET $${offsetIndex}
+      `,
+      [...params, pageSize, offset]
+    );
+
+    const total = typeof rows[0]?.total === "number" ? rows[0].total : 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const items = rows.map((row) => {
+      const { total: _ignored, ...rest } = row;
+      return rest;
+    });
+
+    sendJson(res, 200, { items, page, pageSize, total, totalPages });
+    return;
+  }
+
+  // GET /api/v1/staff/automations/:id - automation details
+  if (req.method === "GET" && url.pathname.match(/^\/api\/v1\/staff\/automations\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const automationId = url.pathname.split("/").pop();
+    const rows = await query(
+      `
+        SELECT
+          a.id,
+          a.hotel_id AS "hotelId",
+          a.name,
+          a.description,
+          a.trigger,
+          a.status,
+          a.config,
+          a.created_by_staff_user_id AS "createdByStaffUserId",
+          COALESCE(su.display_name, su.email) AS "createdBy",
+          a.created_at AS "createdAt",
+          a.updated_at AS "updatedAt"
+        FROM automations a
+        LEFT JOIN staff_users su ON su.id = a.created_by_staff_user_id
+        WHERE a.id = $1 AND a.hotel_id = $2
+        LIMIT 1
+      `,
+      [automationId, principal.hotelId]
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "automation_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { automation: rows[0] });
+    return;
+  }
+
+  // POST /api/v1/staff/automations - create automation (manager/admin)
+  if (url.pathname === "/api/v1/staff/automations" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      sendJson(res, 400, { error: "missing_name" });
+      return;
+    }
+
+    const trigger = typeof body.trigger === "string" ? body.trigger.trim() : "";
+    if (!trigger) {
+      sendJson(res, 400, { error: "missing_trigger" });
+      return;
+    }
+
+    const description = typeof body.description === "string" ? body.description.trim() : null;
+    const status = typeof body.status === "string" ? body.status.trim().toLowerCase() : "active";
+    const allowedStatuses = ["active", "paused"];
+    if (!allowedStatuses.includes(status)) {
+      sendJson(res, 400, { error: "invalid_status", allowed: allowedStatuses });
+      return;
+    }
+
+    const config = body.config === undefined ? {} : body.config;
+    if (config !== null && (typeof config !== "object" || Array.isArray(config))) {
+      sendJson(res, 400, { error: "invalid_config" });
+      return;
+    }
+
+    const id = `AU-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    const rows = await query(
+      `
+        INSERT INTO automations (
+          id,
+          hotel_id,
+          name,
+          description,
+          trigger,
+          status,
+          config,
+          created_by_staff_user_id,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, NOW(), NOW())
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          name,
+          description,
+          trigger,
+          status,
+          config,
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [id, principal.hotelId, name, description, trigger, status, JSON.stringify(config ?? {}), principal.staffUserId]
+    );
+
+    sendJson(res, 201, { automation: rows[0] });
+    return;
+  }
+
+  // PATCH /api/v1/staff/automations/:id - update automation (manager/admin)
+  if (req.method === "PATCH" && url.pathname.match(/^\/api\/v1\/staff\/automations\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const automationId = url.pathname.split("/").pop();
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const updates = [];
+    const params = [automationId, principal.hotelId];
+
+    if (body.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) {
+        sendJson(res, 400, { error: "invalid_name" });
+        return;
+      }
+      params.push(name);
+      updates.push(`name = $${params.length}`);
+    }
+
+    if (body.description !== undefined) {
+      const description = typeof body.description === "string" ? body.description.trim() : null;
+      params.push(description);
+      updates.push(`description = $${params.length}`);
+    }
+
+    if (body.trigger !== undefined) {
+      const trigger = typeof body.trigger === "string" ? body.trigger.trim() : "";
+      if (!trigger) {
+        sendJson(res, 400, { error: "invalid_trigger" });
+        return;
+      }
+      params.push(trigger);
+      updates.push(`trigger = $${params.length}`);
+    }
+
+    if (body.status !== undefined) {
+      const status = typeof body.status === "string" ? body.status.trim().toLowerCase() : "";
+      const allowedStatuses = ["active", "paused"];
+      if (!allowedStatuses.includes(status)) {
+        sendJson(res, 400, { error: "invalid_status", allowed: allowedStatuses });
+        return;
+      }
+      params.push(status);
+      updates.push(`status = $${params.length}`);
+    }
+
+    if (body.config !== undefined) {
+      if (body.config !== null && (typeof body.config !== "object" || Array.isArray(body.config))) {
+        sendJson(res, 400, { error: "invalid_config" });
+        return;
+      }
+      params.push(JSON.stringify(body.config ?? {}));
+      updates.push(`config = $${params.length}::jsonb`);
+    }
+
+    if (updates.length === 0) {
+      sendJson(res, 400, { error: "no_fields_to_update" });
+      return;
+    }
+
+    updates.push(`updated_at = NOW()`);
+
+    const rows = await query(
+      `
+        UPDATE automations
+        SET ${updates.join(", ")}
+        WHERE id = $1 AND hotel_id = $2
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          name,
+          description,
+          trigger,
+          status,
+          config,
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      params
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "automation_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { automation: rows[0] });
+    return;
+  }
+
+  // PATCH /api/v1/staff/automations/:id/toggle - enable/disable automation (manager/admin)
+  if (req.method === "PATCH" && url.pathname.match(/^\/api\/v1\/staff\/automations\/[^/]+\/toggle$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const pathParts = url.pathname.split("/");
+    const automationId = pathParts[5];
+
+    const rows = await query(
+      `
+        UPDATE automations
+        SET status = CASE WHEN status = 'active' THEN 'paused' ELSE 'active' END,
+            updated_at = NOW()
+        WHERE id = $1 AND hotel_id = $2
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          name,
+          description,
+          trigger,
+          status,
+          updated_at AS "updatedAt"
+      `,
+      [automationId, principal.hotelId]
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "automation_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { automation: rows[0] });
+    return;
+  }
+
+  // GET /api/v1/staff/message-templates?search=&status=&channel=&page=&pageSize=
+  if (url.pathname === "/api/v1/staff/message-templates" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const search = typeof url.searchParams.get("search") === "string" ? url.searchParams.get("search").trim() : "";
+    const status = typeof url.searchParams.get("status") === "string" ? url.searchParams.get("status").trim().toLowerCase() : "";
+    const channel = typeof url.searchParams.get("channel") === "string" ? url.searchParams.get("channel").trim().toLowerCase() : "";
+
+    const allowedStatuses = ["draft", "published", "archived"];
+    if (status && !allowedStatuses.includes(status)) {
+      sendJson(res, 400, { error: "invalid_status", allowed: allowedStatuses });
+      return;
+    }
+
+    const allowedChannels = ["email", "sms", "app"];
+    if (channel && !allowedChannels.includes(channel)) {
+      sendJson(res, 400, { error: "invalid_channel", allowed: allowedChannels });
+      return;
+    }
+
+    const page = Math.min(500, parsePositiveInt(url.searchParams.get("page"), 1));
+    const pageSize = Math.min(100, parsePositiveInt(url.searchParams.get("pageSize"), 25));
+    const offset = (page - 1) * pageSize;
+
+    const where = ["t.hotel_id = $1"];
+    const params = [principal.hotelId];
+
+    if (status) {
+      params.push(status);
+      where.push(`t.status = $${params.length}`);
+    }
+
+    if (channel) {
+      params.push(channel);
+      where.push(`t.channel = $${params.length}`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      where.push(`LOWER(t.name) LIKE $${params.length}`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const limitIndex = params.length + 1;
+    const offsetIndex = params.length + 2;
+
+    const rows = await query(
+      `
+        SELECT
+          t.id,
+          t.hotel_id AS "hotelId",
+          t.name,
+          t.description,
+          t.channel,
+          t.status,
+          t.content,
+          t.created_by_staff_user_id AS "createdByStaffUserId",
+          COALESCE(su.display_name, su.email) AS "createdBy",
+          t.created_at AS "createdAt",
+          t.updated_at AS "updatedAt",
+          COUNT(*) OVER()::int AS "total"
+        FROM message_templates t
+        LEFT JOIN staff_users su ON su.id = t.created_by_staff_user_id
+        ${whereSql}
+        ORDER BY t.updated_at DESC
+        LIMIT $${limitIndex} OFFSET $${offsetIndex}
+      `,
+      [...params, pageSize, offset]
+    );
+
+    const total = typeof rows[0]?.total === "number" ? rows[0].total : 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const items = rows.map((row) => {
+      const { total: _ignored, ...rest } = row;
+      return rest;
+    });
+
+    sendJson(res, 200, { items, page, pageSize, total, totalPages });
+    return;
+  }
+
+  // GET /api/v1/staff/message-templates/:id - template detail
+  if (req.method === "GET" && url.pathname.match(/^\/api\/v1\/staff\/message-templates\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const templateId = url.pathname.split("/").pop();
+    const rows = await query(
+      `
+        SELECT
+          t.id,
+          t.hotel_id AS "hotelId",
+          t.name,
+          t.description,
+          t.channel,
+          t.status,
+          t.content,
+          t.created_by_staff_user_id AS "createdByStaffUserId",
+          COALESCE(su.display_name, su.email) AS "createdBy",
+          t.created_at AS "createdAt",
+          t.updated_at AS "updatedAt"
+        FROM message_templates t
+        LEFT JOIN staff_users su ON su.id = t.created_by_staff_user_id
+        WHERE t.id = $1 AND t.hotel_id = $2
+        LIMIT 1
+      `,
+      [templateId, principal.hotelId]
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "message_template_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { template: rows[0] });
+    return;
+  }
+
+  // POST /api/v1/staff/message-templates - create template (manager/admin)
+  if (url.pathname === "/api/v1/staff/message-templates" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      sendJson(res, 400, { error: "missing_name" });
+      return;
+    }
+
+    const channel = typeof body.channel === "string" ? body.channel.trim().toLowerCase() : "";
+    const allowedChannels = ["email", "sms", "app"];
+    if (!allowedChannels.includes(channel)) {
+      sendJson(res, 400, { error: "invalid_channel", allowed: allowedChannels });
+      return;
+    }
+
+    const status = typeof body.status === "string" ? body.status.trim().toLowerCase() : "draft";
+    const allowedStatuses = ["draft", "published", "archived"];
+    if (!allowedStatuses.includes(status)) {
+      sendJson(res, 400, { error: "invalid_status", allowed: allowedStatuses });
+      return;
+    }
+
+    const description = typeof body.description === "string" ? body.description.trim() : null;
+    const content = body.content === undefined ? {} : body.content;
+    if (content !== null && (typeof content !== "object" || Array.isArray(content))) {
+      sendJson(res, 400, { error: "invalid_content" });
+      return;
+    }
+
+    const id = `MT-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    const rows = await query(
+      `
+        INSERT INTO message_templates (
+          id,
+          hotel_id,
+          name,
+          description,
+          channel,
+          status,
+          content,
+          created_by_staff_user_id,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, NOW(), NOW())
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          name,
+          description,
+          channel,
+          status,
+          content,
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [id, principal.hotelId, name, description, channel, status, JSON.stringify(content ?? {}), principal.staffUserId]
+    );
+
+    sendJson(res, 201, { template: rows[0] });
+    return;
+  }
+
+  // PATCH /api/v1/staff/message-templates/:id - update template (manager/admin)
+  if (req.method === "PATCH" && url.pathname.match(/^\/api\/v1\/staff\/message-templates\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const templateId = url.pathname.split("/").pop();
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const updates = [];
+    const params = [templateId, principal.hotelId];
+
+    if (body.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) {
+        sendJson(res, 400, { error: "invalid_name" });
+        return;
+      }
+      params.push(name);
+      updates.push(`name = $${params.length}`);
+    }
+
+    if (body.description !== undefined) {
+      const description = typeof body.description === "string" ? body.description.trim() : null;
+      params.push(description);
+      updates.push(`description = $${params.length}`);
+    }
+
+    if (body.channel !== undefined) {
+      const channel = typeof body.channel === "string" ? body.channel.trim().toLowerCase() : "";
+      const allowedChannels = ["email", "sms", "app"];
+      if (!allowedChannels.includes(channel)) {
+        sendJson(res, 400, { error: "invalid_channel", allowed: allowedChannels });
+        return;
+      }
+      params.push(channel);
+      updates.push(`channel = $${params.length}`);
+    }
+
+    if (body.status !== undefined) {
+      const status = typeof body.status === "string" ? body.status.trim().toLowerCase() : "";
+      const allowedStatuses = ["draft", "published", "archived"];
+      if (!allowedStatuses.includes(status)) {
+        sendJson(res, 400, { error: "invalid_status", allowed: allowedStatuses });
+        return;
+      }
+      params.push(status);
+      updates.push(`status = $${params.length}`);
+    }
+
+    if (body.content !== undefined) {
+      if (body.content !== null && (typeof body.content !== "object" || Array.isArray(body.content))) {
+        sendJson(res, 400, { error: "invalid_content" });
+        return;
+      }
+      params.push(JSON.stringify(body.content ?? {}));
+      updates.push(`content = $${params.length}::jsonb`);
+    }
+
+    if (updates.length === 0) {
+      sendJson(res, 400, { error: "no_fields_to_update" });
+      return;
+    }
+
+    updates.push(`updated_at = NOW()`);
+
+    const rows = await query(
+      `
+        UPDATE message_templates
+        SET ${updates.join(", ")}
+        WHERE id = $1 AND hotel_id = $2
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          name,
+          description,
+          channel,
+          status,
+          content,
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      params
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "message_template_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { template: rows[0] });
+    return;
+  }
+
+  // PATCH /api/v1/staff/message-templates/:id/archive - archive template (manager/admin)
+  if (req.method === "PATCH" && url.pathname.match(/^\/api\/v1\/staff\/message-templates\/[^/]+\/archive$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const pathParts = url.pathname.split("/");
+    const templateId = pathParts[5];
+
+    const rows = await query(
+      `
+        UPDATE message_templates
+        SET status = 'archived', updated_at = NOW()
+        WHERE id = $1 AND hotel_id = $2
+        RETURNING id, hotel_id AS "hotelId", status, updated_at AS "updatedAt"
+      `,
+      [templateId, principal.hotelId]
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "message_template_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { template: rows[0] });
+    return;
+  }
+
+  // POST /api/v1/staff/message-templates/:id/duplicate - duplicate template (manager/admin)
+  if (req.method === "POST" && url.pathname.match(/^\/api\/v1\/staff\/message-templates\/[^/]+\/duplicate$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const pathParts = url.pathname.split("/");
+    const templateId = pathParts[5];
+
+    const rows = await query(
+      `
+        SELECT
+          name,
+          description,
+          channel,
+          status,
+          content
+        FROM message_templates
+        WHERE id = $1 AND hotel_id = $2
+        LIMIT 1
+      `,
+      [templateId, principal.hotelId]
+    );
+
+    const template = rows[0] ?? null;
+    if (!template) {
+      sendJson(res, 404, { error: "message_template_not_found" });
+      return;
+    }
+
+    const id = `MT-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const name = typeof template.name === "string" ? `Copy of ${template.name}` : "Copy";
+
+    const inserted = await query(
+      `
+        INSERT INTO message_templates (
+          id,
+          hotel_id,
+          name,
+          description,
+          channel,
+          status,
+          content,
+          created_by_staff_user_id,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, NOW(), NOW())
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          name,
+          description,
+          channel,
+          status,
+          content,
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [
+        id,
+        principal.hotelId,
+        name,
+        template.description ?? null,
+        template.channel,
+        template.status,
+        JSON.stringify(template.content ?? {}),
+        principal.staffUserId
+      ]
+    );
+
+    sendJson(res, 201, { template: inserted[0] });
+    return;
+  }
+
+  // =====================================================
+  // STAFF: UPSELL SERVICES (AeroGuest-inspired)
+  // =====================================================
+
+  // GET /api/v1/staff/upsell-services
+  if (url.pathname === "/api/v1/staff/upsell-services" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const search = typeof url.searchParams.get("search") === "string" ? url.searchParams.get("search").trim() : "";
+    const category = typeof url.searchParams.get("category") === "string" ? url.searchParams.get("category").trim() : "";
+
+    const where = ["hotel_id = $1"];
+    const params = [principal.hotelId];
+
+    if (category) {
+      params.push(category);
+      where.push(`category = $${params.length}`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      where.push(`(LOWER(name) LIKE $${params.length} OR LOWER(category) LIKE $${params.length})`);
+    }
+
+    const rows = await query(
+      `
+        SELECT
+          id,
+          hotel_id AS "hotelId",
+          category,
+          name,
+          touchpoint,
+          price_cents AS "priceCents",
+          currency,
+          availability_weekdays AS "availabilityWeekdays",
+          enabled,
+          sort_order AS "sortOrder",
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM upsell_services
+        WHERE ${where.join(" AND ")}
+        ORDER BY category ASC, sort_order ASC, name ASC
+      `,
+      params
+    );
+
+    sendJson(res, 200, { items: rows });
+    return;
+  }
+
+  // GET /api/v1/staff/upsell-services/:id
+  if (req.method === "GET" && url.pathname.match(/^\/api\/v1\/staff\/upsell-services\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
+
+    const serviceId = url.pathname.split("/").pop();
+    const rows = await query(
+      `
+        SELECT
+          id,
+          hotel_id AS "hotelId",
+          category,
+          name,
+          touchpoint,
+          price_cents AS "priceCents",
+          currency,
+          availability_weekdays AS "availabilityWeekdays",
+          enabled,
+          sort_order AS "sortOrder",
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM upsell_services
+        WHERE id = $1 AND hotel_id = $2
+        LIMIT 1
+      `,
+      [serviceId, principal.hotelId]
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "upsell_service_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { service: rows[0] });
+    return;
+  }
+
+  // POST /api/v1/staff/upsell-services - create service (manager/admin)
+  if (url.pathname === "/api/v1/staff/upsell-services" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const category = typeof body.category === "string" ? body.category.trim() : "";
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!category || !name) {
+      sendJson(res, 400, { error: "missing_fields", required: ["category", "name"] });
+      return;
+    }
+
+    const touchpoint = typeof body.touchpoint === "string" ? body.touchpoint.trim().toLowerCase() : "";
+    const allowedTouchpoints = ["before_stay", "during_stay", "before_and_during"];
+    if (!allowedTouchpoints.includes(touchpoint)) {
+      sendJson(res, 400, { error: "invalid_touchpoint", allowed: allowedTouchpoints });
+      return;
+    }
+
+    const priceCents = typeof body.priceCents === "number" ? Math.floor(body.priceCents) : Number(body.priceCents);
+    if (!Number.isFinite(priceCents) || priceCents < 0) {
+      sendJson(res, 400, { error: "invalid_price_cents" });
+      return;
+    }
+
+    const currency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : "EUR";
+    if (!currency) {
+      sendJson(res, 400, { error: "invalid_currency" });
+      return;
+    }
+
+    const allowedWeekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+    const availabilityWeekdays = Array.isArray(body.availabilityWeekdays)
+      ? body.availabilityWeekdays.filter((day) => typeof day === "string").map((day) => day.trim().toLowerCase()).filter((day) => allowedWeekdays.includes(day))
+      : [];
+
+    const enabled = body.enabled === undefined ? true : Boolean(body.enabled);
+    const sortOrder = body.sortOrder === undefined ? 0 : Number(body.sortOrder);
+    const safeSortOrder = Number.isFinite(sortOrder) ? Math.floor(sortOrder) : 0;
+
+    const id = `US-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    const rows = await query(
+      `
+        INSERT INTO upsell_services (
+          id,
+          hotel_id,
+          category,
+          name,
+          touchpoint,
+          price_cents,
+          currency,
+          availability_weekdays,
+          enabled,
+          sort_order,
+          created_by_staff_user_id,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text[], $9, $10, $11, NOW(), NOW())
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          category,
+          name,
+          touchpoint,
+          price_cents AS "priceCents",
+          currency,
+          availability_weekdays AS "availabilityWeekdays",
+          enabled,
+          sort_order AS "sortOrder",
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [id, principal.hotelId, category, name, touchpoint, priceCents, currency, availabilityWeekdays, enabled, safeSortOrder, principal.staffUserId]
+    );
+
+    sendJson(res, 201, { service: rows[0] });
+    return;
+  }
+
+  // PATCH /api/v1/staff/upsell-services/:id - update service (manager/admin)
+  if (req.method === "PATCH" && url.pathname.match(/^\/api\/v1\/staff\/upsell-services\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const serviceId = url.pathname.split("/").pop();
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const updates = [];
+    const params = [serviceId, principal.hotelId];
+
+    if (body.category !== undefined) {
+      const category = typeof body.category === "string" ? body.category.trim() : "";
+      if (!category) {
+        sendJson(res, 400, { error: "invalid_category" });
+        return;
+      }
+      params.push(category);
+      updates.push(`category = $${params.length}`);
+    }
+
+    if (body.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) {
+        sendJson(res, 400, { error: "invalid_name" });
+        return;
+      }
+      params.push(name);
+      updates.push(`name = $${params.length}`);
+    }
+
+    if (body.touchpoint !== undefined) {
+      const touchpoint = typeof body.touchpoint === "string" ? body.touchpoint.trim().toLowerCase() : "";
+      const allowedTouchpoints = ["before_stay", "during_stay", "before_and_during"];
+      if (!allowedTouchpoints.includes(touchpoint)) {
+        sendJson(res, 400, { error: "invalid_touchpoint", allowed: allowedTouchpoints });
+        return;
+      }
+      params.push(touchpoint);
+      updates.push(`touchpoint = $${params.length}`);
+    }
+
+    if (body.priceCents !== undefined) {
+      const priceCents = typeof body.priceCents === "number" ? Math.floor(body.priceCents) : Number(body.priceCents);
+      if (!Number.isFinite(priceCents) || priceCents < 0) {
+        sendJson(res, 400, { error: "invalid_price_cents" });
+        return;
+      }
+      params.push(priceCents);
+      updates.push(`price_cents = $${params.length}`);
+    }
+
+    if (body.currency !== undefined) {
+      const currency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : "";
+      if (!currency) {
+        sendJson(res, 400, { error: "invalid_currency" });
+        return;
+      }
+      params.push(currency);
+      updates.push(`currency = $${params.length}`);
+    }
+
+    if (body.availabilityWeekdays !== undefined) {
+      const allowedWeekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+      const availabilityWeekdays = Array.isArray(body.availabilityWeekdays)
+        ? body.availabilityWeekdays.filter((day) => typeof day === "string").map((day) => day.trim().toLowerCase()).filter((day) => allowedWeekdays.includes(day))
+        : [];
+      params.push(availabilityWeekdays);
+      updates.push(`availability_weekdays = $${params.length}::text[]`);
+    }
+
+    if (body.enabled !== undefined) {
+      params.push(Boolean(body.enabled));
+      updates.push(`enabled = $${params.length}`);
+    }
+
+    if (body.sortOrder !== undefined) {
+      const sortOrder = Number(body.sortOrder);
+      const safeSortOrder = Number.isFinite(sortOrder) ? Math.floor(sortOrder) : 0;
+      params.push(safeSortOrder);
+      updates.push(`sort_order = $${params.length}`);
+    }
+
+    if (updates.length === 0) {
+      sendJson(res, 400, { error: "no_fields_to_update" });
+      return;
+    }
+
+    updates.push(`updated_at = NOW()`);
+
+    const rows = await query(
+      `
+        UPDATE upsell_services
+        SET ${updates.join(", ")}
+        WHERE id = $1 AND hotel_id = $2
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          category,
+          name,
+          touchpoint,
+          price_cents AS "priceCents",
+          currency,
+          availability_weekdays AS "availabilityWeekdays",
+          enabled,
+          sort_order AS "sortOrder",
+          created_by_staff_user_id AS "createdByStaffUserId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      params
+    );
+
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "upsell_service_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { service: rows[0] });
+    return;
+  }
+
+  // DELETE /api/v1/staff/upsell-services/:id - delete service (manager/admin)
+  if (req.method === "DELETE" && url.pathname.match(/^\/api\/v1\/staff\/upsell-services\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const serviceId = url.pathname.split("/").pop();
+    const rows = await query(`DELETE FROM upsell_services WHERE id = $1 AND hotel_id = $2 RETURNING id`, [serviceId, principal.hotelId]);
+    if (rows.length === 0) {
+      sendJson(res, 404, { error: "upsell_service_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, { ok: true });
     return;
   }
 
@@ -3150,9 +7525,9 @@ async function handleRequest(req, res) {
     const principal = requirePrincipal(req, res, url, ["guest", "staff"]);
     if (!principal) return;
 
-    if (req.method === "GET") {
-      const where = [];
-      const params = [];
+	    if (req.method === "GET") {
+	      const where = [];
+	      const params = [];
 
       const requestedHotelId = url.searchParams.get("hotelId");
       if (requestedHotelId && requestedHotelId.trim() && requestedHotelId.trim() !== principal.hotelId) {
@@ -3350,43 +7725,69 @@ async function handleRequest(req, res) {
         addEqualsFilter(where, params, "t.status", url.searchParams.get("status"));
       }
 
-      const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+	      const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+	      const includeUnread = principal.typ === "guest";
+	      const unreadJoin = includeUnread
+	        ? `
+            LEFT JOIN LATERAL (
+              SELECT MAX(created_at) AS last_staff_message_at
+              FROM messages m_staff
+              WHERE m_staff.thread_id = t.id AND m_staff.sender_type = 'staff'
+            ) lm ON true
+          `
+	        : "";
+	      const unreadSelect = includeUnread
+	        ? `
+              t.guest_last_read_at AS "guestLastReadAt",
+              CASE
+                WHEN lm.last_staff_message_at IS NULL THEN 0
+                WHEN t.guest_last_read_at IS NULL THEN 1
+                WHEN lm.last_staff_message_at > t.guest_last_read_at THEN 1
+                ELSE 0
+              END AS "unreadCount",
+          `
+	        : `
+              NULL::timestamptz AS "guestLastReadAt",
+              0::int AS "unreadCount",
+          `;
 
-      const items = await query(
-        `
-          SELECT * FROM (
-            SELECT
-              t.id,
-              t.hotel_id AS "hotelId",
-              t.stay_id AS "stayId",
-              t.department,
-              t.status,
-              t.title,
-              t.assigned_staff_user_id AS "assignedStaffUserId",
-              t.created_at AS "createdAt",
-              t.updated_at AS "updatedAt",
-              (
-                SELECT body_text
-                FROM messages m
-                WHERE m.thread_id = t.id
-                ORDER BY m.created_at DESC
-                LIMIT 1
-              ) AS "lastMessage",
-              (
-                SELECT created_at
-                FROM messages m
-                WHERE m.thread_id = t.id
-                ORDER BY m.created_at DESC
-                LIMIT 1
-              ) AS "lastMessageAt"
-            FROM threads t
-            ${whereClause}
-          ) AS sub
-          ORDER BY COALESCE("lastMessageAt", "updatedAt") DESC
-          LIMIT 100
-        `,
-        params
-      );
+	      const items = await query(
+	        `
+	          SELECT * FROM (
+	            SELECT
+	              t.id,
+	              t.hotel_id AS "hotelId",
+	              t.stay_id AS "stayId",
+	              t.department,
+	              t.status,
+	              t.title,
+	              t.assigned_staff_user_id AS "assignedStaffUserId",
+	              t.created_at AS "createdAt",
+	              t.updated_at AS "updatedAt",
+	              ${unreadSelect}
+	              (
+	                SELECT body_text
+	                FROM messages m
+	                WHERE m.thread_id = t.id
+	                ORDER BY m.created_at DESC
+	                LIMIT 1
+	              ) AS "lastMessage",
+	              (
+	                SELECT created_at
+	                FROM messages m
+	                WHERE m.thread_id = t.id
+	                ORDER BY m.created_at DESC
+	                LIMIT 1
+	              ) AS "lastMessageAt"
+	            FROM threads t
+	            ${unreadJoin}
+	            ${whereClause}
+	          ) AS sub
+	          ORDER BY COALESCE("lastMessageAt", "updatedAt") DESC
+	          LIMIT 100
+	        `,
+	        params
+	      );
 
       sendJson(res, 200, { items });
       return;
@@ -3588,7 +7989,7 @@ async function handleRequest(req, res) {
         sendJson(res, 403, { error: "forbidden" });
         return;
       }
-      if (!requireStaffRole(res, principal, ["staff", "admin"])) return;
+      if (!requireStaffRole(res, principal, ["staff", "manager", "admin"])) return;
 
       const body = await readJson(req);
       if (!body || typeof body !== "object") {
@@ -3596,7 +7997,7 @@ async function handleRequest(req, res) {
         return;
       }
 
-      const allowedStatuses = ["pending", "in_progress", "resolved"];
+      const allowedStatuses = ["pending", "in_progress", "resolved", "archived"];
       const nextStatus = typeof body.status === "string" ? body.status.trim() : null;
       const assignedToProvided = Object.prototype.hasOwnProperty.call(body, "assignedTo");
       const rawAssignedTo = assignedToProvided ? body.assignedTo : undefined;
@@ -3639,6 +8040,11 @@ async function handleRequest(req, res) {
 
       if (!isDepartmentAllowed(principal, scope.department)) {
         sendJson(res, 403, { error: "forbidden" });
+        return;
+      }
+
+      if (scope.status === "archived") {
+        sendJson(res, 409, { error: "thread_archived" });
         return;
       }
 
@@ -3829,6 +8235,17 @@ async function handleRequest(req, res) {
           params
         );
 
+        if (principal.typ === "guest") {
+          try {
+            await query(
+              `UPDATE threads SET guest_last_read_at = NOW() WHERE id = $1 AND hotel_id = $2 AND stay_id = $3`,
+              [threadId, principal.hotelId, principal.stayId]
+            );
+          } catch (error) {
+            console.error("thread_read_update_failed", error);
+          }
+        }
+
         sendJson(res, 200, { items });
         return;
       }
@@ -3857,7 +8274,7 @@ async function handleRequest(req, res) {
 	        if (principal.typ === "guest") scopeParams.push(principal.stayId);
 
 	        const existing = await query(
-	          `SELECT id, department, title, assigned_staff_user_id AS "assignedStaffUserId" FROM threads WHERE ${scopeWhere} LIMIT 1`,
+	          `SELECT id, stay_id AS "stayId", department, status, title, assigned_staff_user_id AS "assignedStaffUserId" FROM threads WHERE ${scopeWhere} LIMIT 1`,
 	          scopeParams
 	        );
 	        const existingThread = existing[0];
@@ -3865,6 +8282,11 @@ async function handleRequest(req, res) {
 	          sendJson(res, 404, { error: "thread_not_found" });
 	          return;
 	        }
+
+          if (existingThread.status === "archived") {
+            sendJson(res, 409, { error: "thread_archived" });
+            return;
+          }
 
 	        if (principal.typ === "staff" && !isDepartmentAllowed(principal, existingThread.department)) {
 	          sendJson(res, 403, { error: "forbidden" });
@@ -3900,9 +8322,11 @@ async function handleRequest(req, res) {
 	          await emitRealtimeEvent({
 	            type: "message_created",
 	            hotelId: principal.hotelId,
+	            stayId: existingThread.stayId ?? null,
 	            threadId,
 	            messageId: message.id,
-	            department: existingThread.department
+	            department: existingThread.department,
+	            senderType
 	          });
 	        } catch (error) {
 	          console.error("realtime_emit_failed", error);
@@ -4366,6 +8790,713 @@ async function handleRequest(req, res) {
     } catch (error) {
       console.error("tip_processing_failed", error);
       sendJson(res, 500, { error: "payment_failed", message: error.message });
+      return;
+    }
+  }
+
+  // ==========================================================================
+  // ROOM IMAGES - Manage room photo carousels
+  // ==========================================================================
+
+  // GET /api/v1/hotels/:hotelId/room-images - List room images (public for guest app)
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "hotels" &&
+    segments[3] &&
+    segments[4] === "room-images" &&
+    !segments[5] &&
+    req.method === "GET"
+  ) {
+    const hotelId = decodeURIComponent(segments[3]);
+    
+    try {
+      const rows = await query(
+        `
+          SELECT
+            id,
+            hotel_id AS "hotelId",
+            category,
+            title,
+            description,
+            image_url AS "imageUrl",
+            sort_order AS "sortOrder",
+            is_active AS "isActive",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM room_images
+          WHERE hotel_id = $1 AND is_active = true
+          ORDER BY sort_order ASC, created_at ASC
+        `,
+        [hotelId]
+      );
+
+      sendJson(res, 200, { images: rows, total: rows.length });
+      return;
+    } catch (error) {
+      console.error("room_images_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // GET /api/v1/staff/room-images - List all room images for staff (active and inactive)
+  if (url.pathname === "/api/v1/staff/room-images" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const category = url.searchParams.get("category")?.trim() || null;
+    const isActive = url.searchParams.get("isActive");
+
+    try {
+      const params = [principal.hotelId];
+      let whereClause = "WHERE hotel_id = $1";
+      
+      if (category) {
+        params.push(category);
+        whereClause += ` AND category = $${params.length}`;
+      }
+      
+      if (isActive === "true") {
+        whereClause += " AND is_active = true";
+      } else if (isActive === "false") {
+        whereClause += " AND is_active = false";
+      }
+
+      const rows = await query(
+        `
+          SELECT
+            id,
+            hotel_id AS "hotelId",
+            category,
+            title,
+            description,
+            image_url AS "imageUrl",
+            sort_order AS "sortOrder",
+            is_active AS "isActive",
+            created_by_staff_user_id AS "createdByStaffUserId",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM room_images
+          ${whereClause}
+          ORDER BY sort_order ASC, created_at ASC
+        `,
+        params
+      );
+
+      sendJson(res, 200, { images: rows, total: rows.length });
+      return;
+    } catch (error) {
+      console.error("room_images_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // POST /api/v1/staff/room-images - Create a new room image
+  if (url.pathname === "/api/v1/staff/room-images" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    const imageUrl = normalizeText(body?.imageUrl);
+    const title = normalizeText(body?.title);
+    const description = normalizeText(body?.description);
+    const category = normalizeText(body?.category) || "room";
+
+    if (!imageUrl) {
+      sendJson(res, 400, { error: "missing_image_url" });
+      return;
+    }
+
+    try {
+      const id = `RI-${randomUUID().slice(0, 8).toUpperCase()}`;
+      
+      // Get next sort order
+      const maxOrderRows = await query(
+        `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM room_images WHERE hotel_id = $1`,
+        [principal.hotelId]
+      );
+      const sortOrder = maxOrderRows[0]?.next_order ?? 1;
+
+      await query(
+        `
+          INSERT INTO room_images (id, hotel_id, category, title, description, image_url, sort_order, is_active, created_by_staff_user_id)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
+        `,
+        [id, principal.hotelId, category, title, description, imageUrl, sortOrder, principal.staffId]
+      );
+
+      const rows = await query(
+        `
+          SELECT
+            id,
+            hotel_id AS "hotelId",
+            category,
+            title,
+            description,
+            image_url AS "imageUrl",
+            sort_order AS "sortOrder",
+            is_active AS "isActive",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM room_images
+          WHERE id = $1
+        `,
+        [id]
+      );
+
+      sendJson(res, 201, { image: rows[0] });
+      return;
+    } catch (error) {
+      console.error("room_image_create_failed", error);
+      sendJson(res, 500, { error: "create_failed" });
+      return;
+    }
+  }
+
+  // PATCH /api/v1/staff/room-images/:id - Update a room image
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "room-images" &&
+    segments[4] &&
+    !segments[5] &&
+    req.method === "PATCH"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const imageId = decodeURIComponent(segments[4]);
+    const body = await readJson(req);
+
+    try {
+      // Check ownership
+      const existing = await query(
+        `SELECT id FROM room_images WHERE id = $1 AND hotel_id = $2`,
+        [imageId, principal.hotelId]
+      );
+      if (!existing[0]) {
+        sendJson(res, 404, { error: "image_not_found" });
+        return;
+      }
+
+      const updates = [];
+      const params = [];
+
+      if (typeof body?.title === "string") {
+        params.push(body.title.trim() || null);
+        updates.push(`title = $${params.length}`);
+      }
+      if (typeof body?.description === "string") {
+        params.push(body.description.trim() || null);
+        updates.push(`description = $${params.length}`);
+      }
+      if (typeof body?.imageUrl === "string" && body.imageUrl.trim()) {
+        params.push(body.imageUrl.trim());
+        updates.push(`image_url = $${params.length}`);
+      }
+      if (typeof body?.category === "string" && body.category.trim()) {
+        params.push(body.category.trim());
+        updates.push(`category = $${params.length}`);
+      }
+      if (typeof body?.sortOrder === "number") {
+        params.push(body.sortOrder);
+        updates.push(`sort_order = $${params.length}`);
+      }
+      if (typeof body?.isActive === "boolean") {
+        params.push(body.isActive);
+        updates.push(`is_active = $${params.length}`);
+      }
+
+      if (updates.length === 0) {
+        sendJson(res, 400, { error: "no_updates" });
+        return;
+      }
+
+      updates.push("updated_at = NOW()");
+      params.push(imageId);
+
+      await query(
+        `UPDATE room_images SET ${updates.join(", ")} WHERE id = $${params.length}`,
+        params
+      );
+
+      const rows = await query(
+        `
+          SELECT
+            id,
+            hotel_id AS "hotelId",
+            category,
+            title,
+            description,
+            image_url AS "imageUrl",
+            sort_order AS "sortOrder",
+            is_active AS "isActive",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM room_images
+          WHERE id = $1
+        `,
+        [imageId]
+      );
+
+      sendJson(res, 200, { image: rows[0] });
+      return;
+    } catch (error) {
+      console.error("room_image_update_failed", error);
+      sendJson(res, 500, { error: "update_failed" });
+      return;
+    }
+  }
+
+  // DELETE /api/v1/staff/room-images/:id - Delete a room image
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "room-images" &&
+    segments[4] &&
+    !segments[5] &&
+    req.method === "DELETE"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const imageId = decodeURIComponent(segments[4]);
+
+    try {
+      const result = await query(
+        `DELETE FROM room_images WHERE id = $1 AND hotel_id = $2 RETURNING id`,
+        [imageId, principal.hotelId]
+      );
+
+      if (!result[0]) {
+        sendJson(res, 404, { error: "image_not_found" });
+        return;
+      }
+
+      sendJson(res, 200, { deleted: true, id: imageId });
+      return;
+    } catch (error) {
+      console.error("room_image_delete_failed", error);
+      sendJson(res, 500, { error: "delete_failed" });
+      return;
+    }
+  }
+
+  // ==========================================================================
+  // EXPERIENCE SECTIONS - Configurable home page carousels
+  // ==========================================================================
+
+  // GET /api/v1/hotels/:hotelId/experiences - List experience sections with items (public)
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "hotels" &&
+    segments[3] &&
+    segments[4] === "experiences" &&
+    !segments[5] &&
+    req.method === "GET"
+  ) {
+    const hotelId = decodeURIComponent(segments[3]);
+    
+    try {
+      // Get sections
+      const sections = await query(
+        `
+          SELECT
+            id,
+            hotel_id AS "hotelId",
+            slug,
+            title_fr AS "titleFr",
+            title_en AS "titleEn",
+            sort_order AS "sortOrder",
+            is_active AS "isActive"
+          FROM experience_sections
+          WHERE hotel_id = $1 AND is_active = true
+          ORDER BY sort_order ASC
+        `,
+        [hotelId]
+      );
+
+      // Get items for all sections
+      const sectionIds = sections.map(s => s.id);
+      let items = [];
+      if (sectionIds.length > 0) {
+        items = await query(
+          `
+            SELECT
+              id,
+              section_id AS "sectionId",
+              hotel_id AS "hotelId",
+              label,
+              image_url AS "imageUrl",
+              link_url AS "linkUrl",
+              sort_order AS "sortOrder",
+              is_active AS "isActive"
+            FROM experience_items
+            WHERE section_id = ANY($1) AND is_active = true
+            ORDER BY sort_order ASC
+          `,
+          [sectionIds]
+        );
+      }
+
+      // Group items by section
+      const sectionsWithItems = sections.map(section => ({
+        ...section,
+        items: items.filter(item => item.sectionId === section.id)
+      }));
+
+      sendJson(res, 200, { sections: sectionsWithItems });
+      return;
+    } catch (error) {
+      console.error("experiences_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // GET /api/v1/staff/experiences - List all experience sections for staff
+  if (url.pathname === "/api/v1/staff/experiences" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    try {
+      const sections = await query(
+        `
+          SELECT
+            id,
+            hotel_id AS "hotelId",
+            slug,
+            title_fr AS "titleFr",
+            title_en AS "titleEn",
+            sort_order AS "sortOrder",
+            is_active AS "isActive",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM experience_sections
+          WHERE hotel_id = $1
+          ORDER BY sort_order ASC
+        `,
+        [principal.hotelId]
+      );
+
+      const sectionIds = sections.map(s => s.id);
+      let items = [];
+      if (sectionIds.length > 0) {
+        items = await query(
+          `
+            SELECT
+              id,
+              section_id AS "sectionId",
+              hotel_id AS "hotelId",
+              label,
+              image_url AS "imageUrl",
+              link_url AS "linkUrl",
+              sort_order AS "sortOrder",
+              is_active AS "isActive",
+              created_at AS "createdAt",
+              updated_at AS "updatedAt"
+            FROM experience_items
+            WHERE section_id = ANY($1)
+            ORDER BY sort_order ASC
+          `,
+          [sectionIds]
+        );
+      }
+
+      const sectionsWithItems = sections.map(section => ({
+        ...section,
+        items: items.filter(item => item.sectionId === section.id)
+      }));
+
+      sendJson(res, 200, { sections: sectionsWithItems, total: sections.length });
+      return;
+    } catch (error) {
+      console.error("experiences_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // POST /api/v1/staff/experiences/sections - Create a new experience section
+  if (url.pathname === "/api/v1/staff/experiences/sections" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    const slug = normalizeText(body?.slug);
+    const titleFr = normalizeText(body?.titleFr);
+    const titleEn = normalizeText(body?.titleEn);
+
+    if (!slug || !titleFr || !titleEn) {
+      sendJson(res, 400, { error: "missing_required_fields" });
+      return;
+    }
+
+    try {
+      const id = `ES-${randomUUID().slice(0, 8).toUpperCase()}`;
+      
+      const maxOrderRows = await query(
+        `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM experience_sections WHERE hotel_id = $1`,
+        [principal.hotelId]
+      );
+      const sortOrder = maxOrderRows[0]?.next_order ?? 1;
+
+      await query(
+        `
+          INSERT INTO experience_sections (id, hotel_id, slug, title_fr, title_en, sort_order, is_active)
+          VALUES ($1, $2, $3, $4, $5, $6, true)
+        `,
+        [id, principal.hotelId, slug, titleFr, titleEn, sortOrder]
+      );
+
+      const rows = await query(
+        `SELECT id, hotel_id AS "hotelId", slug, title_fr AS "titleFr", title_en AS "titleEn", sort_order AS "sortOrder", is_active AS "isActive" FROM experience_sections WHERE id = $1`,
+        [id]
+      );
+
+      sendJson(res, 201, { section: rows[0] });
+      return;
+    } catch (error) {
+      console.error("experience_section_create_failed", error);
+      if (error.code === "23505") {
+        sendJson(res, 409, { error: "duplicate_slug" });
+        return;
+      }
+      sendJson(res, 500, { error: "create_failed" });
+      return;
+    }
+  }
+
+  // PATCH /api/v1/staff/experiences/sections/:id - Update an experience section
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "experiences" &&
+    segments[4] === "sections" &&
+    segments[5] &&
+    !segments[6] &&
+    req.method === "PATCH"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const sectionId = decodeURIComponent(segments[5]);
+    const body = await readJson(req);
+
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (body.titleFr !== undefined) {
+      updates.push(`title_fr = $${paramIndex++}`);
+      params.push(normalizeText(body.titleFr));
+    }
+    if (body.titleEn !== undefined) {
+      updates.push(`title_en = $${paramIndex++}`);
+      params.push(normalizeText(body.titleEn));
+    }
+    if (body.sortOrder !== undefined) {
+      updates.push(`sort_order = $${paramIndex++}`);
+      params.push(parseInt(body.sortOrder, 10));
+    }
+    if (body.isActive !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      params.push(Boolean(body.isActive));
+    }
+
+    if (updates.length === 0) {
+      sendJson(res, 400, { error: "no_updates" });
+      return;
+    }
+
+    updates.push(`updated_at = NOW()`);
+    params.push(sectionId);
+    params.push(principal.hotelId);
+
+    try {
+      await query(
+        `UPDATE experience_sections SET ${updates.join(", ")} WHERE id = $${paramIndex++} AND hotel_id = $${paramIndex}`,
+        params
+      );
+
+      const rows = await query(
+        `SELECT id, hotel_id AS "hotelId", slug, title_fr AS "titleFr", title_en AS "titleEn", sort_order AS "sortOrder", is_active AS "isActive" FROM experience_sections WHERE id = $1`,
+        [sectionId]
+      );
+
+      sendJson(res, 200, { section: rows[0] });
+      return;
+    } catch (error) {
+      console.error("experience_section_update_failed", error);
+      sendJson(res, 500, { error: "update_failed" });
+      return;
+    }
+  }
+
+  // POST /api/v1/staff/experiences/items - Create a new experience item
+  if (url.pathname === "/api/v1/staff/experiences/items" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    const sectionId = normalizeText(body?.sectionId);
+    const label = normalizeText(body?.label);
+    const imageUrl = normalizeText(body?.imageUrl);
+    const linkUrl = normalizeText(body?.linkUrl);
+
+    if (!sectionId || !label || !imageUrl) {
+      sendJson(res, 400, { error: "missing_required_fields" });
+      return;
+    }
+
+    try {
+      const id = `EI-${randomUUID().slice(0, 8).toUpperCase()}`;
+      
+      const maxOrderRows = await query(
+        `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM experience_items WHERE section_id = $1`,
+        [sectionId]
+      );
+      const sortOrder = maxOrderRows[0]?.next_order ?? 1;
+
+      await query(
+        `
+          INSERT INTO experience_items (id, section_id, hotel_id, label, image_url, link_url, sort_order, is_active)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+        `,
+        [id, sectionId, principal.hotelId, label, imageUrl, linkUrl, sortOrder]
+      );
+
+      const rows = await query(
+        `SELECT id, section_id AS "sectionId", hotel_id AS "hotelId", label, image_url AS "imageUrl", link_url AS "linkUrl", sort_order AS "sortOrder", is_active AS "isActive" FROM experience_items WHERE id = $1`,
+        [id]
+      );
+
+      sendJson(res, 201, { item: rows[0] });
+      return;
+    } catch (error) {
+      console.error("experience_item_create_failed", error);
+      sendJson(res, 500, { error: "create_failed" });
+      return;
+    }
+  }
+
+  // PATCH /api/v1/staff/experiences/items/:id - Update an experience item
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "experiences" &&
+    segments[4] === "items" &&
+    segments[5] &&
+    !segments[6] &&
+    req.method === "PATCH"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const itemId = decodeURIComponent(segments[5]);
+    const body = await readJson(req);
+
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (body.label !== undefined) {
+      updates.push(`label = $${paramIndex++}`);
+      params.push(normalizeText(body.label));
+    }
+    if (body.imageUrl !== undefined) {
+      updates.push(`image_url = $${paramIndex++}`);
+      params.push(normalizeText(body.imageUrl));
+    }
+    if (body.linkUrl !== undefined) {
+      updates.push(`link_url = $${paramIndex++}`);
+      params.push(normalizeText(body.linkUrl));
+    }
+    if (body.sortOrder !== undefined) {
+      updates.push(`sort_order = $${paramIndex++}`);
+      params.push(parseInt(body.sortOrder, 10));
+    }
+    if (body.isActive !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      params.push(Boolean(body.isActive));
+    }
+
+    if (updates.length === 0) {
+      sendJson(res, 400, { error: "no_updates" });
+      return;
+    }
+
+    updates.push(`updated_at = NOW()`);
+    params.push(itemId);
+    params.push(principal.hotelId);
+
+    try {
+      await query(
+        `UPDATE experience_items SET ${updates.join(", ")} WHERE id = $${paramIndex++} AND hotel_id = $${paramIndex}`,
+        params
+      );
+
+      const rows = await query(
+        `SELECT id, section_id AS "sectionId", hotel_id AS "hotelId", label, image_url AS "imageUrl", link_url AS "linkUrl", sort_order AS "sortOrder", is_active AS "isActive" FROM experience_items WHERE id = $1`,
+        [itemId]
+      );
+
+      sendJson(res, 200, { item: rows[0] });
+      return;
+    } catch (error) {
+      console.error("experience_item_update_failed", error);
+      sendJson(res, 500, { error: "update_failed" });
+      return;
+    }
+  }
+
+  // DELETE /api/v1/staff/experiences/items/:id - Delete an experience item
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "experiences" &&
+    segments[4] === "items" &&
+    segments[5] &&
+    !segments[6] &&
+    req.method === "DELETE"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const itemId = decodeURIComponent(segments[5]);
+
+    try {
+      const result = await query(
+        `DELETE FROM experience_items WHERE id = $1 AND hotel_id = $2 RETURNING id`,
+        [itemId, principal.hotelId]
+      );
+
+      if (!result[0]) {
+        sendJson(res, 404, { error: "item_not_found" });
+        return;
+      }
+
+      sendJson(res, 200, { deleted: true, id: itemId });
+      return;
+    } catch (error) {
+      console.error("experience_item_delete_failed", error);
+      sendJson(res, 500, { error: "delete_failed" });
       return;
     }
   }

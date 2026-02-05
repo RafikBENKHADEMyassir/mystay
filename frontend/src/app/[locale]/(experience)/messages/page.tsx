@@ -24,6 +24,7 @@ type Thread = {
   lastMessage: string | null;
   lastMessageAt: string | null;
   updatedAt: string;
+  unreadCount?: number;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -182,7 +183,7 @@ export default function MessagesPage() {
                       ? "Réception"
                       : "Reception";
 
-                const unreadCount = thread.status === "pending" ? 1 : 0;
+                const unreadCount = typeof thread.unreadCount === "number" ? thread.unreadCount : 0;
 
                 return (
                   <Link

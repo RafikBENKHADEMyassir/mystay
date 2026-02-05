@@ -14,3 +14,12 @@ node_modules/
 # Local development DB artifacts
 backend/db/*.sqlite
 backend/db/*.db
+
+# Local scratch exports (agent tooling)
+doc/client_docs/.tmp-*.png
+
+# Uploaded files (keep the directory structure but ignore uploaded images)
+admin/public/uploads/*
+!admin/public/uploads/.gitkeep
+backend/public/uploads/*
+!backend/public/uploads/.gitkeep

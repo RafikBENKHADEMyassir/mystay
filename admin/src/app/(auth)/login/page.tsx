@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 
 type LoginType = "staff" | "platform";
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const typeParam = searchParams?.get("type");
@@ -154,5 +154,19 @@ export default function LoginPage() {
         </Button>
       </p>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto max-w-md px-6 py-10 text-sm text-muted-foreground">
+          Loading…
+        </main>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
   );
 }

@@ -15,12 +15,22 @@ const tiles: Tile[] = [
   {
     title: "Inbox",
     href: "/inbox",
-    description: "Requests across departments, with live updates."
+    description: "Unified guest conversations, with live updates."
   },
   {
-    title: "Messages",
-    href: "/messages",
-    description: "Realtime guest conversations per department."
+    title: "Reservations",
+    href: "/reservations",
+    description: "Arrivals, in-house stays, and check-outs."
+  },
+  {
+    title: "Pay by link",
+    href: "/payment-links",
+    description: "Create payment links for deposits and extras."
+  },
+  {
+    title: "Requests",
+    href: "/requests",
+    description: "Structured service requests and handover notes."
   },
   {
     title: "Integrations",

@@ -15,27 +15,27 @@ function getLoginStrings(locale: string) {
   if (locale === "fr") {
     return {
       topbarTitle: "Connexion",
-      title: "Connectez-vous",
-      subtitle: "Accédez à votre séjour et aux services de l'hôtel",
+      title: "Connexion à votre espace",
+      subtitle: "Entrez vos identifiants",
       email: "Adresse e-mail",
       password: "Mot de passe",
-      forgotPassword: "Mot de passe oublié ?",
-      signIn: "Se connecter",
+      help: "J’ai besoin d’aide",
+      signIn: "Je me connecte",
       noAccount: "Vous n'avez pas de compte ?",
       signUp: "Créer un compte",
       required: "Ce champ est requis",
-      invalidCredentials: "E-mail ou mot de passe incorrect",
+      invalidCredentials: "Les identifiants sont incorrects.",
       unexpectedError: "Une erreur inattendue s'est produite"
     };
   }
 
   return {
     topbarTitle: "Sign In",
-    title: "Sign in",
-    subtitle: "Access your stay and hotel services",
+    title: "Sign in to your space",
+    subtitle: "Enter your credentials",
     email: "Email address",
     password: "Password",
-    forgotPassword: "Forgot password?",
+    help: "Need help?",
     signIn: "Sign In",
     noAccount: "Don't have an account?",
     signUp: "Create account",
@@ -128,59 +128,44 @@ export default function LoginPage() {
         backHref={withLocale(locale, "/")} 
       />
 
-      <main className="mx-auto max-w-md space-y-4 px-4 pb-10 pt-4">
-        <div className="pt-4">
-          <h1 className="text-2xl font-semibold text-foreground">{strings.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{strings.subtitle}</p>
-        </div>
+      <main className="mx-auto max-w-md space-y-5 px-5 pb-10 pt-8">
+        <h1 className="text-[26px] font-semibold leading-tight text-foreground">{strings.title}</h1>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="flex items-start gap-2.5 rounded-xl bg-destructive/10 p-4 text-sm text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
-            <LabeledField
-              label={strings.email}
-              value={email}
-              onChange={setEmail}
-              placeholder="email@email.com"
-              type="email"
-              error={emailError}
-            />
+          <section className="space-y-4 rounded-xl bg-muted/10 p-5 ring-1 ring-border">
+            <p className="text-sm font-semibold text-foreground">{strings.subtitle}</p>
 
-            <LabeledField
-              label={strings.password}
-              value={password}
-              onChange={setPassword}
-              type="password"
-              placeholder="••••••••"
-              error={passwordError}
-            />
-
-            <div className="text-right">
-              <Link
-                href={withLocale(locale, "/forgot-password")}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                {strings.forgotPassword}
-              </Link>
-            </div>
+            <LabeledField label={strings.email} value={email} onChange={setEmail} placeholder="exemple@email.com" type="email" error={emailError} />
+            <LabeledField label={strings.password} value={password} onChange={setPassword} type="password" placeholder="••••••••" error={passwordError} />
           </section>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="mt-4 w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm disabled:opacity-50"
-          >
-            {isLoading ? "..." : strings.signIn}
-          </button>
+          <div className="mt-8 space-y-4">
+            <Link 
+              href={withLocale(locale, "/forgot-password")} 
+              className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {strings.help}
+              <span className="text-muted-foreground/60">›</span>
+            </Link>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full rounded-full bg-foreground py-3.5 text-sm font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
+            >
+              {isLoading ? "..." : strings.signIn}
+            </button>
+          </div>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="pt-4 text-center text-sm text-muted-foreground">
           {strings.noAccount}{" "}
           <Link href={withLocale(locale, "/signup")} className="font-semibold text-foreground underline">
             {strings.signUp}
@@ -202,21 +187,21 @@ type LabeledFieldProps = {
 
 function LabeledField({ label, value, onChange, placeholder, type = "text", error }: LabeledFieldProps) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div
         className={cn(
-          "relative rounded-xl bg-background px-4 py-3 shadow-sm ring-1 ring-border",
+          "relative rounded-lg bg-muted/30 px-4 py-3 ring-1 ring-border transition-colors focus-within:ring-foreground/40",
           error && "ring-destructive"
         )}
       >
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-[11px] text-muted-foreground">{label}</p>
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           type={type}
           className={cn(
-            "mt-1 w-full bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground/70",
+            "mt-0.5 w-full bg-transparent text-[15px] font-medium text-foreground outline-none placeholder:text-muted-foreground/50",
             error && "pr-10"
           )}
         />
