@@ -121,6 +121,7 @@ export default function ReceptionPage() {
   useRealtimeMessages({
     hotelId: session?.hotelId,
     departments: ["reception"],
+    token: session?.guestToken,
     enabled: !!session,
     onMessage: handleRealtimeUpdate
   });

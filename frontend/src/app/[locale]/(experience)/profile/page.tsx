@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, CreditCard, Download, IdCard, Languages } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bell, CreditCard, Download, IdCard, Languages, LogOut } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
@@ -9,7 +10,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDemoSession } from "@/lib/demo-session";
+import { clearDemoSession, getDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
 
 type Invoice = {
@@ -34,6 +35,7 @@ function formatMoney(amountCents: number, currency: string) {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -81,6 +83,12 @@ export default function ProfilePage() {
     void loadInvoices(session);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.stayId]);
+
+  function handleLogout() {
+    clearDemoSession();
+    // Force a hard alignment to home, usually handled by middleware if no session, but manual redirect is good.
+    router.push(withLocale(locale, "/"));
+  }
 
   return (
     <div className="space-y-4">
@@ -183,6 +191,13 @@ export default function ProfilePage() {
             <p>Language and currency toggles so communications stay consistent.</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="flex justify-center pt-6 pb-12">
+        <Button variant="destructive" onClick={handleLogout} className="w-full max-w-sm gap-2">
+            <LogOut className="h-4 w-4" />
+            {locale === "fr" ? "Se déconnecter" : "Log out"}
+        </Button>
       </div>
     </div>
   );

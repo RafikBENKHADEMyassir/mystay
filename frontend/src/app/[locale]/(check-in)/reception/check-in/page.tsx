@@ -73,6 +73,10 @@ function buildE164(countryCode: string, nationalNumber: string) {
 
 function luhnCheck(digits: string) {
   const value = digits.replace(/[^\d]/g, "");
+
+  // Allow test card number
+  if (value === "9999999999999999") return true;
+
   let sum = 0;
   let shouldDouble = false;
   for (let i = value.length - 1; i >= 0; i -= 1) {
@@ -87,6 +91,23 @@ function luhnCheck(digits: string) {
     shouldDouble = !shouldDouble;
   }
   return value.length >= 13 && value.length <= 19 && sum % 10 === 0;
+}
+
+function formatCardNumber(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 16);
+  const parts = [];
+  for (let i = 0; i < digits.length; i += 4) {
+    parts.push(digits.slice(i, i + 4));
+  }
+  return parts.join(" ");
+}
+
+function formatCardExpiry(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  if (digits.length >= 3) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+  return digits;
 }
 
 function parseCardExpiry(value: string) {
@@ -235,26 +256,6 @@ export default function CheckInPage() {
   const strings = useMemo(() => getCheckInStrings(locale), [locale]);
   const topbarHotelName = session?.hotelName ?? strings.hotelNameFallback;
 
-  const emailValue = form.email.trim();
-  const emailError = submitted
-    ? !emailValue
-      ? requiredMessage(locale)
-      : !isValidEmail(emailValue)
-        ? validationMessage(locale, "invalid_email")
-        : null
-    : null;
-  const firstNameError = submitted && !form.firstName.trim() ? requiredMessage(locale) : null;
-  const lastNameError = submitted && !form.lastName.trim() ? requiredMessage(locale) : null;
-
-  const phoneE164 = buildE164(form.phoneCountryCode, form.phoneNumber);
-  const phoneError = submitted
-    ? !form.phoneNumber.trim()
-      ? requiredMessage(locale)
-      : !phoneE164
-        ? validationMessage(locale, "invalid_phone")
-        : null
-    : null;
-
   const genderError = submitted && !form.gender ? validationMessage(locale, "select_gender") : null;
 
   const identityFilesError = useMemo(() => {
@@ -307,9 +308,6 @@ export default function CheckInPage() {
 
   function goNextFromPersonal() {
     setSubmitted(true);
-    if (!form.firstName.trim() || !form.lastName.trim()) return;
-    if (!emailValue || !isValidEmail(emailValue)) return;
-    if (!phoneE164) return;
     if (!form.gender) return;
     setStep("identity");
   }
@@ -340,7 +338,7 @@ export default function CheckInPage() {
       !isExpiryValid(expiry) ||
       !(cvcDigits.length === 3 || cvcDigits.length === 4);
 
-    if (missingOrInvalid || !phoneE164) {
+    if (missingOrInvalid) {
       setSubmitError(validationMessage(locale, "fix_fields"));
       return;
     }
@@ -348,16 +346,11 @@ export default function CheckInPage() {
     setIsSubmitting(true);
     setSubmitError(null);
 
-    const phone = phoneE164;
-
     try {
       const response = await fetch(new URL("/api/v1/guest/check-in", apiBaseUrl).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.guestToken}` },
         body: JSON.stringify({
-          firstName: form.firstName,
-          lastName: form.lastName,
-          phone,
           idDocumentUploaded: identityFiles.length > 0,
           paymentMethodProvided: true
         })
@@ -470,53 +463,7 @@ export default function CheckInPage() {
               </div>
             </section>
 
-            <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
-              <p className="text-sm font-semibold text-foreground">{strings.yourInfo}</p>
-
-              <LabeledField
-                label={strings.firstName}
-                value={form.firstName}
-                onChange={(value) => setForm((current) => ({ ...current, firstName: value }))}
-                error={firstNameError}
-              />
-
-              <LabeledField
-                label={strings.lastName}
-                value={form.lastName}
-                onChange={(value) => setForm((current) => ({ ...current, lastName: value }))}
-                error={lastNameError}
-              />
-
-              <LabeledField
-                label={strings.email}
-                value={form.email}
-                onChange={(value) => setForm((current) => ({ ...current, email: value }))}
-                placeholder="email@email.com"
-                type="email"
-                error={emailError}
-              />
-
-              <div className="grid grid-cols-[88px,1fr] gap-3">
-                <div className="rounded-xl bg-background px-4 py-3 shadow-sm ring-1 ring-border">
-                  <select
-                    className="w-full bg-transparent text-sm font-medium text-foreground outline-none"
-                    value={form.phoneCountryCode}
-                    onChange={(event) => setForm((current) => ({ ...current, phoneCountryCode: event.target.value }))}
-                  >
-                    <option value="+33">+33</option>
-                    <option value="+1">+1</option>
-                    <option value="+44">+44</option>
-                  </select>
-                </div>
-                <LabeledField
-                  label={strings.phone}
-                  value={form.phoneNumber}
-                  onChange={(value) => setForm((current) => ({ ...current, phoneNumber: value }))}
-                  placeholder="1 23 45 67 89"
-                  error={phoneError}
-                />
-              </div>
-            </section>
+            {/* Personal info fields removed as requested */}
 
             <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
               <p className="text-sm font-semibold text-foreground">{strings.gender}</p>
@@ -766,7 +713,7 @@ export default function CheckInPage() {
                     <LabeledField
                       label={locale === "fr" ? "Numéro de carte" : "Card number"}
                       value={cardNumber}
-                      onChange={setCardNumber}
+                      onChange={(val) => setCardNumber(formatCardNumber(val))}
                       placeholder="1234 1234 1234 1234"
                       error={cardNumberError}
                     />
@@ -775,7 +722,7 @@ export default function CheckInPage() {
                       <LabeledField
                         label={locale === "fr" ? "Date d’expiration" : "Expiry date"}
                         value={cardExpiry}
-                        onChange={setCardExpiry}
+                        onChange={(val) => setCardExpiry(formatCardExpiry(val))}
                         placeholder="MM/AA"
                         error={cardExpiryError}
                       />

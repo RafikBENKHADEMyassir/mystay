@@ -198,6 +198,7 @@ export default function SpaGymPage() {
   useRealtimeMessages({
     hotelId: session?.hotelId,
     departments: ["spa", "gym"],
+    token: session?.guestToken,
     enabled: !!session,
     onMessage: handleRealtimeUpdate
   });

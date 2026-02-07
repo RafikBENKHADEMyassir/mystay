@@ -3,9 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, BedDouble, ChevronRight, Copy, Info, Key, Loader2, MapPin, Monitor } from "lucide-react";
+import { ArrowLeft, ChevronRight, Copy, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { StackedCarousel } from "./stacked-carousel";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useGuestOverview } from "@/lib/hooks/use-guest-overview";
 import type { Locale } from "@/lib/i18n/locales";
@@ -33,21 +34,6 @@ function parseDateOrNull(value: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-// Quick action button component
-function QuickActionButton({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-3 text-sm transition-colors hover:bg-muted/30"
-    >
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-xs font-medium text-foreground">{label}</span>
-      </div>
-      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-    </Link>
-  );
-}
 
 // Promo card component
 function PromoCard({ href, title, subtitle, cta, image }: { 
@@ -58,20 +44,32 @@ function PromoCard({ href, title, subtitle, cta, image }: {
   image: string;
 }) {
   return (
-    <Link href={href} className="flex overflow-hidden rounded-2xl border border-border bg-card">
-      <div
-        className="h-24 w-24 flex-shrink-0 bg-muted/30 bg-cover bg-center"
-        style={{ backgroundImage: `url(${image})` }}
-        aria-hidden="true"
-      />
-      <div className="flex flex-1 flex-col justify-center p-3">
-        <p className="text-sm font-semibold text-foreground">{title}</p>
-        {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
-        <span className="mt-2 inline-flex w-fit items-center justify-center rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground">
-          {cta}
-        </span>
+    <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
+      <div className="flex gap-4">
+        <div
+          className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted/30"
+        >
+          <Image 
+            src={image} 
+            alt={title} 
+            width={80} 
+            height={80} 
+            className="h-full w-full object-cover"
+            unoptimized
+          />
+        </div>
+        <div className="flex flex-1 flex-col justify-center">
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+        </div>
       </div>
-    </Link>
+      <Link
+        href={href}
+        className="mt-3 flex w-full items-center justify-center rounded-lg bg-muted/50 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+      >
+        {cta}
+      </Link>
+    </div>
   );
 }
 
@@ -224,133 +222,174 @@ export default function RoomDetailPage() {
   const roomHeroImage = roomImages[0] ?? "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=1200&fit=crop";
 
   return (
-    <div className="mx-auto max-w-md pb-24 lg:max-w-3xl">
-      {/* Header */}
-      <header className="sticky top-0 z-50 flex items-center gap-3 bg-background/95 px-4 py-3 backdrop-blur">
+    <div className="mx-auto max-w-md pb-24 lg:max-w-3xl relative">
+      
+      {/* Fixed absolute header for back button */}
+      <div className="absolute left-0 top-0 z-[100] w-full p-4 pt-[calc(env(safe-area-inset-top)+12px)] pointer-events-none">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-1 text-sm font-medium text-foreground"
+          className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/20 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-black/30"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>{strings.yourRoom}</span>
         </button>
-      </header>
+      </div>
 
-      {/* Room Hero Image */}
-      <section className="relative h-64 w-full">
-        <Image
-          src={roomHeroImage}
+      {/* Hero Carousel */}
+      <section className="relative h-[480px] w-full">
+        <StackedCarousel 
+          images={roomImages.length > 0 ? roomImages : ["https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=1200&fit=crop"]} 
           alt={suiteName}
-          fill
-          className="object-cover"
-          unoptimized
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
-
-        {/* Tailored Badge */}
-        <div className="absolute right-4 top-4 rounded-lg bg-muted/80 px-2.5 py-1.5 text-[10px] font-medium text-foreground backdrop-blur">
-          {strings.tailored}
-        </div>
-
-        {/* Suite Name */}
-        <div className="absolute bottom-4 left-4">
-          <p className="text-lg font-semibold text-white">{suiteName}</p>
-        </div>
-      </section>
-
-      <div className="px-4">
-        {/* Complete Check-in Button */}
-        {!checkInComplete && (
-          <Link
-            href={withLocale(locale, "/reception/check-in")}
-            className="mt-4 flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 transition-colors hover:bg-muted/30"
-          >
-            <div className="flex h-5 w-5 items-center justify-center rounded-full border border-muted-foreground">
-              <div className="h-2.5 w-2.5 rounded-full border border-muted-foreground" />
-            </div>
-            <span className="text-sm font-medium text-foreground">{strings.completeCheckIn}</span>
-            <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
-          </Link>
-        )}
-
-        {/* Room Details Grid */}
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-xs text-muted-foreground">{strings.room}</p>
-            <p className="font-semibold text-foreground">N° {roomNumber}</p>
+        >
+          {/* Tailored Badge */}
+          <div className="absolute right-4 top-[calc(env(safe-area-inset-top)+80px)] rounded bg-black/60 px-3 py-2 text-xs font-medium text-white backdrop-blur-md z-10">
+            {strings.tailored}
           </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">
-              {adults} {strings.adults}
-            </p>
-            {children > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {children} {strings.child}
-              </p>
+
+          {/* Content Overlay */}
+          <div className="absolute bottom-10 left-4 right-4 z-10 flex flex-col justify-end pointer-events-none">
+            {/* Icon (Tree logo placeholder) */}
+            <div className="mb-2">
+               <div className="flex h-8 w-8 items-center justify-center opacity-80">
+                 {/* Replace with actual tree icon if available */}
+               </div>
+            </div>
+
+            <p className="mb-6 text-3xl font-light uppercase tracking-wide text-white drop-shadow-md">{suiteName}</p>
+
+            {/* Complete Check-in Button (Overlay) */}
+            {!checkInComplete && (
+              <Link
+                href={withLocale(locale, "/reception/check-in")}
+                className="pointer-events-auto mb-6 flex w-full items-center justify-between rounded-xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative h-6 w-6">
+                     <div className="absolute inset-0 rounded-full border-2 border-muted" />
+                     <div className="absolute inset-0 rounded-full border-2 border-black border-t-transparent -rotate-45" />
+                  </div>
+                  <span className="text-sm font-semibold text-foreground">{strings.completeCheckIn}</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
             )}
           </div>
+        </StackedCarousel>
+      </section>
+
+      <div className="px-5 pt-6">
+        {/* Room Details Grid - Redesigned */}
+        <div className="grid grid-cols-2 gap-y-6">
+          {/* Room Number */}
+          <div>
+            <p className="text-xs text-muted-foreground">{strings.room}</p>
+            <p className="mt-0.5 text-lg font-medium text-foreground">№ {roomNumber}</p>
+          </div>
+          
+          {/* Guests */}
+          <div>
+             <div className="flex flex-col items-start">
+               <span className="text-lg font-medium text-foreground">{adults} <span className="text-base font-normal text-muted-foreground">{strings.adults}</span></span>
+               {children > 0 && (
+                 <span className="text-lg font-medium text-foreground">{children} <span className="text-base font-normal text-muted-foreground">{strings.child}</span></span>
+               )}
+               {children === 0 && <span className="text-base text-muted-foreground">&nbsp;</span>} 
+               {/* Spacer to align if no kids, or just hide. Screenshot shows stacked: 2 adultes, 1 enfant */}
+             </div>
+          </div>
+
+          {/* Check-in */}
           <div>
             <p className="text-xs text-muted-foreground">{strings.checkIn}</p>
-            <p className="font-medium text-foreground">{checkInFormatted}</p>
+            <p className="mt-0.5 font-medium text-foreground text-base">
+               {checkInDate.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+            <p className="text-lg font-medium text-foreground">
+               {/* Screenshot shows time e.g. 9:00 */}
+               {checkInDate.getHours()}:00
+            </p>
           </div>
+
+          {/* Check-out */}
           <div>
             <p className="text-xs text-muted-foreground">{strings.checkOut}</p>
-            <p className="font-medium text-foreground">{checkOutFormatted}</p>
+            <p className="mt-0.5 font-medium text-foreground text-base">
+              {checkOutDate.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+            <p className="text-lg font-medium text-foreground">
+              {checkOutDate.getHours()}:00
+            </p>
           </div>
         </div>
+        
+        <div className="my-6 h-px w-full bg-border/50" />
 
         {/* Quick Actions Grid */}
-        <div className="mt-6 grid grid-cols-2 gap-2">
-          <QuickActionButton
+        <div className="grid grid-cols-2 gap-3">
+          <Link
             href={withLocale(locale, "/reception")}
-            label={strings.digitalKey}
-            icon={<Key className="h-4 w-4 text-muted-foreground" />}
-          />
-          <QuickActionButton
+            className="flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm hover:bg-muted/30"
+          >
+            <span className="text-xs font-semibold leading-tight text-foreground">{strings.digitalKey}</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+          <Link
             href={withLocale(locale, "/hotels")}
-            label={strings.usefulInfo}
-            icon={<Info className="h-4 w-4 text-muted-foreground" />}
-          />
-          <QuickActionButton
+            className="flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm hover:bg-muted/30"
+          >
+            <span className="text-xs font-semibold leading-tight text-foreground">{strings.usefulInfo}</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+          <Link
             href={withLocale(locale, "/room-service")}
-            label={strings.roomControl}
-            icon={<Monitor className="h-4 w-4 text-muted-foreground" />}
-          />
-          <QuickActionButton
+            className="flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm hover:bg-muted/30"
+          >
+            <span className="text-xs font-semibold leading-tight text-foreground">{strings.roomControl}</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+          <Link
             href={withLocale(locale, "/hotels")}
-            label={strings.directions}
-            icon={<MapPin className="h-4 w-4 text-muted-foreground" />}
-          />
+            className="flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm hover:bg-muted/30"
+          >
+            <span className="text-xs font-semibold leading-tight text-foreground">{strings.directions}</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
         </div>
-        <div className="mt-2">
-          <QuickActionButton
+        <div className="mt-3">
+          <Link
             href={withLocale(locale, "/room-service")}
-            label={strings.extraBed}
-            icon={<BedDouble className="h-4 w-4 text-muted-foreground" />}
-          />
+            className="flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm hover:bg-muted/30"
+          >
+             <span className="text-xs font-semibold leading-tight text-foreground">{strings.extraBed}</span>
+             <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
         </div>
+        
+        <div className="my-6 h-px w-full bg-border/50" />
 
         {/* Promo Cards */}
-        <div className="mt-6 space-y-3">
+        <div className="space-y-4">
           <PromoCard
             href={withLocale(locale, "/housekeeping")}
             title={strings.cleaning}
             subtitle={strings.cleaningSubtitle}
             cta={strings.requestCleaning}
-            image="https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=400&fit=crop"
+            image="https://images.unsplash.com/photo-1584622050111-993a426fbf0a?w=400&fit=crop"
           />
           <PromoCard
             href={withLocale(locale, "/services")}
             title={strings.needService}
             subtitle={strings.needServiceSubtitle}
             cta={strings.requestService}
-            image="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=400&fit=crop"
+            image="https://images.unsplash.com/photo-1596178060671-7a80dc8059ea?w=400&fit=crop"
           />
         </div>
+        
+        <div className="my-6 h-px w-full bg-border/50" />
 
         {/* Room Upgrade Card */}
-        <section className="mt-6">
-          <div className="relative h-36 w-full overflow-hidden rounded-2xl">
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="relative h-40 w-full overflow-hidden rounded-xl">
             <Image
               src="https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&fit=crop"
               alt="Room upgrade"
@@ -359,78 +398,103 @@ export default function RoomDetailPage() {
               unoptimized
             />
           </div>
-          <div className="mt-3">
-            <p className="font-semibold text-foreground">{strings.roomUpgrade}</p>
-            <p className="text-xs text-muted-foreground">{strings.upgradeSubtitle}</p>
+          <div className="mt-4">
+            <div className="mb-4">
+               <p className="text-base font-semibold text-foreground">{strings.roomUpgrade}</p>
+               <p className="text-xs text-muted-foreground">{strings.upgradeSubtitle}</p>
+            </div>
             <Link
               href={withLocale(locale, "/services")}
-              className="mt-3 block w-full rounded-full bg-foreground py-2.5 text-center text-sm font-semibold text-background"
+              className="block w-full rounded-lg bg-black py-3 text-center text-xs font-semibold text-white transition-opacity hover:opacity-90"
             >
               {strings.seeOptions}
             </Link>
           </div>
         </section>
 
-        {/* Room Photos Carousel */}
-        <section className="mt-6">
-          <p className="mb-3 text-sm font-semibold text-foreground">{strings.tailored}</p>
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
-            {roomImages.map((src, index) => (
-              <div
-                key={`${src}-${index}`}
-                className="relative h-32 min-w-[120px] flex-shrink-0 overflow-hidden rounded-2xl"
+        {/* Upsells Grid ("Plaisirs sur mesure") */}
+        <section className="mt-8">
+          <p className="mb-4 text-lg font-semibold text-foreground">{strings.tailored}</p>
+          <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-4 no-scrollbar">
+            {/* Mock Upsell Items based on screenshot */}
+            {[
+              { title: "FLEURS", img: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=400&fit=crop" },
+              { title: "CHAMPAGNE", img: "https://images.unsplash.com/photo-1598414539665-279fd9026d3e?w=400&fit=crop" },
+              { title: "LETTRE", img: "https://images.unsplash.com/photo-1579783483458-83d02161294e?w=400&fit=crop" },
+              { title: "MAGAZINE", img: "https://images.unsplash.com/photo-1550974868-b39418af8858?w=400&fit=crop" },
+              { title: "VOS UPSELLS", img: null }, // Placeholder for 'Vos Upsells' with icon
+            ].map((item, index) => (
+              <Link 
+                href={withLocale(locale, "/services")} 
+                key={index} 
+                className="relative h-40 w-32 flex-shrink-0 overflow-hidden rounded-xl bg-muted"
               >
-                <Image
-                  src={src}
-                  alt={`Room photo ${index + 1}`}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
+                {item.img ? (
+                   <Image
+                     src={item.img}
+                     alt={item.title}
+                     fill
+                     className="object-cover"
+                     unoptimized
+                   />
+                ) : (
+                   <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-800 p-2">
+                      <div className="mb-2 rounded border border-white/30 p-2">
+                        {/* Placeholder icon box */}
+                        <div className="h-4 w-4 bg-white/20" />
+                      </div>
+                   </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                <p className="absolute bottom-2 left-2 text-sm font-medium uppercase text-white">
+                  {item.title}
+                </p>
+              </Link>
             ))}
           </div>
         </section>
 
-        {/* Reservation Number */}
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <p className="text-xs text-muted-foreground">
-            {strings.reservation}
-            <span className="font-mono">{confirmationNumber}</span>
-          </p>
-          <button
-            onClick={handleCopyReservation}
-            className="rounded p-1 hover:bg-muted"
-            title="Copy"
-          >
-            <Copy className={cn("h-3.5 w-3.5", copied ? "text-green-600" : "text-muted-foreground")} />
-          </button>
-        </div>
-
-        {/* Bottom Actions */}
-        <section className="mt-4 divide-y divide-border rounded-2xl border border-border bg-card">
+        {/* Bottom Actions List */}
+        <div className="mt-6 space-y-1">
+          <div className="flex items-center justify-between py-4">
+             <div className="flex items-center gap-2 text-sm text-muted-foreground">
+               <span>{strings.reservation} {confirmationNumber}</span>
+               <button onClick={handleCopyReservation}>
+                 <Copy className={cn("h-3.5 w-3.5", copied ? "text-green-600" : "text-muted-foreground")} />
+               </button>
+             </div>
+          </div>
+          
+          <div className="h-px w-full bg-border/50" />
+          
           <Link
             href={withLocale(locale, "/profile")}
-            className="flex items-center justify-between px-4 py-3 text-sm"
+            className="flex items-center justify-between py-4 text-sm font-semibold text-foreground transition-colors hover:text-primary"
           >
-            <span className="font-medium text-foreground">{strings.stayHistory}</span>
+            <span>{strings.stayHistory}</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
+          
+          <div className="h-px w-full bg-border/50" />
+
           <Link
             href={withLocale(locale, "/reception")}
-            className="flex items-center justify-between px-4 py-3 text-sm"
+            className="flex items-center justify-between py-4 text-sm font-semibold text-foreground transition-colors hover:text-primary"
           >
-            <span className="font-medium text-foreground">{strings.lateCheckout}</span>
+            <span>{strings.lateCheckout}</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
+
+          <div className="h-px w-full bg-border/50" />
+
           <Link
             href={withLocale(locale, "/messages")}
-            className="flex items-center justify-between px-4 py-3 text-sm"
+            className="flex items-center justify-between py-4 text-sm font-semibold text-foreground transition-colors hover:text-primary"
           >
-            <span className="font-medium text-foreground">{strings.contactReception}</span>
+            <span>{strings.contactReception}</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
-        </section>
+        </div>
       </div>
     </div>
   );

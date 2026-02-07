@@ -34,12 +34,14 @@ INSERT INTO hotels (
 )
 VALUES 
   -- Four Seasons Paris (Main demo hotel)
+      -- 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200&h=200&fit=crop',
+
   (
     'H-FOURSEASONS',
     'Four Seasons Hotel George V',
     'An iconic palace hotel in the heart of Paris, steps from the Champs-Élysées. Experience legendary service, Michelin-starred dining, and timeless Parisian elegance.',
-    'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200&h=200&fit=crop',
-    'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1920&h=1080&fit=crop',
+    '',
+    '/uploads/1770225734698-header.png',
     '#1a1a2e',
     '#c9a962',
     '31 Avenue George V',
@@ -1969,30 +1971,29 @@ INSERT INTO experience_items (
   updated_at
 ) VALUES
   -- Four Seasons Paris - Tailored (Plaisirs sur mesure)
-  ('EI-1001', 'ES-1001', 'H-FOURSEASONS', 'FLEURS', '/images/experiences/fleurs.jpg', '/services', 1, TRUE, NOW(), NOW()),
-  ('EI-1002', 'ES-1001', 'H-FOURSEASONS', 'CHAMPAGNE', '/images/experiences/champagne.jpg', '/services', 2, TRUE, NOW(), NOW()),
-  ('EI-1003', 'ES-1001', 'H-FOURSEASONS', 'LETTRE', '/images/experiences/lettre.jpg', '/services', 3, TRUE, NOW(), NOW()),
-  ('EI-1004', 'ES-1001', 'H-FOURSEASONS', 'MAGAZINE', '/images/experiences/magazine.jpg', '/services', 4, TRUE, NOW(), NOW()),
-  ('EI-1005', 'ES-1001', 'H-FOURSEASONS', 'VOS UPSELLS', '/images/experiences/vos-upsells.jpg', '/services', 5, TRUE, NOW(), NOW()),
+  ('EI-1001', 'ES-1001', 'H-FOURSEASONS', 'FLEURS', '/uploads/1770222745347-fleurs.png', '/services', 1, TRUE, NOW(), NOW()),
+  ('EI-1002', 'ES-1001', 'H-FOURSEASONS', 'CHAMPAGNE', '/uploads/1770222760416-champagne.png', '/services', 2, TRUE, NOW(), NOW()),
+  ('EI-1003', 'ES-1001', 'H-FOURSEASONS', 'LETTRE', '/uploads/1770222762080-lettre.png', '/services', 3, TRUE, NOW(), NOW()),
+  ('EI-1004', 'ES-1001', 'H-FOURSEASONS', 'MAGAZINE', '/uploads/1770222764066-magazine.png', '/services', 4, TRUE, NOW(), NOW()),
   
   -- Four Seasons Paris - Culinary (Expériences culinaires)
-  ('EI-1101', 'ES-1002', 'H-FOURSEASONS', 'SEA FU', '/images/experiences/sea-fu.jpg', '/restaurants', 1, TRUE, NOW(), NOW()),
-  ('EI-1102', 'ES-1002', 'H-FOURSEASONS', 'COYA', '/images/experiences/coya.jpg', '/restaurants', 2, TRUE, NOW(), NOW()),
-  ('EI-1103', 'ES-1002', 'H-FOURSEASONS', 'MIMI KAKUSHI', '/images/experiences/mimi-kakushi.jpg', '/restaurants', 3, TRUE, NOW(), NOW()),
-  ('EI-1104', 'ES-1002', 'H-FOURSEASONS', 'SCALINI', '/images/experiences/scalini.jpg', '/restaurants', 4, TRUE, NOW(), NOW()),
-  ('EI-1105', 'ES-1002', 'H-FOURSEASONS', 'VERDE', '/images/experiences/verde.jpg', '/restaurants', 5, TRUE, NOW(), NOW()),
-  ('EI-1106', 'ES-1002', 'H-FOURSEASONS', 'PASTRIES', '/images/experiences/pastries.jpg', '/restaurants', 6, TRUE, NOW(), NOW()),
-  ('EI-1107', 'ES-1002', 'H-FOURSEASONS', 'NUSR-ET', '/images/experiences/nusr-et.jpg', '/restaurants', 7, TRUE, NOW(), NOW()),
-  ('EI-1108', 'ES-1002', 'H-FOURSEASONS', 'NAMMOS', '/images/experiences/nammos.jpg', '/restaurants', 8, TRUE, NOW(), NOW()),
+  ('EI-1101', 'ES-1002', 'H-FOURSEASONS', 'SEA FU', '/uploads/1770222872379-seafu.png', '/restaurants', 1, TRUE, NOW(), NOW()),
+  ('EI-1102', 'ES-1002', 'H-FOURSEASONS', 'COYA', '/uploads/1770222878430-coya.png', '/restaurants', 2, TRUE, NOW(), NOW()),
+  ('EI-1103', 'ES-1002', 'H-FOURSEASONS', 'MIMI KAKUSHI', '/uploads/1770222879743-minikakushi.png', '/restaurants', 3, TRUE, NOW(), NOW()),
+  ('EI-1104', 'ES-1002', 'H-FOURSEASONS', 'SCALINI', '/uploads/1770222880978-scalini.png', '/restaurants', 4, TRUE, NOW(), NOW()),
+  ('EI-1105', 'ES-1002', 'H-FOURSEASONS', 'VERDE', '/uploads/1770222882276-verde.png', '/restaurants', 5, TRUE, NOW(), NOW()),
+  ('EI-1106', 'ES-1002', 'H-FOURSEASONS', 'PASTRIES', '/uploads/1770224008752-pastries.png', '/restaurants', 6, TRUE, NOW(), NOW()),
+  ('EI-1107', 'ES-1002', 'H-FOURSEASONS', 'NUSR-ET', '/uploads/1770223994670-nusret.png', '/restaurants', 7, TRUE, NOW(), NOW()),
+  ('EI-1108', 'ES-1002', 'H-FOURSEASONS', 'NAMMOS', '/uploads/1770223997009-nammos.png', '/restaurants', 8, TRUE, NOW(), NOW()),
   
   -- Four Seasons Paris - Activities (Moments à vivre)
-  ('EI-1201', 'ES-1003', 'H-FOURSEASONS', 'SAFARI', '/images/experiences/safari.jpg', '/services', 1, TRUE, NOW(), NOW()),
-  ('EI-1202', 'ES-1003', 'H-FOURSEASONS', 'BURJ AL ARAB TOUR', '/images/experiences/burj-al-arab-tour.jpg', '/services', 2, TRUE, NOW(), NOW()),
-  ('EI-1203', 'ES-1003', 'H-FOURSEASONS', 'PADEL', '/images/experiences/padel.jpg', '/services', 3, TRUE, NOW(), NOW()),
-  ('EI-1204', 'ES-1003', 'H-FOURSEASONS', 'JET SKI', '/images/experiences/jet-ski.jpg', '/services', 4, TRUE, NOW(), NOW()),
-  ('EI-1205', 'ES-1003', 'H-FOURSEASONS', 'SURF', '/images/experiences/surf.jpg', '/services', 5, TRUE, NOW(), NOW()),
-  ('EI-1206', 'ES-1003', 'H-FOURSEASONS', 'HELICOPTER TOUR', '/images/experiences/helicopter-tour.jpg', '/services', 6, TRUE, NOW(), NOW()),
-  ('EI-1207', 'ES-1003', 'H-FOURSEASONS', 'SUNRISE BALLOON', '/images/experiences/sunrise-balloon.jpg', '/services', 7, TRUE, NOW(), NOW())
+  ('EI-1201', 'ES-1003', 'H-FOURSEASONS', 'SAFARI', '/uploads/1770224020259-safari.png', '/services', 1, TRUE, NOW(), NOW()),
+  ('EI-1202', 'ES-1003', 'H-FOURSEASONS', 'BURJ AL ARAB TOUR', '/uploads/1770224174219-burdjalarab.png', '/services', 2, TRUE, NOW(), NOW()),
+  ('EI-1203', 'ES-1003', 'H-FOURSEASONS', 'PADEL', '/uploads/1770224175269-padel.png', '/services', 3, TRUE, NOW(), NOW()),
+  ('EI-1204', 'ES-1003', 'H-FOURSEASONS', 'JET SKI', '/uploads/1770224194933-jetski.png', '/services', 4, TRUE, NOW(), NOW()),
+  ('EI-1205', 'ES-1003', 'H-FOURSEASONS', 'SURF', '/uploads/1770224196654-surf.png', '/services', 5, TRUE, NOW(), NOW()),
+  ('EI-1206', 'ES-1003', 'H-FOURSEASONS', 'HELICOPTER TOUR', '/uploads/1770224198234-helicoptertour.png', '/services', 6, TRUE, NOW(), NOW()),
+  ('EI-1207', 'ES-1003', 'H-FOURSEASONS', 'SUNRISE BALLOON', '/uploads/1770224199611-sunriseballoon.png', '/services', 7, TRUE, NOW(), NOW())
 ON CONFLICT (id) DO UPDATE SET
   label = EXCLUDED.label,
   image_url = EXCLUDED.image_url,

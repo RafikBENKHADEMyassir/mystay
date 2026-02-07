@@ -33,6 +33,9 @@ export function PaymentLinksFilters({ statuses }: PaymentLinksFiltersProps) {
 
   useEffect(() => {
     const handle = setTimeout(() => {
+      const currentSearch = searchParams?.get("search") ?? "";
+      if (currentSearch === search) return;
+
       const next = new URLSearchParams(searchParams?.toString() ?? "");
       setParam(next, "search", search);
       next.delete("page");

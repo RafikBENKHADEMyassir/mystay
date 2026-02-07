@@ -1229,14 +1229,23 @@ async function handleRequest(req, res) {
 
 	  if (req.method === "GET" && url.pathname === "/api/v1/realtime/messages") {
 	    const threadId = url.searchParams.get("threadId")?.trim();
-	    if (!threadId) {
-	      sendJson(res, 400, { error: "missing_thread_id" });
-	      return;
-	    }
+        const requestedDepartments = url.searchParams.getAll("departments").map((d) => d.trim()).filter(Boolean);
+        if (url.searchParams.has("departments")) {
+            url.searchParams.get("departments").split(",").forEach(d => {
+                const t = d.trim();
+                if(t && !requestedDepartments.includes(t)) requestedDepartments.push(t);
+            });
+        }
 
     const principal = requirePrincipal(req, res, url, ["guest", "staff"]);
     if (!principal) return;
 
+    if (principal.typ === "guest" && (!principal.hotelId || !principal.stayId)) {
+      sendJson(res, 400, { error: "missing_stay_context" });
+      return;
+    }
+
+        if (threadId) {
 	    const scopeRows = await query(
 	      `
 	        SELECT
@@ -1268,6 +1277,7 @@ async function handleRequest(req, res) {
 	      sendJson(res, 403, { error: "forbidden" });
 	      return;
 	    }
+        }
 
     try {
       await ensureRealtimeListener();
@@ -1285,7 +1295,16 @@ async function handleRequest(req, res) {
     res.write(": connected\n\n");
     res.flushHeaders?.();
 
-    const unsubscribe = subscribeMessages({ res, threadId, hotelId: scope.hotelId });
+    const requestedHotelId = url.searchParams.get("hotelId")?.trim();
+
+    const unsubscribe = subscribeMessages({ 
+        res, 
+        threadId: threadId || undefined,
+        hotelId: principal.hotelId || requestedHotelId,
+        stayId: principal.typ === "guest" ? principal.stayId : undefined,
+        departments: requestedDepartments.length ? requestedDepartments : undefined
+    });
+    
     req.on("close", () => {
       unsubscribe();
     });
@@ -2700,7 +2719,8 @@ async function handleRequest(req, res) {
     segments[1] === "v1" &&
     segments[2] === "hotels" &&
     segments[3] &&
-    (segments.length === 4 || segments[4] === "integrations" || segments[4] === "notifications")
+    segments[4] !== "room-images" &&
+    segments[4] !== "experiences"
   ) {
     const hotelId = decodeURIComponent(segments[3]);
     const principal = requirePrincipal(req, res, url, ["staff"]);
@@ -3213,21 +3233,6 @@ async function handleRequest(req, res) {
     const idDocumentUploaded = Boolean(body.idDocumentUploaded);
     const paymentMethodProvided = Boolean(body.paymentMethodProvided);
 
-    if (!firstName || !lastName) {
-      sendJson(res, 400, { error: "missing_fields", required: ["firstName", "lastName"] });
-      return;
-    }
-
-    if (!phone) {
-      sendJson(res, 400, { error: "missing_phone" });
-      return;
-    }
-
-    if (!/^\+\d{8,15}$/.test(phone)) {
-      sendJson(res, 400, { error: "invalid_phone" });
-      return;
-    }
-
     if (!idDocumentUploaded) {
       sendJson(res, 400, { error: "missing_id_document" });
       return;
@@ -3300,8 +3305,8 @@ async function handleRequest(req, res) {
       `
         UPDATE guests
         SET
-          first_name = $1,
-          last_name = $2,
+          first_name = CASE WHEN $1 <> '' THEN $1 ELSE first_name END,
+          last_name = CASE WHEN $2 <> '' THEN $2 ELSE last_name END,
           phone = COALESCE($3, phone),
           id_document_url = CASE WHEN $4::boolean THEN COALESCE(id_document_url, 'demo://id-document') ELSE id_document_url END,
           id_document_verified = CASE WHEN $4::boolean THEN true ELSE id_document_verified END,
@@ -3936,39 +3941,79 @@ async function handleRequest(req, res) {
     const serviceItemId = typeof body.serviceItemId === "string" ? body.serviceItemId.trim() : "";
     const formData = body.formData && typeof body.formData === "object" ? body.formData : {};
 
-    if (!serviceItemId) {
-      sendJson(res, 400, { error: "missing_fields", required: ["serviceItemId"] });
+    const hotelId = typeof principal.hotelId === "string" ? principal.hotelId.trim() : "";
+    if (!hotelId) {
+      sendJson(res, 400, { error: "missing_hotel_context" });
       return;
     }
 
-    // Get the service item details
-    const itemRows = await query(
-      `
-        SELECT
-          id,
-          hotel_id AS "hotelId",
-          department,
-          name_default AS "nameDefault",
-          estimated_time_minutes AS "estimatedTimeMinutes",
-          requires_confirmation AS "requiresConfirmation"
-        FROM service_items
-        WHERE id = $1 AND is_active = TRUE
-        LIMIT 1
-      `,
-      [serviceItemId]
-    );
-
-    if (itemRows.length === 0) {
-      sendJson(res, 404, { error: "service_item_not_found" });
+    if (principal.typ === "guest" && !principal.stayId) {
+      sendJson(res, 400, { error: "missing_stay_context" });
       return;
     }
 
-    const serviceItem = itemRows[0];
+    let ticketDepartment = "";
+    let ticketTitle = "";
+    let ticketStatus = "pending";
+    let serviceItemPayload = null;
+    let estimatedTimeMinutes = null;
+    let requiresConfirmation = false;
+    let ticketPayload = {};
 
-    // Verify hotel access
-    if (serviceItem.hotelId !== principal.hotelId) {
-      sendJson(res, 403, { error: "forbidden" });
-      return;
+    if (serviceItemId) {
+        // Get the service item details
+        const itemRows = await query(
+          `
+            SELECT
+              id,
+              hotel_id AS "hotelId",
+              department,
+              name_default AS "nameDefault",
+              estimated_time_minutes AS "estimatedTimeMinutes",
+              requires_confirmation AS "requiresConfirmation"
+            FROM service_items
+            WHERE id = $1 AND is_active = TRUE
+            LIMIT 1
+          `,
+          [serviceItemId]
+        );
+
+        if (itemRows.length === 0) {
+          sendJson(res, 404, { error: "service_item_not_found" });
+          return;
+        }
+
+        const serviceItem = itemRows[0];
+
+        // Verify hotel access
+        if (serviceItem.hotelId !== hotelId) {
+          sendJson(res, 403, { error: "forbidden" });
+          return;
+        }
+
+        ticketDepartment = serviceItem.department;
+        ticketTitle = serviceItem.nameDefault;
+        ticketStatus = serviceItem.requiresConfirmation ? "pending_confirmation" : "pending";
+        serviceItemPayload = { id: serviceItem.id, name: serviceItem.nameDefault };
+        estimatedTimeMinutes = serviceItem.estimatedTimeMinutes ?? null;
+        requiresConfirmation = Boolean(serviceItem.requiresConfirmation);
+        ticketPayload = { formData, serviceItem: serviceItemPayload };
+    } else {
+      ticketDepartment = typeof body.department === "string" ? body.department.trim() : "";
+      ticketTitle = typeof body.title === "string" ? body.title.trim() : "";
+      if (!ticketDepartment || !ticketTitle) {
+        sendJson(res, 400, { error: "missing_fields", required: ["department", "title"] });
+        return;
+      }
+
+      const payloadCandidate = body.payload;
+      if (payloadCandidate && typeof payloadCandidate === "object") {
+        ticketPayload = payloadCandidate;
+      } else if (payloadCandidate !== undefined) {
+        ticketPayload = { payload: payloadCandidate };
+      } else {
+        ticketPayload = {};
+      }
     }
 
     // Get stay info for room number
@@ -3980,7 +4025,7 @@ async function handleRequest(req, res) {
     if (!roomNumber && stayId) {
       const stays = await query(
         `SELECT room_number AS "roomNumber" FROM stays WHERE id = $1 AND hotel_id = $2 LIMIT 1`,
-        [stayId, principal.hotelId]
+        [stayId, hotelId]
       );
       roomNumber = stays[0]?.roomNumber ?? "";
     }
@@ -3992,7 +4037,6 @@ async function handleRequest(req, res) {
 
     // Create the ticket
     const ticketId = `T-${randomUUID().slice(0, 8).toUpperCase()}`;
-    const status = serviceItem.requiresConfirmation ? "pending_confirmation" : "pending";
 
     const ticketRows = await query(
       `
@@ -4016,16 +4060,16 @@ async function handleRequest(req, res) {
       `,
       [
         ticketId,
-        principal.hotelId,
+        hotelId,
         stayId,
         roomNumber,
-        serviceItem.department,
-        status,
-        serviceItem.nameDefault,
-        serviceItemId,
+        ticketDepartment,
+        ticketStatus,
+        ticketTitle,
+        serviceItemId || null,
         body.priority ?? "normal",
         "service_form",
-        JSON.stringify({ formData, serviceItem: { id: serviceItem.id, name: serviceItem.nameDefault } })
+        JSON.stringify(ticketPayload)
       ]
     );
 
@@ -4035,7 +4079,7 @@ async function handleRequest(req, res) {
     try {
       await emitRealtimeEvent({
         type: "ticket_created",
-        hotelId: principal.hotelId,
+        hotelId,
         ticketId: ticket.id,
         stayId: ticket.stayId,
         roomNumber: ticket.roomNumber,
@@ -4050,7 +4094,7 @@ async function handleRequest(req, res) {
     // Notify staff
     try {
       const recipients = await listStaffNotificationTargets({
-        hotelId: principal.hotelId,
+        hotelId,
         department: ticket.department
       });
 
@@ -4059,7 +4103,7 @@ async function handleRequest(req, res) {
 
       for (const recipient of recipients) {
         await enqueueEmailOutbox({
-          hotelId: principal.hotelId,
+          hotelId,
           toAddress: recipient.email,
           subject,
           bodyText,
@@ -4072,8 +4116,8 @@ async function handleRequest(req, res) {
 
     sendJson(res, 201, {
       ticket,
-      estimatedTimeMinutes: serviceItem.estimatedTimeMinutes,
-      requiresConfirmation: serviceItem.requiresConfirmation
+      estimatedTimeMinutes,
+      requiresConfirmation
     });
     return;
   }

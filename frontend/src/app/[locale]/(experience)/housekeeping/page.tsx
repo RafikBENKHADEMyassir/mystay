@@ -102,6 +102,7 @@ export default function HousekeepingPage() {
   useRealtimeMessages({
     hotelId: session?.hotelId,
     departments: ["housekeeping"],
+    token: session?.guestToken,
     enabled: !!session,
     onMessage: handleRealtimeUpdate
   });

@@ -174,6 +174,7 @@ export default function ConciergePage() {
 
   useRealtimeMessages({
     threadId: thread?.id,
+    token: session?.guestToken,
     enabled: !!thread && !!session,
     onMessage: handleRealtimeMessage
   });

@@ -240,6 +240,7 @@ export default function RoomServicePage() {
   useRealtimeMessages({
     hotelId: session?.hotelId,
     departments: ["room_service", "room-service"],
+    token: session?.guestToken,
     enabled: !!session,
     onMessage: handleRealtimeUpdate
   });

@@ -13,7 +13,7 @@ export type RealtimeMessage = {
 };
 
 export type RealtimeEvent = {
-  type: "message" | "ticket_update" | "ping";
+  type: string;
   threadId?: string;
   ticketId?: string;
   department?: string;
@@ -27,6 +27,7 @@ type UseRealtimeMessagesOptions = {
   ticketId?: string;
   hotelId?: string;
   departments?: string[];
+  token?: string | null;
   enabled?: boolean;
   onMessage?: (event: RealtimeEvent) => void;
 };
@@ -38,6 +39,7 @@ export function useRealtimeMessages({
   ticketId,
   hotelId,
   departments,
+  token,
   enabled = true,
   onMessage
 }: UseRealtimeMessagesOptions) {
@@ -54,6 +56,7 @@ export function useRealtimeMessages({
     if (threadId) url.searchParams.set("threadId", threadId);
     if (ticketId) url.searchParams.set("ticketId", ticketId);
     if (hotelId) url.searchParams.set("hotelId", hotelId);
+    if (token) url.searchParams.set("token", token);
     if (departments?.length) {
       departments.forEach((d) => url.searchParams.append("departments", d));
     }
@@ -80,8 +83,7 @@ export function useRealtimeMessages({
       }, 3000);
     };
 
-    // Listen for message events
-    eventSource.addEventListener("message", (e) => {
+    const handlePayloadEvent = (e: MessageEvent) => {
       try {
         const event = JSON.parse(e.data) as RealtimeEvent;
         setLastEvent(event);
@@ -89,25 +91,29 @@ export function useRealtimeMessages({
       } catch {
         // Ignore parse errors
       }
-    });
+    };
 
-    // Listen for ticket_update events
-    eventSource.addEventListener("ticket_update", (e) => {
-      try {
-        const event = JSON.parse(e.data) as RealtimeEvent;
-        event.type = "ticket_update";
-        setLastEvent(event);
-        onMessage?.(event);
-      } catch {
-        // Ignore parse errors
-      }
-    });
+    const eventTypes = [
+      "message",
+      "message_created",
+      "thread_created",
+      "thread_updated",
+      "thread_note_created",
+      "ticket_update",
+      "ticket_created",
+      "ticket_updated",
+      "ticket_note_created"
+    ];
+
+    for (const eventType of eventTypes) {
+      eventSource.addEventListener(eventType, handlePayloadEvent);
+    }
 
     // Listen for ping events (keep-alive)
     eventSource.addEventListener("ping", () => {
       // Connection is alive
     });
-  }, [enabled, threadId, ticketId, hotelId, departments, onMessage]);
+  }, [enabled, threadId, ticketId, hotelId, departments, token, onMessage]);
 
   useEffect(() => {
     connect();

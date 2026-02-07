@@ -156,10 +156,10 @@ function QuickActionChip({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="flex min-w-[132px] items-center justify-between gap-2 rounded-full border border-border bg-card px-3 py-2 text-[12px] font-semibold text-foreground shadow-sm transition-colors hover:bg-muted/30"
+      className="flex min-w-[150px] items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-[14px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/30"
     >
       <span className="truncate">{label}</span>
-      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+      <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
     </Link>
   );
 }
@@ -340,8 +340,17 @@ export default function OverviewPage() {
 
   const hotelName = overview.hotel.name;
   const guestName = [overview.guest.firstName, overview.guest.lastName].filter(Boolean).join(" ") || "Guest";
-  const coverImageUrl = overview.hotel.coverImageUrl;
-  const hotelLogoUrl = overview.hotel.logoUrl;
+
+  const rawCoverImageUrl = overview.hotel.coverImageUrl;
+  const coverImageUrl = rawCoverImageUrl?.startsWith("/uploads/")
+    ? `${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000"}${rawCoverImageUrl}`
+    : rawCoverImageUrl;
+
+  const rawHotelLogoUrl = overview.hotel.logoUrl;
+  const hotelLogoUrl = rawHotelLogoUrl?.startsWith("/uploads/")
+    ? `${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000"}${rawHotelLogoUrl}`
+    : rawHotelLogoUrl;
+
 
   const stayStart = startOfDay(checkInDate);
   const stayEnd = startOfDay(checkOutDate);
@@ -364,89 +373,95 @@ export default function OverviewPage() {
   );
 
   return (
-    <div className="mx-auto max-w-md px-4 pb-24 pt-[calc(env(safe-area-inset-top)+8px)] lg:max-w-3xl">
+    <div className="mx-auto max-w-md pb-24 lg:max-w-3xl">
       {/* Hero Card with Hotel Image */}
-      <section className="overflow-hidden rounded-[20px] shadow-sm">
-        <div className="relative h-[210px]">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: coverImageUrl ? `url(${coverImageUrl})` : undefined
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20" />
+      <section className="relative h-[480px] w-full overflow-hidden shadow-sm">
+        <div className="absolute inset-0 bg-cover bg-bottom"
+          style={{
+            backgroundImage: coverImageUrl ? `url(${coverImageUrl})` : undefined
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/20" />
+        </div>
 
-          {/* Hotel logo */}
-          <div className="absolute left-1/2 top-4 -translate-x-1/2">
-            {hotelLogoUrl ? (
-              <Image
-                src={hotelLogoUrl}
-                alt={hotelName}
-                width={140}
-                height={40}
-                className="h-10 w-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
-                unoptimized
-              />
-            ) : (
-              <p className="text-center text-sm font-semibold text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)]">
-                {hotelName}
-              </p>
-            )}
-          </div>
+        {/* Hotel logo */}
+        <div className="absolute left-1/2 top-10 -translate-x-1/2">
+          {hotelLogoUrl ? (
+            <Image
+              src={hotelLogoUrl}
+              alt={hotelName}
+              width={180}
+              height={60}
+              className="h-20 w-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)]"
+              unoptimized
+            />
+          ) : (
+            <p className="text-center text-xl font-bold text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)]">
+              {hotelName}
+            </p>
+          )}
+        </div>
 
-          {/* Room Key Button */}
-          <div className="absolute bottom-3 left-3 right-3">
-            <Link
-              href={withLocale(locale, "/reception")}
-              className="flex items-center justify-between rounded-full border border-white/30 bg-white/80 px-4 py-2.5 text-[13px] font-semibold text-foreground shadow-sm backdrop-blur"
-            >
-              <span>{strings.roomKey}</span>
-              <div className="flex h-7 w-7 items-center justify-center rounded-full border border-foreground/20 bg-white/40">
-                <Info className="h-4 w-4 text-foreground/70" />
-              </div>
-            </Link>
-          </div>
+        {/* Room Key Buttons */}
+        <div className="absolute bottom-6 left-4 right-4 flex gap-2">
+          <Link
+            href={withLocale(locale, "/reception")}
+            className="flex flex-1 items-center justify-center rounded-xl border border-white/20 bg-white/70 px-4 py-3 text-base font-semibold text-foreground shadow-lg backdrop-blur-md transition-colors hover:bg-white/80"
+          >
+            {strings.roomKey}
+          </Link>
+          <Link
+            href={withLocale(locale, "/reception/info")}
+            className="flex h-[50px] w-[50px] items-center justify-center rounded-xl border border-white/20 bg-white/70 shadow-lg backdrop-blur-md transition-colors hover:bg-white/80"
+          >
+            <Info className="h-5 w-5 text-foreground" />
+          </Link>
         </div>
       </section>
 
-      {/* Guest Info Card - Clickable to Room Detail */}
-      <Link href={withLocale(locale, "/room")} className="mt-3 block">
-        <section className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm transition-colors hover:bg-muted/30">
-          {/* Room Thumbnail */}
-          <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
-            {roomThumbnail ? (
-              <Image src={roomThumbnail} alt="Room" fill className="object-cover" unoptimized />
-            ) : (
-              <div className="h-full w-full bg-muted/40" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            <p className="absolute bottom-1 left-1.5 text-[10px] font-semibold text-white">
-              N° {roomNumber}
-            </p>
-          </div>
+      <div className="px-4">
+        {/* Guest Info Card - Clickable to Room Detail */}
+        <Link href={withLocale(locale, "/room")} className="mt-4 block">
+          <section className="flex items-center gap-4 rounded-xl border border-border bg-card p-2 shadow-sm transition-colors hover:bg-muted/30">
+            {/* Room Thumbnail */}
+            <div className="relative h-20 w-28 flex-shrink-0 overflow-hidden rounded-lg">
+              {roomThumbnail ? (
+                <Image src={roomThumbnail} alt="Room" fill className="object-cover" unoptimized />
+              ) : (
+                <div className="h-full w-full bg-muted/40" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              <p className="absolute bottom-2 left-2 text-sm font-medium text-white shadow-sm">
+                N° {roomNumber}
+              </p>
+            </div>
 
-          {/* Guest Info */}
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold leading-tight text-foreground">{strings.greeting}</p>
-            <p className="truncate text-sm font-semibold leading-tight text-foreground">{guestName}</p>
-            <p className="text-xs text-muted-foreground">
-              {checkIn} – {checkOut}
-            </p>
-          </div>
+            {/* Guest Info */}
+            <div className="min-w-0 flex-1 py-1">
+              <p className="text-base font-semibold text-foreground">{strings.greeting}</p>
+              <p className="truncate text-base font-semibold text-foreground">{guestName}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {checkIn} – {checkOut}
+              </p>
+            </div>
 
-          <ChevronRight className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-        </section>
-      </Link>
+            <ChevronRight className="mr-2 h-5 w-5 flex-shrink-0 text-muted-foreground/60" />
+          </section>
+        </Link>
+      </div>
 
       {/* Quick Actions */}
-      <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
-        <QuickActionChip href={withLocale(locale, "/services")} label={strings.upgradeRoom} />
-        <QuickActionChip href={withLocale(locale, "/room-service")} label={strings.roomService} />
-        <QuickActionChip href={withLocale(locale, "/housekeeping")} label={strings.housekeeping} />
+      <div className="mt-4 px-4 overflow-x-auto no-scrollbar">
+        <div className="flex gap-3 pb-1">
+          <QuickActionChip href={withLocale(locale, "/services")} label={strings.upgradeRoom} />
+          <QuickActionChip href={withLocale(locale, "/room-service")} label={strings.roomService} />
+          <QuickActionChip href={withLocale(locale, "/housekeeping")} label={strings.housekeeping} />
+        </div>
       </div>
 
       {/* Agenda Section with Timeline */}
-      <section className="mt-5 rounded-2xl border border-border bg-card p-3 shadow-sm">
+      <div className="px-4 pb-4">
+        <section className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
             <button
@@ -568,6 +583,7 @@ export default function OverviewPage() {
           )}
         </div>
       </section>
+      </div>
 
       {/* Dynamic Experience Sections from Backend */}
       {visibleExperienceSections.length === 0 ? (
@@ -600,7 +616,7 @@ export default function OverviewPage() {
                   key={item.id}
                   href={href}
                   className={cn(
-                    "relative h-[104px] w-[calc((100%-0.5rem)/2)] flex-shrink-0 snap-start overflow-hidden rounded-[14px] bg-muted/40 shadow-sm",
+                    "relative h-[250px] w-[170px] flex-shrink-0 snap-start overflow-hidden rounded-[14px] bg-muted/40 shadow-sm",
                     isUpsellsCard && "bg-muted/70"
                   )}
                   style={{
@@ -609,7 +625,7 @@ export default function OverviewPage() {
                     backgroundPosition: isUpsellsCard ? undefined : "center"
                   }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
                   {isUpsellsCard ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
