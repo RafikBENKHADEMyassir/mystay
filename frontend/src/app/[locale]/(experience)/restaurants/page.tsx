@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
+import { useTranslations } from "@/lib/i18n/translate";
 
 const HERO_IMAGE = "/images/services/restaurant_background.png";
 
@@ -71,6 +72,7 @@ const restaurants: Restaurant[] = [
 
 export default function RestaurantsPage() {
   const locale = useLocale();
+  const t = useTranslations();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
 
   useEffect(() => {
@@ -85,19 +87,17 @@ export default function RestaurantsPage() {
             <ChevronLeft className="h-6 w-6 text-gray-900" />
           </Link>
           <div className="text-center">
-            <p className="font-medium text-gray-900">Restaurant</p>
+            <p className="font-medium text-gray-900">{t("restaurantsPage.title")}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">
-            {locale === "fr" ? "Connectez-vous pour accéder aux restaurants." : "Sign in to access restaurants."}
-          </p>
+          <p className="text-gray-500">{t("common.signInToAccessRestaurants")}</p>
           <Link
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {locale === "fr" ? "Commencer le check-in" : "Start check-in"}
+            {t("common.startCheckIn")}
           </Link>
         </div>
       </div>
@@ -124,7 +124,9 @@ export default function RestaurantsPage() {
 
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">Restaurant</h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">
+            {t("restaurantsPage.title")}
+          </h1>
         </div>
       </div>
 
@@ -140,10 +142,8 @@ export default function RestaurantsPage() {
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">
-                {locale === "fr" ? "Actuellement disponible pour" : "Currently available to"}
-              </p>
-              <p className="text-sm text-gray-500">{locale === "fr" ? "échanger." : "chat."}</p>
+              <p className="font-medium text-gray-900">{t("common.availabilityCard.currentlyAvailableTo")}</p>
+              <p className="text-sm text-gray-500">{t("common.availabilityCard.chat")}</p>
             </div>
 
             <Link
@@ -156,11 +156,11 @@ export default function RestaurantsPage() {
 
           {/* Hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{locale === "fr" ? "Disponibilités" : "Availability"}</span>
+            <span className="text-gray-500">{t("common.availabilityCard.availability")}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{locale === "fr" ? "De" : "From"}</span>
+              <span className="text-gray-400">{t("common.availabilityCard.from")}</span>
               <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{locale === "fr" ? "à" : "to"}</span>
+              <span className="text-gray-400">{t("common.availabilityCard.to")}</span>
               <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
             </div>
           </div>
@@ -169,9 +169,7 @@ export default function RestaurantsPage() {
 
       {/* Restaurants Section */}
       <div className="flex-1 px-4 py-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">
-          {locale === "fr" ? "Nos expériences culinaires" : "Our culinary experiences"}
-        </h2>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("restaurantsPage.experiencesTitle")}</h2>
 
         {/* Restaurant Cards */}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -217,9 +215,7 @@ export default function RestaurantsPage() {
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">
-                  <span className="text-sm font-medium text-amber-600">
-                    {locale === "fr" ? "Réserver une table" : "Book a table"}
-                  </span>
+                  <span className="text-sm font-medium text-amber-600">{t("restaurantsPage.bookTable")}</span>
                   <ChevronRight className="h-4 w-4 text-gray-300" />
                 </div>
               </div>

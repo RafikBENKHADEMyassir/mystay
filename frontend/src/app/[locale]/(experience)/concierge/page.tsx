@@ -22,6 +22,7 @@ import { MessageComposer } from "@/components/chat/message-composer";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { getDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
+import { useTranslations } from "@/lib/i18n/translate";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
 
 const HERO_IMAGE = "/images/services/concierge_background.png";
@@ -58,16 +59,17 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 
 // Quick action definitions
 const quickActions = [
-  { id: "restaurant", labelFr: "Réserver un restaurant", labelEn: "Book a restaurant", icon: UtensilsCrossed },
-  { id: "transport", labelFr: "Organiser un transport", labelEn: "Arrange transport", icon: Car },
-  { id: "ticket", labelFr: "Réserver un billet (spectacle, musée, événement)", labelEn: "Book tickets (show, museum, event)", icon: Ticket },
-  { id: "airport", labelFr: "Organiser un transfert aéroport", labelEn: "Arrange airport transfer", icon: Plane },
-  { id: "activities", labelFr: "Demander des recommandations d'activités", labelEn: "Request activity recommendations", icon: MapPin }
+  { id: "restaurant", labelKey: "conciergePage.quickActions.restaurant", icon: UtensilsCrossed },
+  { id: "transport", labelKey: "conciergePage.quickActions.transport", icon: Car },
+  { id: "ticket", labelKey: "conciergePage.quickActions.ticket", icon: Ticket },
+  { id: "airport", labelKey: "conciergePage.quickActions.airport", icon: Plane },
+  { id: "activities", labelKey: "conciergePage.quickActions.activities", icon: MapPin }
 ] as const;
 
 export default function ConciergePage() {
   const router = useRouter();
   const locale = useLocale();
+  const t = useTranslations();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [thread, setThread] = useState<Thread | null>(null);
@@ -201,13 +203,13 @@ export default function ConciergePage() {
             hotelId: session.hotelId,
             stayId: session.stayId,
             department: "concierge",
-            title: "Concierge",
+            title: t("conciergePage.title"),
             initialMessage: bodyText
           })
         });
 
         if (!createRes.ok) {
-          setError(locale === "fr" ? "Impossible de créer la conversation." : "Could not create conversation.");
+          setError(t("conciergePage.errors.createConversation"));
           return;
         }
 
@@ -232,14 +234,14 @@ export default function ConciergePage() {
       );
 
       if (!response.ok) {
-        setError(locale === "fr" ? "Impossible d'envoyer le message." : "Could not send message.");
+        setError(t("conciergePage.errors.sendMessage"));
         return;
       }
 
       setDraft("");
       await loadMessages(currentThread.id, session);
     } catch {
-      setError(locale === "fr" ? "Service indisponible." : "Service unavailable.");
+      setError(t("conciergePage.errors.serviceUnavailable"));
     } finally {
       setIsSending(false);
     }
@@ -250,7 +252,7 @@ export default function ConciergePage() {
     const action = quickActions.find((a) => a.id === actionId);
     if (!action) return;
 
-    const message = locale === "fr" ? action.labelFr : action.labelEn;
+    const message = t(action.labelKey);
     void sendMessage(message);
   }
 
@@ -262,19 +264,17 @@ export default function ConciergePage() {
             <ChevronLeft className="h-6 w-6 text-gray-900" />
           </Link>
           <div className="text-center">
-            <p className="font-medium text-gray-900">Concierge</p>
+            <p className="font-medium text-gray-900">{t("conciergePage.title")}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">
-            {locale === "fr" ? "Connectez-vous pour accéder aux services." : "Sign in to access services."}
-          </p>
+          <p className="text-gray-500">{t("common.signInToAccessServices")}</p>
           <Link
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {locale === "fr" ? "Commencer le check-in" : "Start check-in"}
+            {t("common.startCheckIn")}
           </Link>
         </div>
       </div>
@@ -301,7 +301,7 @@ export default function ConciergePage() {
 
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">Concierge</h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{t("conciergePage.title")}</h1>
         </div>
       </div>
 
@@ -317,10 +317,8 @@ export default function ConciergePage() {
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">
-                {locale === "fr" ? "Actuellement disponible pour" : "Currently available to"}
-              </p>
-              <p className="text-sm text-gray-500">{locale === "fr" ? "échanger." : "chat."}</p>
+              <p className="font-medium text-gray-900">{t("common.availabilityCard.currentlyAvailableTo")}</p>
+              <p className="text-sm text-gray-500">{t("common.availabilityCard.chat")}</p>
             </div>
 
             <ChevronRight className="h-5 w-5 text-gray-300" />
@@ -328,11 +326,11 @@ export default function ConciergePage() {
 
           {/* Availability hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{locale === "fr" ? "Disponibilités" : "Availability"}</span>
+            <span className="text-gray-500">{t("common.availabilityCard.availability")}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{locale === "fr" ? "De" : "From"}</span>
+              <span className="text-gray-400">{t("common.availabilityCard.from")}</span>
               <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{locale === "fr" ? "à" : "to"}</span>
+              <span className="text-gray-400">{t("common.availabilityCard.to")}</span>
               <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
               <ChevronRight className="h-4 w-4 rotate-90 text-gray-300" />
             </div>
@@ -344,9 +342,7 @@ export default function ConciergePage() {
       {thread && messages.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              {locale === "fr" ? "Reprenez votre discussion :" : "Resume your conversation:"}
-            </p>
+            <p className="text-sm font-medium text-gray-500">{t("conciergePage.resumeConversation")}</p>
             <button
               onClick={() => router.push(withLocale(locale, `/messages/${thread.id}`))}
               className="rounded-full p-1.5 hover:bg-gray-100"
@@ -379,7 +375,7 @@ export default function ConciergePage() {
             href={withLocale(locale, `/messages/${thread.id}`)}
             className="mt-3 block text-center text-sm text-amber-600 hover:underline"
           >
-            {locale === "fr" ? "Voir la conversation complète" : "View full conversation"}
+            {t("conciergePage.viewFullConversation")}
           </Link>
         </div>
       )}
@@ -388,9 +384,7 @@ export default function ConciergePage() {
       {conciergeTickets.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              {locale === "fr" ? "Demandes en cours" : "Active requests"}
-            </p>
+            <p className="text-sm font-medium text-gray-500">{t("conciergePage.activeRequests")}</p>
             <button
               onClick={() => loadTickets()}
               disabled={isLoading}
@@ -411,16 +405,10 @@ export default function ConciergePage() {
                 </div>
                 <p className="mt-2 text-sm text-gray-500">
                   {ticket.status === "in_progress"
-                    ? locale === "fr"
-                      ? "Le concierge est en train de traiter votre demande."
-                      : "The concierge is processing your request."
+                    ? t("conciergePage.ticketStatus.inProgress")
                     : ticket.status === "resolved"
-                      ? locale === "fr"
-                        ? "Demande terminée."
-                        : "Request completed."
-                      : locale === "fr"
-                        ? "En attente."
-                        : "Pending."}
+                      ? t("conciergePage.ticketStatus.resolved")
+                      : t("conciergePage.ticketStatus.pending")}
                 </p>
               </div>
             ))}
@@ -429,12 +417,10 @@ export default function ConciergePage() {
           {/* Tipping prompt */}
           {conciergeTickets.some((t) => t.status === "resolved") && (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
-              <p className="text-sm text-gray-600">
-                {locale === "fr" ? "Remerciez votre concierge pour ses services" : "Thank your concierge for their service"}
-              </p>
+              <p className="text-sm text-gray-600">{t("conciergePage.tipPrompt")}</p>
               <button className="mt-2 inline-flex items-center gap-2 text-amber-600">
                 <Smile className="h-4 w-4" />
-                <span className="text-sm">{locale === "fr" ? "Laisser un pourboire" : "Leave a tip"}</span>
+                <span className="text-sm">{t("conciergePage.leaveTip")}</span>
               </button>
             </div>
           )}
@@ -451,9 +437,7 @@ export default function ConciergePage() {
               disabled={isSending}
               className="flex w-full items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 text-left shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
             >
-              <span className="text-sm text-gray-700">
-                {locale === "fr" ? action.labelFr : action.labelEn}
-              </span>
+              <span className="text-sm text-gray-700">{t(action.labelKey)}</span>
               <ChevronRight className="h-4 w-4 text-gray-300" />
             </button>
           ))}
@@ -470,7 +454,7 @@ export default function ConciergePage() {
             onChange={setDraft}
             onSend={() => sendMessage()}
             disabled={isSending}
-            placeholder={locale === "fr" ? "Écrire au concierge..." : "Write to concierge..."}
+            placeholder={t("conciergePage.composerPlaceholder")}
           />
         </div>
       </div>

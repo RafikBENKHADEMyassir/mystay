@@ -8,6 +8,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import type { NavItem } from "@/lib/navigation";
 import { navIcon } from "@/lib/navigation";
 import { stripLocaleFromPathname, withLocale } from "@/lib/i18n/paths";
+import { useTranslations, type TranslationKey } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 import { getDemoSession } from "@/lib/demo-session";
 
@@ -15,14 +16,12 @@ type BottomNavProps = {
   items: NavItem[];
 };
 
-function navLabel(locale: string, href: string, fallback: string) {
-  if (locale === "fr") {
-    if (href === "/") return "Accueil";
-    if (href === "/services") return "Services";
-    if (href === "/messages") return "Messages";
-    if (href === "/profile") return "Profil";
-  }
-  return fallback;
+function navLabelKey(href: string): TranslationKey | null {
+  if (href === "/") return "navigation.home";
+  if (href === "/services") return "navigation.services";
+  if (href === "/messages") return "navigation.messages";
+  if (href === "/profile") return "navigation.profile";
+  return null;
 }
 
 type SessionResponse = {
@@ -34,6 +33,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 
 export function BottomNav({ items }: BottomNavProps) {
   const locale = useLocale();
+  const t = useTranslations();
   const pathname = stripLocaleFromPathname(usePathname() ?? "/");
   const visible = items.slice(0, 5);
   const [guestToken, setGuestToken] = useState<string | null>(null);
@@ -145,7 +145,8 @@ export function BottomNav({ items }: BottomNavProps) {
         {visible.map((item, index) => {
           const Icon = navIcon(item.icon);
           const isActive = pathname === item.href;
-          const label = navLabel(locale, item.href, item.title);
+          const labelKey = navLabelKey(item.href);
+          const label = labelKey ? t(labelKey) : item.title;
           const showUnread = item.href === messagesHref && unreadThreads > 0;
           const unreadLabel = unreadThreads > 99 ? "99+" : String(unreadThreads);
           const showBadge = item.href === servicesHref && showServicesBadge && !isActive;

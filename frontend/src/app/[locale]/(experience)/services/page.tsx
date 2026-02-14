@@ -8,6 +8,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { ServiceCard, NotificationCard } from "@/components/services";
 import { getDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
+import { useTranslations } from "@/lib/i18n/translate";
 
 type Ticket = {
   id: string;
@@ -25,48 +26,42 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 const services = [
   {
     id: "concierge",
-    titleFr: "Concierge",
-    titleEn: "Concierge",
+    titleKey: "servicesPage.cards.concierge",
     href: "/concierge",
     chatHref: "/messages?department=concierge",
     background: "/images/services/concierge_background.png"
   },
   {
     id: "housekeeping",
-    titleFr: "Housekeeping",
-    titleEn: "Housekeeping",
+    titleKey: "servicesPage.cards.housekeeping",
     href: "/housekeeping",
     chatHref: "/messages?department=housekeeping",
     background: "/images/services/housekeeping_background.png"
   },
   {
     id: "room_service",
-    titleFr: "Room Service",
-    titleEn: "Room Service",
+    titleKey: "servicesPage.cards.roomService",
     href: "/room-service",
     chatHref: "/messages?department=room-service",
     background: "/images/services/roomservice_background.png"
   },
   {
     id: "reception",
-    titleFr: "Réception",
-    titleEn: "Reception",
+    titleKey: "servicesPage.cards.reception",
     href: "/reception/check-in",
     chatHref: "/messages?department=reception",
     background: "/images/services/reception_background.png"
   },
   {
     id: "restaurant",
-    titleFr: "Restaurant",
-    titleEn: "Restaurant",
+    titleKey: "servicesPage.cards.restaurant",
     href: "/restaurants",
     chatHref: "/messages?department=restaurants",
     background: "/images/services/restaurant_background.png"
   },
   {
     id: "spa_gym",
-    titleFr: "Spa & Gym",
-    titleEn: "Spa & Gym",
+    titleKey: "servicesPage.cards.spaGym",
     href: "/spa-gym",
     chatHref: "/messages?department=spa-gym",
     background: "/images/services/spa_gym_background.png"
@@ -75,6 +70,7 @@ const services = [
 
 export default function ServicesPage() {
   const locale = useLocale();
+  const t = useTranslations();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
 
@@ -113,28 +109,18 @@ export default function ServicesPage() {
     );
     if (conciergeTicket) {
       return {
-        badge: "Transport",
-        message:
-          locale === "fr"
-            ? `Votre trajet a été réservé pour 15:30.`
-            : `Your ride has been booked for 15:30.`
+        badge: t("servicesPage.transportBadge"),
+        message: t("servicesPage.transportBookedMessage", { time: "15:30" })
       };
     }
     return null;
-  }, [tickets, locale]);
-
-  const strings = useMemo(
-    () => ({
-      title: locale === "fr" ? "Services" : "Services"
-    }),
-    [locale]
-  );
+  }, [tickets, t]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="flex items-center justify-between bg-white px-4 py-4">
-        <h1 className="text-xl font-semibold text-gray-900">{strings.title}</h1>
+        <h1 className="text-xl font-semibold text-gray-900">{t("servicesPage.title")}</h1>
         <Leaf className="h-6 w-6 text-gray-400" />
       </header>
 
@@ -148,21 +134,13 @@ export default function ServicesPage() {
           />
         ) : session ? (
           <NotificationCard
-            badge={locale === "fr" ? "Bienvenue" : "Welcome"}
-            message={
-              locale === "fr"
-                ? `Bienvenue ${session.hotelName}. Comment pouvons-nous vous aider ?`
-                : `Welcome to ${session.hotelName}. How can we help you?`
-            }
+            badge={t("servicesPage.welcomeBadge")}
+            message={t("servicesPage.welcomeMessage", { hotelName: session.hotelName })}
           />
         ) : (
           <NotificationCard
-            badge={locale === "fr" ? "Check-in" : "Check-in"}
-            message={
-              locale === "fr"
-                ? "Effectuez votre check-in pour accéder à tous les services."
-                : "Complete your check-in to access all services."
-            }
+            badge={t("servicesPage.checkInBadge")}
+            message={t("servicesPage.checkInMessage")}
             href={withLocale(locale, "/reception/check-in")}
           />
         )}
@@ -172,7 +150,7 @@ export default function ServicesPage() {
           {services.map((service) => (
             <ServiceCard
               key={service.id}
-              title={locale === "fr" ? service.titleFr : service.titleEn}
+              title={t(service.titleKey)}
               href={withLocale(locale, service.href)}
               chatHref={withLocale(locale, service.chatHref)}
               backgroundImage={service.background}

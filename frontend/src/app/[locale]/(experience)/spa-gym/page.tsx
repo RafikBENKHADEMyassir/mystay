@@ -17,6 +17,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
+import { useTranslations } from "@/lib/i18n/translate";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
 import { cn } from "@/lib/utils";
 
@@ -133,6 +134,7 @@ const timeSlots = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"
 
 export default function SpaGymPage() {
   const locale = useLocale();
+  const t = useTranslations();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [activeTab, setActiveTab] = useState<"spa" | "gym">("spa");
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -233,7 +235,7 @@ export default function SpaGymPage() {
       });
 
       if (!response.ok) {
-        setError(locale === "fr" ? "Impossible de réserver." : "Could not book.");
+        setError(t("spaGymPage.errors.couldNotBook"));
         return;
       }
 
@@ -242,7 +244,7 @@ export default function SpaGymPage() {
       setSelectedTime("");
       await loadBookings(session);
     } catch {
-      setError(locale === "fr" ? "Service indisponible." : "Service unavailable.");
+      setError(t("spaGymPage.errors.serviceUnavailable"));
     } finally {
       setIsBooking(false);
     }
@@ -256,19 +258,17 @@ export default function SpaGymPage() {
             <ChevronLeft className="h-6 w-6 text-gray-900" />
           </Link>
           <div className="text-center">
-            <p className="font-medium text-gray-900">Spa & Gym</p>
+            <p className="font-medium text-gray-900">{t("spaGymPage.title")}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">
-            {locale === "fr" ? "Connectez-vous pour accéder au Spa & Gym." : "Sign in to access Spa & Gym."}
-          </p>
+          <p className="text-gray-500">{t("common.signInToAccessSpaGym")}</p>
           <Link
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {locale === "fr" ? "Commencer le check-in" : "Start check-in"}
+            {t("common.startCheckIn")}
           </Link>
         </div>
       </div>
@@ -295,7 +295,7 @@ export default function SpaGymPage() {
 
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">Spa & Gym</h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{t("spaGymPage.title")}</h1>
         </div>
       </div>
 
@@ -311,10 +311,8 @@ export default function SpaGymPage() {
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">
-                {locale === "fr" ? "Actuellement disponible pour" : "Currently available to"}
-              </p>
-              <p className="text-sm text-gray-500">{locale === "fr" ? "échanger." : "chat."}</p>
+              <p className="font-medium text-gray-900">{t("common.availabilityCard.currentlyAvailableTo")}</p>
+              <p className="text-sm text-gray-500">{t("common.availabilityCard.chat")}</p>
             </div>
 
             <Link
@@ -327,11 +325,11 @@ export default function SpaGymPage() {
 
           {/* Hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{locale === "fr" ? "Disponibilités" : "Availability"}</span>
+            <span className="text-gray-500">{t("common.availabilityCard.availability")}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{locale === "fr" ? "De" : "From"}</span>
+              <span className="text-gray-400">{t("common.availabilityCard.from")}</span>
               <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{locale === "fr" ? "à" : "to"}</span>
+              <span className="text-gray-400">{t("common.availabilityCard.to")}</span>
               <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
             </div>
           </div>
@@ -349,7 +347,7 @@ export default function SpaGymPage() {
             )}
           >
             <Sparkles className="h-4 w-4" />
-            Spa
+            {t("spaGymPage.tabs.spa")}
           </button>
           <button
             onClick={() => setActiveTab("gym")}
@@ -359,7 +357,7 @@ export default function SpaGymPage() {
             )}
           >
             <Dumbbell className="h-4 w-4" />
-            Gym
+            {t("spaGymPage.tabs.gym")}
           </button>
         </div>
       </div>
@@ -367,9 +365,7 @@ export default function SpaGymPage() {
       {/* Active Bookings */}
       {bookings.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
-          <h2 className="mb-3 text-sm font-medium text-gray-500">
-            {locale === "fr" ? "Vos réservations" : "Your bookings"}
-          </h2>
+          <h2 className="mb-3 text-sm font-medium text-gray-500">{t("spaGymPage.yourBookings")}</h2>
           <div className="space-y-2">
             {bookings.map((booking) => (
               <div key={booking.id} className="flex items-center gap-3 rounded-xl bg-purple-50 p-3">
@@ -389,12 +385,8 @@ export default function SpaGymPage() {
                   )}
                 >
                   {booking.status === "confirmed"
-                    ? locale === "fr"
-                      ? "Confirmé"
-                      : "Confirmed"
-                    : locale === "fr"
-                      ? "En attente"
-                      : "Pending"}
+                    ? t("spaGymPage.bookingStatus.confirmed")
+                    : t("spaGymPage.bookingStatus.pending")}
                 </span>
               </div>
             ))}
@@ -406,12 +398,8 @@ export default function SpaGymPage() {
       <div className="flex-1 px-4 py-4">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">
           {activeTab === "spa"
-            ? locale === "fr"
-              ? "Nos soins"
-              : "Our treatments"
-            : locale === "fr"
-              ? "Nos activités"
-              : "Our activities"}
+            ? t("spaGymPage.sectionTitles.spa")
+            : t("spaGymPage.sectionTitles.gym")}
         </h2>
 
         <div className="space-y-3">
@@ -460,9 +448,7 @@ export default function SpaGymPage() {
               {/* Booking Panel */}
               {selectedService?.id === service.id && (
                 <div className="border-t border-gray-100 bg-gray-50 p-4">
-                  <p className="mb-3 text-sm font-medium text-gray-700">
-                    {locale === "fr" ? "Choisir un créneau" : "Choose a time slot"}
-                  </p>
+                  <p className="mb-3 text-sm font-medium text-gray-700">{t("spaGymPage.chooseTimeSlot")}</p>
 
                   {/* Date */}
                   <input
@@ -504,12 +490,8 @@ export default function SpaGymPage() {
                     className="w-full rounded-full bg-purple-600 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-50"
                   >
                     {isBooking
-                      ? locale === "fr"
-                        ? "Réservation..."
-                        : "Booking..."
-                      : locale === "fr"
-                        ? `Réserver - ${service.price} €`
-                        : `Book - ${service.price} €`}
+                      ? t("spaGymPage.bookingLoading")
+                      : t("spaGymPage.bookingAction", { price: service.price.toFixed(2) })}
                   </button>
                 </div>
               )}

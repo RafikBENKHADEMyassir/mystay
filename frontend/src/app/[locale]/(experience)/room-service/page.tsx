@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession } from "@/lib/demo-session";
 import { withLocale } from "@/lib/i18n/paths";
+import { useTranslations } from "@/lib/i18n/translate";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
 import { cn } from "@/lib/utils";
 
@@ -51,12 +52,12 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 
 // Menu categories
 const categories = [
-  { id: "breakfast", labelFr: "Petit-déjeuner", labelEn: "Breakfast" },
-  { id: "starters", labelFr: "Entrées", labelEn: "Starters" },
-  { id: "mains", labelFr: "Plats", labelEn: "Mains" },
-  { id: "desserts", labelFr: "Desserts", labelEn: "Desserts" },
-  { id: "drinks", labelFr: "Boissons", labelEn: "Drinks" },
-  { id: "night", labelFr: "Carte de nuit", labelEn: "Late night" }
+  { id: "breakfast", labelKey: "roomServicePage.categories.breakfast" },
+  { id: "starters", labelKey: "roomServicePage.categories.starters" },
+  { id: "mains", labelKey: "roomServicePage.categories.mains" },
+  { id: "desserts", labelKey: "roomServicePage.categories.desserts" },
+  { id: "drinks", labelKey: "roomServicePage.categories.drinks" },
+  { id: "night", labelKey: "roomServicePage.categories.night" }
 ] as const;
 
 // Mock menu items (in production, this would come from the API)
@@ -170,6 +171,7 @@ const menuItems: MenuItem[] = [
 
 export default function RoomServicePage() {
   const locale = useLocale();
+  const t = useTranslations();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [activeCategory, setActiveCategory] = useState("breakfast");
@@ -302,14 +304,14 @@ export default function RoomServicePage() {
       });
 
       if (!response.ok) {
-        setError(locale === "fr" ? "Impossible de passer la commande." : "Could not place order.");
+        setError(t("roomServicePage.errors.couldNotPlaceOrder"));
         return;
       }
 
       setCart([]);
       await loadTickets(session);
     } catch {
-      setError(locale === "fr" ? "Service indisponible." : "Service unavailable.");
+      setError(t("roomServicePage.errors.serviceUnavailable"));
     } finally {
       setIsOrdering(false);
     }
@@ -323,19 +325,17 @@ export default function RoomServicePage() {
             <ChevronLeft className="h-6 w-6 text-gray-900" />
           </Link>
           <div className="text-center">
-            <p className="font-medium text-gray-900">Room Service</p>
+            <p className="font-medium text-gray-900">{t("roomServicePage.title")}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">
-            {locale === "fr" ? "Connectez-vous pour accéder au room service." : "Sign in to access room service."}
-          </p>
+          <p className="text-gray-500">{t("common.signInToAccessRoomService")}</p>
           <Link
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {locale === "fr" ? "Commencer le check-in" : "Start check-in"}
+            {t("common.startCheckIn")}
           </Link>
         </div>
       </div>
@@ -366,7 +366,7 @@ export default function RoomServicePage() {
               className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-lg"
             >
               <ShoppingCart className="h-4 w-4" />
-              <span>{locale === "fr" ? "Commander" : "Order"}</span>
+              <span>{t("roomServicePage.orderButton")}</span>
               <span className="rounded-full bg-gray-900 px-2 py-0.5 text-xs text-white">{cartCount}</span>
             </button>
           )}
@@ -376,7 +376,9 @@ export default function RoomServicePage() {
 
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">Room Service</h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">
+            {t("roomServicePage.title")}
+          </h1>
         </div>
       </div>
 
@@ -392,10 +394,8 @@ export default function RoomServicePage() {
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">
-                {locale === "fr" ? "Actuellement disponible pour" : "Currently available to"}
-              </p>
-              <p className="text-sm text-gray-500">{locale === "fr" ? "échanger." : "chat."}</p>
+              <p className="font-medium text-gray-900">{t("common.availabilityCard.currentlyAvailableTo")}</p>
+              <p className="text-sm text-gray-500">{t("common.availabilityCard.chat")}</p>
             </div>
 
             <Link
@@ -408,11 +408,11 @@ export default function RoomServicePage() {
 
           {/* Hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{locale === "fr" ? "Disponibilités" : "Availability"}</span>
+            <span className="text-gray-500">{t("common.availabilityCard.availability")}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{locale === "fr" ? "De" : "From"}</span>
+              <span className="text-gray-400">{t("common.availabilityCard.from")}</span>
               <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{locale === "fr" ? "à" : "to"}</span>
+              <span className="text-gray-400">{t("common.availabilityCard.to")}</span>
               <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
             </div>
           </div>
@@ -423,9 +423,7 @@ export default function RoomServicePage() {
       {roomServiceTickets.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              {locale === "fr" ? "Commandes en cours" : "Active orders"}
-            </p>
+            <p className="text-sm font-medium text-gray-500">{t("roomServicePage.activeOrders")}</p>
             <button
               onClick={() => loadTickets()}
               disabled={isLoading}
@@ -441,16 +439,10 @@ export default function RoomServicePage() {
                 <p className="text-sm font-medium text-gray-900">{ticket.title}</p>
                 <p className="mt-1 text-xs text-amber-700">
                   {ticket.status === "in_progress"
-                    ? locale === "fr"
-                      ? "🍳 En préparation..."
-                      : "🍳 Being prepared..."
+                    ? t("roomServicePage.ticketStatus.inProgress")
                     : ticket.status === "resolved"
-                      ? locale === "fr"
-                        ? "✅ Livrée"
-                        : "✅ Delivered"
-                      : locale === "fr"
-                        ? "📋 Commande reçue"
-                        : "📋 Order received"}
+                      ? t("roomServicePage.ticketStatus.resolved")
+                      : t("roomServicePage.ticketStatus.pending")}
                 </p>
               </div>
             ))}
@@ -472,7 +464,7 @@ export default function RoomServicePage() {
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
             >
-              {locale === "fr" ? cat.labelFr : cat.labelEn}
+              {t(cat.labelKey)}
             </button>
           ))}
         </div>
@@ -481,9 +473,9 @@ export default function RoomServicePage() {
       {/* Menu Items */}
       <div className="flex-1 px-4 py-4">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">
-          {locale === "fr"
-            ? categories.find((c) => c.id === activeCategory)?.labelFr
-            : categories.find((c) => c.id === activeCategory)?.labelEn}
+          {t(
+            categories.find((c) => c.id === activeCategory)?.labelKey ?? "roomServicePage.categories.breakfast"
+          )}
         </h2>
 
         {/* Items with images (horizontal scroll) */}
@@ -568,9 +560,7 @@ export default function RoomServicePage() {
         <div className="fixed bottom-0 left-0 right-0 border-t bg-white p-4 shadow-lg">
           <div className="mx-auto max-w-md">
             <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="text-gray-500">
-                {cartCount} {locale === "fr" ? "article(s)" : "item(s)"}
-              </span>
+              <span className="text-gray-500">{t("roomServicePage.itemCount", { count: cartCount })}</span>
               <span className="font-semibold text-gray-900">{cartTotal.toFixed(2)} €</span>
             </div>
             <button
@@ -579,12 +569,8 @@ export default function RoomServicePage() {
               className="w-full rounded-full bg-gray-900 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
             >
               {isOrdering
-                ? locale === "fr"
-                  ? "Envoi en cours..."
-                  : "Placing order..."
-                : locale === "fr"
-                  ? "Commander"
-                  : "Place order"}
+                ? t("roomServicePage.placingOrder")
+                : t("roomServicePage.placeOrder")}
             </button>
           </div>
         </div>
