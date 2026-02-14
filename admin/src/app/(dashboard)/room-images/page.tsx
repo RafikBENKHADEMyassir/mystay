@@ -20,7 +20,8 @@ type RoomImage = {
   imageUrl: string;
   sortOrder: number;
   isActive: boolean;
-  roomNumber: string | null;
+  roomNumber?: string | null;
+  roomNumbers?: string[];
   roomType: string | null;
   createdAt: string;
   updatedAt: string;
@@ -33,109 +34,8 @@ type Room = {
   isExpanded: boolean;
 };
 
-const defaultRooms: Room[] = [
-  {
-    roomNumber: "701",
-    roomType: "Sea View Suite",
-    isExpanded: true,
-    images: [
-      {
-        id: "demo-1",
-        hotelId: "H-FOURSEASONS",
-        category: "room",
-        title: "Bedroom",
-        description: "Luxurious king-size bed",
-        imageUrl: "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=1200&fit=crop",
-        sortOrder: 1,
-        isActive: true,
-        roomNumber: "701",
-        roomType: "Sea View Suite",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: "demo-2",
-        hotelId: "H-FOURSEASONS",
-        category: "room",
-        title: "Living Area",
-        description: "Spacious living space",
-        imageUrl: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&fit=crop",
-        sortOrder: 2,
-        isActive: true,
-        roomNumber: "701",
-        roomType: "Sea View Suite",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: "demo-3",
-        hotelId: "H-FOURSEASONS",
-        category: "room",
-        title: "Bathroom",
-        description: "Marble bathroom",
-        imageUrl: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=1200&fit=crop",
-        sortOrder: 3,
-        isActive: true,
-        roomNumber: "701",
-        roomType: "Sea View Suite",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: "demo-4",
-        hotelId: "H-FOURSEASONS",
-        category: "room",
-        title: "Terrace",
-        description: "Private terrace",
-        imageUrl: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200&fit=crop",
-        sortOrder: 4,
-        isActive: true,
-        roomNumber: "701",
-        roomType: "Sea View Suite",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ]
-  },
-  {
-    roomNumber: "502",
-    roomType: "Garden Suite",
-    isExpanded: false,
-    images: [
-      {
-        id: "demo-5",
-        hotelId: "H-FOURSEASONS",
-        category: "room",
-        title: "Bedroom",
-        description: "Garden view bedroom",
-        imageUrl: "https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=1200&fit=crop",
-        sortOrder: 1,
-        isActive: true,
-        roomNumber: "502",
-        roomType: "Garden Suite",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: "demo-6",
-        hotelId: "H-FOURSEASONS",
-        category: "room",
-        title: "Garden View",
-        description: "Private garden access",
-        imageUrl: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&fit=crop",
-        sortOrder: 2,
-        isActive: true,
-        roomNumber: "502",
-        roomType: "Garden Suite",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ]
-  }
-];
-
 export default function RoomImagesPage() {
-  const [rooms, setRooms] = useState<Room[]>(defaultRooms);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [newRoomNumber, setNewRoomNumber] = useState("");
   const [newRoomType, setNewRoomType] = useState("");
@@ -148,22 +48,54 @@ export default function RoomImagesPage() {
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
   const [editImageTitle, setEditImageTitle] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Persist to localStorage for demo purposes
+  // Fetch room images from backend API
   useEffect(() => {
-    const saved = localStorage.getItem("mystay_room_images_v2");
-    if (saved) {
+    const fetchRoomImages = async () => {
       try {
-        setRooms(JSON.parse(saved));
-      } catch {
-        // Ignore parse errors
+        setIsLoading(true);
+        const response = await fetch('http://localhost:4000/api/v1/hotels/H-FOURSEASONS/room-images');
+        const data = await response.json();
+        
+        // Group images by room number
+        const roomMap = new Map<string, RoomImage[]>();
+        data.images.forEach((img: RoomImage) => {
+          const roomNums = img.roomNumbers || [];
+          roomNums.forEach((roomNum: string) => {
+            if (!roomMap.has(roomNum)) {
+              roomMap.set(roomNum, []);
+            }
+            roomMap.get(roomNum)!.push({
+              ...img,
+              imageUrl: img.imageUrl.startsWith('/') ? `http://localhost:4000${img.imageUrl}` : img.imageUrl
+            });
+          });
+        });
+        
+        // Convert to Room array
+        const roomsData: Room[] = Array.from(roomMap.entries()).map(([roomNumber, images]) => ({
+          roomNumber,
+          roomType: images[0]?.roomType || "Standard Room",
+          images: images.sort((a, b) => a.sortOrder - b.sortOrder),
+          isExpanded: false
+        }));
+        
+        setRooms(roomsData);
+      } catch (error) {
+        console.error('Failed to fetch room images:', error);
+        showMessage('error', 'Failed to load room images');
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+    
+    fetchRoomImages();
   }, []);
 
   const saveToStorage = useCallback((data: Room[]) => {
-    localStorage.setItem("mystay_room_images_v2", JSON.stringify(data));
-    // Also save flat image array for frontend compatibility
+    // Keep for compatibility, but data is now from API
     const allImages = data.flatMap((r) => r.images);
     localStorage.setItem("mystay_room_images", JSON.stringify(allImages));
   }, []);
@@ -257,6 +189,33 @@ export default function RoomImagesPage() {
 
   const handleToggleExpand = (roomNumber: string) => {
     setRooms(rooms.map((r) => (r.roomNumber === roomNumber ? { ...r, isExpanded: !r.isExpanded } : r)));
+  };
+
+  const handleFileUpload = async (roomNumber: string, file: File) => {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+      const response = await fetch(`${apiBaseUrl}/api/v1/upload`, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await response.json() as { url: string };
+      setNewImageUrl(data.url);
+      showMessage("success", "Image uploaded successfully");
+    } catch (error) {
+      showMessage("error", "Failed to upload image");
+      console.error("Upload error:", error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleAddImage = (roomNumber: string) => {
@@ -372,6 +331,22 @@ export default function RoomImagesPage() {
   // Get all active images for preview
   const allActiveImages = rooms.flatMap((r) => r.images.filter((img) => img.isActive));
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">MyStay Admin</p>
+            <h1 className="text-2xl font-semibold">Room Images</h1>
+          </div>
+        </header>
+        <div className="flex h-64 items-center justify-center">
+          <div className="text-muted-foreground">Loading room images...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -402,7 +377,7 @@ export default function RoomImagesPage() {
       )}
 
       {/* Preview Card */}
-      <Card>
+      {/* <Card>
         <CardHeader className="space-y-1">
           <CardTitle className="text-base">Guest App Preview</CardTitle>
           <CardDescription>
@@ -441,7 +416,7 @@ export default function RoomImagesPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Add Room Modal */}
       {isAddingRoom && (
@@ -586,11 +561,35 @@ export default function RoomImagesPage() {
                     <div className="mb-4 rounded-lg border bg-muted/10 p-4">
                       <div className="space-y-3">
                         <div className="space-y-1">
-                          <Label>Image URL</Label>
+                          <Label>Upload Image</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  void handleFileUpload(room.roomNumber, file);
+                                }
+                              }}
+                              disabled={isUploading}
+                              className="flex-1"
+                            />
+                            {isUploading && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                Uploading...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Or paste Image URL</Label>
                           <Input
-                            placeholder="https://example.com/image.jpg"
+                            placeholder="https://example.com/image.jpg or /uploads/image.jpg"
                             value={newImageUrl}
                             onChange={(e) => setNewImageUrl(e.target.value)}
+                            disabled={isUploading}
                           />
                         </div>
                         <div className="space-y-1">
@@ -599,6 +598,7 @@ export default function RoomImagesPage() {
                             placeholder="Bedroom, Bathroom, etc."
                             value={newImageTitle}
                             onChange={(e) => setNewImageTitle(e.target.value)}
+                            disabled={isUploading}
                           />
                         </div>
                         {newImageUrl && (

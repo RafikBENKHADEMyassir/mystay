@@ -383,9 +383,20 @@ function requireStaffRole(res, principal, allowedRoles) {
 
 function isDepartmentAllowed(principal, department) {
   if (!principal || principal.typ !== "staff") return false;
-  if (principal.role === "admin") return true;
+  if (principal.role === "admin" || principal.role === "manager") return true;
   if (!Array.isArray(principal.departments) || principal.departments.length === 0) return false;
   return principal.departments.includes(department);
+}
+
+function getGuestDisplayName(principal) {
+  if (!principal || principal.typ !== "guest") return null;
+  const firstName = typeof principal.firstName === "string" ? principal.firstName.trim() : "";
+  const lastName = typeof principal.lastName === "string" ? principal.lastName.trim() : "";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  if (fullName) return fullName;
+
+  const email = typeof principal.email === "string" ? principal.email.trim() : "";
+  return email || null;
 }
 
 async function listStaffNotificationTargets({ hotelId, department }) {
@@ -442,6 +453,41 @@ async function listStaffNotificationTargetsByIds({ hotelId, staffUserIds }) {
       displayName: typeof row.displayName === "string" ? row.displayName.trim() : null
     }))
     .filter((row) => row.id && row.email);
+}
+
+async function pickDefaultThreadAssignee({ hotelId, department }) {
+  const normalizedHotelId = typeof hotelId === "string" ? hotelId.trim() : "";
+  const requestedDepartment = typeof department === "string" ? department.trim() : "";
+  const normalizedDepartment = requestedDepartment ? requestedDepartment.replace(/_/g, "-") : "";
+
+  if (!normalizedHotelId || !normalizedDepartment) return null;
+
+  const rows = await query(
+    `
+      SELECT id
+      FROM staff_users
+      WHERE
+        hotel_id = $1
+        AND (
+          departments @> ARRAY[$2]::text[]
+          OR role IN ('manager', 'admin')
+        )
+      ORDER BY
+        CASE
+          WHEN departments @> ARRAY[$2]::text[] AND role = 'staff' THEN 1
+          WHEN departments @> ARRAY[$2]::text[] AND role = 'manager' THEN 2
+          WHEN departments @> ARRAY[$2]::text[] AND role = 'admin' THEN 3
+          WHEN role = 'manager' THEN 4
+          WHEN role = 'admin' THEN 5
+          ELSE 6
+        END,
+        created_at ASC
+      LIMIT 1
+    `,
+    [normalizedHotelId, normalizedDepartment]
+  );
+
+  return rows[0]?.id ?? null;
 }
 
 async function enqueueEmailOutbox({ hotelId, toAddress, subject, bodyText, payload }) {
@@ -1344,16 +1390,17 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/api/v1/realtime/hotel") {
-    const principal = requirePrincipal(req, res, url, ["staff"]);
-    if (!principal) return;
-    if (
-      principal.role !== "admin" &&
-      (!Array.isArray(principal.departments) || principal.departments.length === 0)
-    ) {
-      sendJson(res, 403, { error: "forbidden" });
-      return;
-    }
+	  if (req.method === "GET" && url.pathname === "/api/v1/realtime/hotel") {
+	    const principal = requirePrincipal(req, res, url, ["staff"]);
+	    if (!principal) return;
+	    if (
+	      principal.role !== "admin" &&
+	      principal.role !== "manager" &&
+	      (!Array.isArray(principal.departments) || principal.departments.length === 0)
+	    ) {
+	      sendJson(res, 403, { error: "forbidden" });
+	      return;
+	    }
 
     try {
       await ensureRealtimeListener();
@@ -1371,16 +1418,16 @@ async function handleRequest(req, res) {
     res.write(": connected\n\n");
     res.flushHeaders?.();
 
-    const unsubscribe = subscribeMessages({
-      res,
-      hotelId: principal.hotelId,
-      departments: principal.role === "admin" ? null : principal.departments
-    });
-    req.on("close", () => {
-      unsubscribe();
-    });
-    return;
-  }
+	    const unsubscribe = subscribeMessages({
+	      res,
+	      hotelId: principal.hotelId,
+	      departments: principal.role === "admin" || principal.role === "manager" ? null : principal.departments
+	    });
+	    req.on("close", () => {
+	      unsubscribe();
+	    });
+	    return;
+	  }
 
   // GET /api/v1/realtime/orders - SSE endpoint for order/ticket status updates
   if (req.method === "GET" && url.pathname === "/api/v1/realtime/orders") {
@@ -2423,13 +2470,13 @@ async function handleRequest(req, res) {
         } else if (typeof rawAssignedTo === "string") {
           const trimmed = rawAssignedTo.trim();
           if (!trimmed) nextAssignedStaffUserId = null;
-          else if (trimmed === "me") nextAssignedStaffUserId = principal.staffUserId;
-          else if (trimmed === principal.staffUserId) nextAssignedStaffUserId = principal.staffUserId;
-          else {
-            if (principal.role !== "admin") {
-              sendJson(res, 403, { error: "forbidden" });
-              return;
-            }
+	          else if (trimmed === "me") nextAssignedStaffUserId = principal.staffUserId;
+	          else if (trimmed === principal.staffUserId) nextAssignedStaffUserId = principal.staffUserId;
+	          else {
+	            if (principal.role !== "admin" && principal.role !== "manager") {
+	              sendJson(res, 403, { error: "forbidden" });
+	              return;
+	            }
 
             const exists = await query(
               `SELECT id FROM staff_users WHERE id = $1 AND hotel_id = $2 LIMIT 1`,
@@ -2447,10 +2494,10 @@ async function handleRequest(req, res) {
         }
       }
 
-      if (assignedToProvided && principal.role !== "admin") {
-        const currentAssignedStaffUserId = scope.assignedStaffUserId ?? null;
-        const isAssignSelf = nextAssignedStaffUserId === principal.staffUserId;
-        const isUnassign = nextAssignedStaffUserId === null;
+	      if (assignedToProvided && principal.role !== "admin" && principal.role !== "manager") {
+	        const currentAssignedStaffUserId = scope.assignedStaffUserId ?? null;
+	        const isAssignSelf = nextAssignedStaffUserId === principal.staffUserId;
+	        const isUnassign = nextAssignedStaffUserId === null;
 
         if (isAssignSelf && currentAssignedStaffUserId && currentAssignedStaffUserId !== principal.staffUserId) {
           sendJson(res, 403, { error: "already_assigned" });
@@ -4805,10 +4852,10 @@ async function handleRequest(req, res) {
     const where = ["t.hotel_id = $1"];
     const params = [principal.hotelId];
 
-    const canSeeAllDepartments = principal.role === "admin";
-    const allowedDepartments = Array.isArray(principal.departments)
-      ? principal.departments
-          .filter((dept) => typeof dept === "string")
+	    const canSeeAllDepartments = principal.role === "admin" || principal.role === "manager";
+	    const allowedDepartments = Array.isArray(principal.departments)
+	      ? principal.departments
+	          .filter((dept) => typeof dept === "string")
           .map((dept) => dept.trim())
           .filter(Boolean)
       : [];
@@ -4966,10 +5013,10 @@ async function handleRequest(req, res) {
       return;
     }
 
-    const canSeeAllDepartments = principal.role === "admin";
-    const allowedDepartments = Array.isArray(principal.departments)
-      ? principal.departments
-          .filter((dept) => typeof dept === "string")
+	    const canSeeAllDepartments = principal.role === "admin" || principal.role === "manager";
+	    const allowedDepartments = Array.isArray(principal.departments)
+	      ? principal.departments
+	          .filter((dept) => typeof dept === "string")
           .map((dept) => dept.trim())
           .filter(Boolean)
       : [];
@@ -5676,10 +5723,10 @@ async function handleRequest(req, res) {
       return;
     }
 
-    const canSeeAllDepartments = principal.role === "admin";
-    const allowedDepartments = Array.isArray(principal.departments)
-      ? principal.departments.filter((dept) => typeof dept === "string").map((dept) => dept.trim()).filter(Boolean)
-      : [];
+	    const canSeeAllDepartments = principal.role === "admin" || principal.role === "manager";
+	    const allowedDepartments = Array.isArray(principal.departments)
+	      ? principal.departments.filter((dept) => typeof dept === "string").map((dept) => dept.trim()).filter(Boolean)
+	      : [];
 
     if (!canSeeAllDepartments && allowedDepartments.length === 0) {
       sendJson(res, 403, { error: "forbidden" });
@@ -7581,15 +7628,15 @@ async function handleRequest(req, res) {
 
       addEqualsFilter(where, params, "hotel_id", principal.hotelId);
 
-      if (principal.typ === "guest") {
-        addEqualsFilter(where, params, "stay_id", principal.stayId);
-      } else {
-        if (principal.role !== "admin") {
-          if (!Array.isArray(principal.departments) || principal.departments.length === 0) {
-            sendJson(res, 200, { items: [] });
-            return;
-          }
-          params.push(principal.departments);
+	      if (principal.typ === "guest") {
+	        addEqualsFilter(where, params, "stay_id", principal.stayId);
+	      } else {
+	        if (principal.role !== "admin" && principal.role !== "manager") {
+	          if (!Array.isArray(principal.departments) || principal.departments.length === 0) {
+	            sendJson(res, 200, { items: [] });
+	            return;
+	          }
+	          params.push(principal.departments);
           where.push(`department = ANY($${params.length}::text[])`);
         }
         addEqualsFilter(where, params, "stay_id", url.searchParams.get("stayId"));
@@ -7753,15 +7800,15 @@ async function handleRequest(req, res) {
 
       addEqualsFilter(where, params, "t.hotel_id", principal.hotelId);
 
-      if (principal.typ === "guest") {
-        addEqualsFilter(where, params, "t.stay_id", principal.stayId);
-      } else {
-        if (principal.role !== "admin") {
-          if (!Array.isArray(principal.departments) || principal.departments.length === 0) {
-            sendJson(res, 200, { items: [] });
-            return;
-          }
-          params.push(principal.departments);
+	      if (principal.typ === "guest") {
+	        addEqualsFilter(where, params, "t.stay_id", principal.stayId);
+	      } else {
+	        if (principal.role !== "admin" && principal.role !== "manager") {
+	          if (!Array.isArray(principal.departments) || principal.departments.length === 0) {
+	            sendJson(res, 200, { items: [] });
+	            return;
+	          }
+	          params.push(principal.departments);
           where.push(`t.department = ANY($${params.length}::text[])`);
         }
         addEqualsFilter(where, params, "t.stay_id", url.searchParams.get("stayId"));
@@ -7795,22 +7842,24 @@ async function handleRequest(req, res) {
               0::int AS "unreadCount",
           `;
 
-	      const items = await query(
-	        `
-	          SELECT * FROM (
-	            SELECT
-	              t.id,
-	              t.hotel_id AS "hotelId",
-	              t.stay_id AS "stayId",
-	              t.department,
-	              t.status,
-	              t.title,
-	              t.assigned_staff_user_id AS "assignedStaffUserId",
-	              t.created_at AS "createdAt",
-	              t.updated_at AS "updatedAt",
-	              ${unreadSelect}
-	              (
-	                SELECT body_text
+		      const items = await query(
+		        `
+		          SELECT * FROM (
+		            SELECT
+		              t.id,
+		              t.hotel_id AS "hotelId",
+		              t.stay_id AS "stayId",
+		              t.department,
+		              t.status,
+		              t.title,
+		              t.assigned_staff_user_id AS "assignedStaffUserId",
+		              su.display_name AS "assignedStaffUserDisplayName",
+		              su.email AS "assignedStaffUserEmail",
+		              t.created_at AS "createdAt",
+		              t.updated_at AS "updatedAt",
+		              ${unreadSelect}
+		              (
+		                SELECT body_text
 	                FROM messages m
 	                WHERE m.thread_id = t.id
 	                ORDER BY m.created_at DESC
@@ -7822,20 +7871,35 @@ async function handleRequest(req, res) {
 	                WHERE m.thread_id = t.id
 	                ORDER BY m.created_at DESC
 	                LIMIT 1
-	              ) AS "lastMessageAt"
-	            FROM threads t
-	            ${unreadJoin}
-	            ${whereClause}
-	          ) AS sub
-	          ORDER BY COALESCE("lastMessageAt", "updatedAt") DESC
-	          LIMIT 100
-	        `,
-	        params
-	      );
+		              ) AS "lastMessageAt"
+		            FROM threads t
+		            LEFT JOIN staff_users su ON su.id = t.assigned_staff_user_id
+		            ${unreadJoin}
+		            ${whereClause}
+		          ) AS sub
+		          ORDER BY COALESCE("lastMessageAt", "updatedAt") DESC
+		          LIMIT 100
+		        `,
+		        params
+		      );
 
-      sendJson(res, 200, { items });
-      return;
-    }
+	      sendJson(res, 200, {
+	        items: items.map((item) => {
+	          const assignedStaffUserId = item.assignedStaffUserId ?? null;
+	          return {
+	            ...item,
+	            assignedStaffUser: assignedStaffUserId
+	              ? {
+	                  id: assignedStaffUserId,
+	                  displayName: item.assignedStaffUserDisplayName ?? null,
+	                  email: item.assignedStaffUserEmail ?? null
+	                }
+	              : null
+	          };
+	        })
+	      });
+	      return;
+	    }
 
     if (req.method === "POST") {
       const body = await readJson(req);
@@ -7844,40 +7908,168 @@ async function handleRequest(req, res) {
         return;
       }
 
-      const department = typeof body.department === "string" ? body.department.trim() : "";
-      const title = typeof body.title === "string" ? body.title.trim() : "";
-      const stayId =
-        principal.typ === "guest"
-          ? principal.stayId
-          : typeof body.stayId === "string"
-            ? body.stayId.trim()
-            : null;
-      const initialMessage = typeof body.initialMessage === "string" ? body.initialMessage.trim() : "";
+	      const requestedDepartment = typeof body.department === "string" ? body.department.trim() : "";
+	      const department = requestedDepartment ? requestedDepartment.replace(/_/g, "-") : "";
+		      const title = typeof body.title === "string" ? body.title.trim() : "";
+		      const stayId =
+		        principal.typ === "guest"
+		          ? principal.stayId
+	          : typeof body.stayId === "string"
+	            ? body.stayId.trim()
+	            : null;
+	      const initialMessage = typeof body.initialMessage === "string" ? body.initialMessage.trim() : "";
+	      const requestedSenderName = typeof body.senderName === "string" ? body.senderName.trim() : "";
 
-      if (!department || !title) {
-        sendJson(res, 400, { error: "missing_fields", required: ["department", "title"] });
-        return;
-      }
+	      if (!principal.hotelId) {
+	        sendJson(res, 400, { error: "missing_hotel_context" });
+	        return;
+	      }
 
-      const id = `TH-${randomUUID().slice(0, 8).toUpperCase()}`;
+	      if (principal.typ === "guest" && !stayId) {
+	        sendJson(res, 400, { error: "missing_stay_context" });
+	        return;
+	      }
 
-      const rows = await query(
-        `
-          INSERT INTO threads (id, hotel_id, stay_id, department, status, title, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-	          RETURNING
-	            id,
-	            hotel_id AS "hotelId",
-	            stay_id AS "stayId",
-	            department,
-	            status,
-	            title,
-	            assigned_staff_user_id AS "assignedStaffUserId",
-	            created_at AS "createdAt",
-	            updated_at AS "updatedAt"
-	        `,
-	        [id, principal.hotelId, stayId, department, "pending", title]
-	      );
+	      if (!department || !title) {
+	        sendJson(res, 400, { error: "missing_fields", required: ["department", "title"] });
+	        return;
+	      }
+
+	      if (principal.typ === "guest") {
+	        const existingThreads = await query(
+	          `
+	            SELECT
+	              id,
+	              hotel_id AS "hotelId",
+	              stay_id AS "stayId",
+	              department,
+	              status,
+	              title,
+	              assigned_staff_user_id AS "assignedStaffUserId",
+	              created_at AS "createdAt",
+	              updated_at AS "updatedAt"
+	            FROM threads
+	            WHERE hotel_id = $1 AND stay_id = $2 AND department = $3 AND status <> 'archived'
+	            ORDER BY updated_at DESC
+	            LIMIT 1
+	          `,
+	          [principal.hotelId, stayId, department]
+	        );
+
+		        let existing = existingThreads[0] ?? null;
+		        if (existing) {
+		          if (!existing.assignedStaffUserId) {
+		            try {
+		              const assignee = await pickDefaultThreadAssignee({
+		                hotelId: principal.hotelId,
+		                department: existing.department
+		              });
+		              if (assignee) {
+		                await query(
+		                  `UPDATE threads SET assigned_staff_user_id = $1, updated_at = NOW() WHERE id = $2 AND assigned_staff_user_id IS NULL`,
+		                  [assignee, existing.id]
+		                );
+		                existing = { ...existing, assignedStaffUserId: assignee };
+		              }
+		            } catch (error) {
+		              console.error("thread_assign_default_failed", error);
+		            }
+		          }
+
+		          if (initialMessage) {
+		            const messageId = `M-${randomUUID().slice(0, 8).toUpperCase()}`;
+		            const senderName = requestedSenderName || getGuestDisplayName(principal) || "Guest";
+	
+		            await query(
+		              `
+		                INSERT INTO messages (id, thread_id, sender_type, sender_name, body_text, payload, created_at)
+		                VALUES ($1, $2, 'guest', $3, $4, '{}'::jsonb, NOW())
+		              `,
+		              [messageId, existing.id, senderName, initialMessage]
+		            );
+	            await query(`UPDATE threads SET updated_at = NOW() WHERE id = $1`, [existing.id]);
+
+	            try {
+	              await emitRealtimeEvent({
+	                type: "message_created",
+	                hotelId: principal.hotelId,
+	                stayId,
+	                threadId: existing.id,
+	                messageId,
+	                department: existing.department,
+	                senderType: "guest"
+	              });
+	            } catch (error) {
+	              console.error("realtime_emit_failed", error);
+	            }
+
+	            try {
+		              const recipients = existing.assignedStaffUserId
+		                ? await listStaffNotificationTargetsByIds({
+		                    hotelId: principal.hotelId,
+		                    staffUserIds: [existing.assignedStaffUserId]
+		                  })
+		                : await listStaffNotificationTargets({
+	                    hotelId: principal.hotelId,
+	                    department: existing.department
+	                  });
+
+	              const subject = `New guest message • ${existing.department}`;
+	              const bodyText = [
+	                "New guest message received.",
+	                "",
+	                existing.title ? `Thread: ${existing.title} (${existing.id})` : `Thread: ${existing.id}`,
+	                "",
+	                initialMessage
+	              ].join("\n");
+
+	              for (const recipient of recipients) {
+	                await enqueueEmailOutbox({
+	                  hotelId: principal.hotelId,
+	                  toAddress: recipient.email,
+	                  subject,
+	                  bodyText,
+	                  payload: {
+	                    type: "message_created",
+	                    threadId: existing.id,
+	                    department: existing.department,
+	                    messageId
+	                  }
+	                });
+	              }
+	            } catch (error) {
+	              console.error("notification_enqueue_failed", error);
+	            }
+	          }
+
+	          sendJson(res, 200, existing);
+	          return;
+	        }
+	      }
+
+		      const id = `TH-${randomUUID().slice(0, 8).toUpperCase()}`;
+		      const assignedStaffUserId =
+		        principal.typ === "guest"
+		          ? await pickDefaultThreadAssignee({ hotelId: principal.hotelId, department })
+		          : null;
+	
+	      const rows = await query(
+	        `
+	          INSERT INTO threads (id, hotel_id, stay_id, department, status, title, assigned_staff_user_id, created_at, updated_at)
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+		          RETURNING
+		            id,
+		            hotel_id AS "hotelId",
+		            stay_id AS "stayId",
+		            department,
+		            status,
+		            title,
+		            assigned_staff_user_id AS "assignedStaffUserId",
+		            created_at AS "createdAt",
+		            updated_at AS "updatedAt"
+		        `,
+		        [id, principal.hotelId, stayId, department, "pending", title, assignedStaffUserId]
+		      );
 
 	      try {
 	        await emitRealtimeEvent({
@@ -7925,31 +8117,35 @@ async function handleRequest(req, res) {
 	        console.error("notification_enqueue_failed", error);
 	      }
 
-	      if (initialMessage) {
-	        const messageId = `M-${randomUUID().slice(0, 8).toUpperCase()}`;
-	        const senderType = principal.typ === "staff" ? "staff" : "guest";
-	        const senderName =
-	          principal.typ === "staff" ? principal.displayName ?? body.senderName ?? "Staff" : body.senderName ?? "Guest";
-        await query(
-          `
-            INSERT INTO messages (id, thread_id, sender_type, sender_name, body_text, payload, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())
-          `,
-          [messageId, id, senderType, senderName, initialMessage, "{}"]
-        );
-
-        try {
-          await emitRealtimeEvent({
-            type: "message_created",
-            hotelId: principal.hotelId,
-            threadId: id,
-            messageId,
-            department
-          });
-        } catch (error) {
-          console.error("realtime_emit_failed", error);
-        }
-      }
+		      if (initialMessage) {
+		        const messageId = `M-${randomUUID().slice(0, 8).toUpperCase()}`;
+		        const senderType = principal.typ === "staff" ? "staff" : "guest";
+		        const senderName =
+		          principal.typ === "staff"
+		            ? requestedSenderName || principal.displayName || "Staff"
+		            : requestedSenderName || getGuestDisplayName(principal) || "Guest";
+	        await query(
+	          `
+	            INSERT INTO messages (id, thread_id, sender_type, sender_name, body_text, payload, created_at)
+	            VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())
+	          `,
+	          [messageId, id, senderType, senderName, initialMessage, "{}"]
+	        );
+	
+	        try {
+	          await emitRealtimeEvent({
+	            type: "message_created",
+	            hotelId: principal.hotelId,
+	            stayId,
+	            threadId: id,
+	            messageId,
+	            department,
+	            senderType
+	          });
+	        } catch (error) {
+	          console.error("realtime_emit_failed", error);
+	        }
+	      }
 
       sendJson(res, 201, rows[0]);
       return;
@@ -8238,16 +8434,17 @@ async function handleRequest(req, res) {
 	      return;
 	    }
 
-    if (segments[4] === "messages") {
-      if (req.method === "GET") {
-        if (
-          principal.typ === "staff" &&
-	          principal.role !== "admin" &&
-	          (!Array.isArray(principal.departments) || principal.departments.length === 0)
-	        ) {
-	          sendJson(res, 403, { error: "forbidden" });
-	          return;
-	        }
+	    if (segments[4] === "messages") {
+	      if (req.method === "GET") {
+	        if (
+	          principal.typ === "staff" &&
+		          principal.role !== "admin" &&
+		          principal.role !== "manager" &&
+		          (!Array.isArray(principal.departments) || principal.departments.length === 0)
+		        ) {
+		          sendJson(res, 403, { error: "forbidden" });
+		          return;
+		        }
 
 	        const params = [threadId, principal.hotelId];
 	        let where =
@@ -8255,10 +8452,10 @@ async function handleRequest(req, res) {
 	            ? `m.thread_id = $1 AND t.hotel_id = $2 AND t.stay_id = $3`
 	            : `m.thread_id = $1 AND t.hotel_id = $2`;
 	        if (principal.typ === "guest") params.push(principal.stayId);
-	        if (principal.typ === "staff" && principal.role !== "admin") {
-	          params.push(principal.departments);
-	          where = `${where} AND t.department = ANY($${params.length}::text[])`;
-	        }
+		        if (principal.typ === "staff" && principal.role !== "admin" && principal.role !== "manager") {
+		          params.push(principal.departments);
+		          where = `${where} AND t.department = ANY($${params.length}::text[])`;
+		        }
 
         const items = await query(
           `
@@ -8337,9 +8534,11 @@ async function handleRequest(req, res) {
 	          return;
 	        }
 
-	        const senderType = principal.typ === "staff" ? "staff" : "guest";
-	        const resolvedSenderName =
-	          senderType === "staff" ? senderName ?? principal.displayName ?? "Staff" : senderName ?? "Guest";
+		        const senderType = principal.typ === "staff" ? "staff" : "guest";
+		        const resolvedSenderName =
+		          senderType === "staff"
+		            ? senderName ?? principal.displayName ?? "Staff"
+		            : senderName ?? getGuestDisplayName(principal) ?? "Guest";
 
         const id = `M-${randomUUID().slice(0, 8).toUpperCase()}`;
 
@@ -8853,8 +9052,20 @@ async function handleRequest(req, res) {
     req.method === "GET"
   ) {
     const hotelId = decodeURIComponent(segments[3]);
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const roomNumber = url.searchParams.get("roomNumber");
+    
+    console.log('[Room Images API] Request for hotel:', hotelId, 'room:', roomNumber);
     
     try {
+      const params = [hotelId];
+      let where = `hotel_id = $1 AND is_active = true`;
+
+      if (roomNumber) {
+        params.push(roomNumber);
+        where += ` AND (room_numbers IS NULL OR $2 = ANY(room_numbers))`;
+      }
+
       const rows = await query(
         `
           SELECT
@@ -8866,14 +9077,18 @@ async function handleRequest(req, res) {
             image_url AS "imageUrl",
             sort_order AS "sortOrder",
             is_active AS "isActive",
+            room_numbers AS "roomNumbers",
             created_at AS "createdAt",
             updated_at AS "updatedAt"
           FROM room_images
-          WHERE hotel_id = $1 AND is_active = true
+          WHERE ${where}
           ORDER BY sort_order ASC, created_at ASC
         `,
-        [hotelId]
+        params
       );
+
+      console.log('[Room Images API] Found', rows.length, 'images for room', roomNumber);
+      rows.forEach(r => console.log('  -', r.id, r.title, 'rooms:', r.roomNumbers));
 
       sendJson(res, 200, { images: rows, total: rows.length });
       return;

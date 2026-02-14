@@ -2,13 +2,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Bell,
   Briefcase,
-  Coffee,
   Dumbbell,
-  Home,
   LogOut,
   MessageCircle,
   ShoppingBag,
@@ -17,6 +14,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { clearDemoSession } from "@/lib/demo-session";
+import { useLocale } from "@/components/providers/locale-provider";
+import { withLocale } from "@/lib/i18n/paths";
 
 const services = [
   { href: "/concierge", label: "Concierge", icon: Bell },
@@ -29,11 +29,12 @@ const services = [
 ];
 
 export function SideDrawer() {
-  const router = useRouter();
+  const locale = useLocale();
 
   const handleLogout = async () => {
+    clearDemoSession();
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    window.location.href = withLocale(locale, "/");
   };
 
   return (

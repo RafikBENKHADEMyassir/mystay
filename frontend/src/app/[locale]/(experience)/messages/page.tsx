@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ type Thread = {
   department: string;
   status: string;
   title: string;
+  assignedStaffUser?: { id: string; displayName: string | null; email: string | null } | null;
   lastMessage: string | null;
   lastMessageAt: string | null;
   updatedAt: string;
@@ -29,8 +30,18 @@ type Thread = {
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
+const departments = [
+  { id: "reception", labelFr: "Réception", labelEn: "Reception" },
+  { id: "concierge", labelFr: "Concierge", labelEn: "Concierge" },
+  { id: "housekeeping", labelFr: "Housekeeping", labelEn: "Housekeeping" },
+  { id: "room-service", labelFr: "Room service", labelEn: "Room service" },
+  { id: "spa-gym", labelFr: "Spa & Gym", labelEn: "Spa & Gym" },
+  { id: "restaurants", labelFr: "Restaurants", labelEn: "Restaurants" }
+] as const;
+
 export default function MessagesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -45,7 +56,7 @@ export default function MessagesPage() {
         intro: "Entrez directement en contact avec notre personnel. Nous sommes à l’écoute.",
         connect: "Démarrer le check‑in",
         refresh: "Actualiser",
-        newChat: "Nouveau chat concierge",
+        newChat: "Nouvelle conversation",
         noThreads: "Aucune conversation pour le moment.",
         offline: "Backend inaccessible. Démarrez le backend puis réessayez."
       };
@@ -55,7 +66,7 @@ export default function MessagesPage() {
       intro: "Reach hotel staff instantly. We’re listening.",
       connect: "Start check-in",
       refresh: "Refresh",
-      newChat: "New concierge chat",
+      newChat: "New conversation",
       noThreads: "No conversations yet.",
       offline: "Backend unreachable. Start the backend then refresh."
     };
@@ -99,21 +110,29 @@ export default function MessagesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.stayId]);
 
-  async function createConciergeThread() {
+  function departmentTitle(departmentId: string) {
+    const normalized = departmentId.trim().replace(/_/g, "-");
+    const matched = departments.find((item) => item.id === normalized);
+    if (matched) return locale === "fr" ? matched.labelFr : matched.labelEn;
+    return normalized.replace(/[-_]/g, " ").trim() || normalized;
+  }
+
+  async function openDepartmentThread(departmentId: string) {
     if (!session || isCreating) return;
+
     setIsCreating(true);
     setError(null);
 
     try {
+      const normalizedDepartment = departmentId.trim().replace(/_/g, "-");
       const response = await fetch(new URL("/api/v1/threads", apiBaseUrl).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.guestToken}` },
         body: JSON.stringify({
           hotelId: session.hotelId,
           stayId: session.stayId,
-          department: "concierge",
-          title: "Concierge",
-          initialMessage: locale === "fr" ? "Bonjour" : "Hello"
+          department: normalizedDepartment,
+          title: departmentTitle(normalizedDepartment)
         })
       });
 
@@ -135,6 +154,19 @@ export default function MessagesPage() {
       setIsCreating(false);
     }
   }
+
+  const requestedDepartment = (searchParams?.get("department") ?? "").trim();
+  const handledDepartment = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    if (!requestedDepartment) return;
+
+    const normalized = requestedDepartment.replace(/_/g, "-");
+    if (handledDepartment.current === normalized) return;
+    handledDepartment.current = normalized;
+    void openDepartmentThread(normalized);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedDepartment, session?.guestToken]);
 
   return (
     <div>
@@ -162,9 +194,22 @@ export default function MessagesPage() {
         <Card className="rounded-2xl">
           <CardContent className="space-y-3 p-4">
             {session ? (
-              <Button className="w-full rounded-2xl" onClick={createConciergeThread} disabled={isCreating}>
-                {isCreating ? (locale === "fr" ? "Création…" : "Starting…") : strings.newChat}
-              </Button>
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-foreground">{strings.newChat}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {departments.map((dept) => (
+                    <Button
+                      key={dept.id}
+                      variant="outline"
+                      className="rounded-2xl"
+                      onClick={() => openDepartmentThread(dept.id)}
+                      disabled={isCreating}
+                    >
+                      {locale === "fr" ? dept.labelFr : dept.labelEn}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             ) : null}
 
             {!isLoading && session && threads.length === 0 ? (
@@ -173,15 +218,9 @@ export default function MessagesPage() {
 
             <div className="space-y-3">
               {threads.map((thread) => {
-                const displayName = thread.department === "concierge" ? "Mohamed" : "Julia";
-                const subtitle =
-                  thread.department === "concierge"
-                    ? locale === "fr"
-                      ? "Concierge"
-                      : "Concierge"
-                    : locale === "fr"
-                      ? "Réception"
-                      : "Reception";
+                const departmentLabel = departmentTitle(thread.department);
+                const displayName = (thread.assignedStaffUser?.displayName ?? "").trim() || departmentLabel;
+                const subtitle = departmentLabel;
 
                 const unreadCount = typeof thread.unreadCount === "number" ? thread.unreadCount : 0;
 

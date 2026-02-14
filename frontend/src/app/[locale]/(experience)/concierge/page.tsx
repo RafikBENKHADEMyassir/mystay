@@ -226,8 +226,6 @@ export default function ConciergePage() {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.guestToken}` },
           body: JSON.stringify({
-            senderType: "guest",
-            senderName: "Guest",
             bodyText
           })
         }
@@ -432,7 +430,7 @@ export default function ConciergePage() {
           {conciergeTickets.some((t) => t.status === "resolved") && (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
               <p className="text-sm text-gray-600">
-                {locale === "fr" ? "Remerciez Mohamed pour ses services" : "Thank Mohamed for their service"}
+                {locale === "fr" ? "Remerciez votre concierge pour ses services" : "Thank your concierge for their service"}
               </p>
               <button className="mt-2 inline-flex items-center gap-2 text-amber-600">
                 <Smile className="h-4 w-4" />

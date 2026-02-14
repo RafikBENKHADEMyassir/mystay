@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Bell, CreditCard, Download, IdCard, Languages, LogOut } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -35,7 +34,6 @@ function formatMoney(amountCents: number, currency: string) {
 }
 
 export default function ProfilePage() {
-  const router = useRouter();
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -84,10 +82,10 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.stayId]);
 
-  function handleLogout() {
+  async function handleLogout() {
     clearDemoSession();
-    // Force a hard alignment to home, usually handled by middleware if no session, but manual redirect is good.
-    router.push(withLocale(locale, "/"));
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = withLocale(locale, "/");
   }
 
   return (

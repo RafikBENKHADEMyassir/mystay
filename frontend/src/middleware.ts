@@ -61,9 +61,11 @@ export function middleware(request: NextRequest) {
     response.cookies.set("NEXT_LOCALE", maybeLocale, { path: "/" });
 
     // Check authentication for protected routes
+    // Accept either: guest_session (client-set token) or session (httpOnly cookie set by login API)
     const pathWithoutLocale = stripLocale(pathname);
-    const sessionCookie = request.cookies.get("session")?.value;
-    const isAuthenticated = !!sessionCookie;
+    const guestSessionCookie = request.cookies.get("guest_session")?.value;
+    const serverSessionCookie = request.cookies.get("session")?.value;
+    const isAuthenticated = !!(guestSessionCookie || serverSessionCookie);
 
     // For protected routes, redirect to login if not authenticated
     // But allow browsing hotels without authentication

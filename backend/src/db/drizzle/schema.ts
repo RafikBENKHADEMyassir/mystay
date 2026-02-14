@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const guests = pgTable(
   "guests",
@@ -705,7 +705,7 @@ export const roomImages = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     roomType: text("room_type"),
-    roomNumber: text("room_number"),
+    roomNumbers: text("room_numbers").array(),
     createdByStaffUserId: text("created_by_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
@@ -715,7 +715,7 @@ export const roomImages = pgTable(
     categoryIdx: index("idx_room_images_category").on(table.hotelId, table.category),
     isActiveIdx: index("idx_room_images_is_active").on(table.hotelId, table.isActive),
     sortOrderIdx: index("idx_room_images_sort_order").on(table.hotelId, table.sortOrder),
-    roomIdx: index("idx_room_images_room").on(table.hotelId, table.roomNumber)
+    roomNumbersIdx: index("idx_room_images_room_numbers").on(table.hotelId, table.roomNumbers)
   })
 );
 

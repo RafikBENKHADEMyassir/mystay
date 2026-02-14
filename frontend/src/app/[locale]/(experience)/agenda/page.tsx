@@ -79,12 +79,12 @@ export default function AgendaPage() {
               {session.roomNumber ? <Badge variant="outline">Room {session.roomNumber}</Badge> : null}
               <Button size="sm" variant="outline" onClick={() => loadEvents()} disabled={isLoading}>
                 {isLoading ? "Refreshing…" : "Refresh"}
-              </Button>
-              <Button size="sm" variant="outline" asChild>
-                <Link href={withLocale(locale, "/messages")}>Message staff</Link>
-              </Button>
-            </div>
-          ) : (
+	              </Button>
+	              <Button size="sm" variant="outline" asChild>
+	                <Link href={withLocale(locale, "/messages?department=reception")}>Message staff</Link>
+	              </Button>
+	            </div>
+	          ) : (
             <Button size="sm" asChild>
               <Link href={withLocale(locale, "/reception/check-in")}>Start check-in</Link>
             </Button>

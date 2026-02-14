@@ -248,12 +248,12 @@ export default function HousekeepingPage() {
               <p className="text-sm text-gray-500">{locale === "fr" ? "échanger." : "chat."}</p>
             </div>
 
-            <Link
-              href={withLocale(locale, "/messages")}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"
-            >
-              <MessageSquare className="h-5 w-5 text-gray-600" />
-            </Link>
+	            <Link
+	              href={withLocale(locale, "/messages?department=housekeeping")}
+	              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+	            >
+	              <MessageSquare className="h-5 w-5 text-gray-600" />
+	            </Link>
           </div>
 
           {/* Availability hours */}

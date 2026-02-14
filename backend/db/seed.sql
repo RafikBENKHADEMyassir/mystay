@@ -7,6 +7,9 @@
 -- Demo accounts are documented in demo.md at the project root.
 -- =============================================================================
 
+-- Schema update for room numbers (quick fix for seed compatibility)
+ALTER TABLE room_images ADD COLUMN IF NOT EXISTS room_numbers TEXT[];
+
 -- =============================================================================
 -- PLATFORM ADMINISTRATORS
 -- =============================================================================
@@ -1774,21 +1777,23 @@ INSERT INTO room_images (
   sort_order,
   is_active,
   created_by_staff_user_id,
+  room_numbers,
   created_at,
   updated_at
 )
 VALUES
-  -- Four Seasons Paris room images
+  -- Four Seasons Paris room images (Room 701 - Suite)
   (
     'RI-1001',
     'H-FOURSEASONS',
     'room',
     'Bedroom',
     'Luxurious bedroom with king-size bed',
-    'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=1200&fit=crop',
+    '/uploads/roomi3.png',
     1,
     TRUE,
     'SU-0001',
+    ARRAY['701'],
     NOW() - INTERVAL '30 days',
     NOW() - INTERVAL '30 days'
   ),
@@ -1798,10 +1803,11 @@ VALUES
     'room',
     'Living Area',
     'Spacious living area with city views',
-    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&fit=crop',
+    '/uploads/roomi4.png',
     2,
     TRUE,
     'SU-0001',
+    ARRAY['701'],
     NOW() - INTERVAL '30 days',
     NOW() - INTERVAL '30 days'
   ),
@@ -1811,10 +1817,11 @@ VALUES
     'room',
     'Bathroom',
     'Marble bathroom with soaking tub',
-    'https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=1200&fit=crop',
+    '/uploads/roomi2.png',
     3,
     TRUE,
     'SU-0001',
+    ARRAY['701'],
     NOW() - INTERVAL '30 days',
     NOW() - INTERVAL '30 days'
   ),
@@ -1824,10 +1831,68 @@ VALUES
     'room',
     'Terrace',
     'Private terrace overlooking Paris',
-    'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200&fit=crop',
+    '/uploads/roomi1.png',
     4,
     TRUE,
     'SU-0001',
+    ARRAY['701'],
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  -- Four Seasons Paris room images (Room 502 - Standard)
+  (
+    'RI-1005',
+    'H-FOURSEASONS',
+    'room',
+    'Standard Bedroom',
+    'Cozy standard room',
+    '/uploads/roomi1.png',
+    1,
+    TRUE,
+    'SU-0001',
+    ARRAY['502'],
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  (
+    'RI-1006',
+    'H-FOURSEASONS',
+    'room',
+    'Standard Bathroom',
+    'Modern bathroom with shower',
+    '/uploads/roomi2.png',
+    2,
+    TRUE,
+    'SU-0001',
+    ARRAY['502'],
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  (
+    'RI-1007',
+    'H-FOURSEASONS',
+    'room',
+    'Room View',
+    'Beautiful room interior',
+    '/uploads/roomi3.png',
+    3,
+    TRUE,
+    'SU-0001',
+    ARRAY['502'],
+    NOW() - INTERVAL '30 days',
+    NOW() - INTERVAL '30 days'
+  ),
+  (
+    'RI-1008',
+    'H-FOURSEASONS',
+    'room',
+    'Room Amenities',
+    'Premium room amenities',
+    '/uploads/roomi4.png',
+    4,
+    TRUE,
+    'SU-0001',
+    ARRAY['502'],
     NOW() - INTERVAL '30 days',
     NOW() - INTERVAL '30 days'
   ),
@@ -1838,10 +1903,11 @@ VALUES
     'room',
     'Lake View Suite',
     'Suite with panoramic lake views',
-    'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=1200&fit=crop',
+    '/uploads/roomi1.png',
     1,
     TRUE,
     'SU-0010',
+    ARRAY['SU-0010'],
     NOW() - INTERVAL '25 days',
     NOW() - INTERVAL '25 days'
   ),
@@ -1851,10 +1917,11 @@ VALUES
     'room',
     'Alpine Suite',
     'Suite with mountain views',
-    'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=1200&fit=crop',
+    '/uploads/roomi2.png',
     2,
     TRUE,
     'SU-0010',
+    ARRAY['SU-0010'],
     NOW() - INTERVAL '25 days',
     NOW() - INTERVAL '25 days'
   ),
@@ -1865,10 +1932,11 @@ VALUES
     'room',
     'Garden Suite',
     'Suite overlooking private garden',
-    'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=1200&fit=crop',
+    '/uploads/roomi3.png',
     1,
     TRUE,
     'SU-0020',
+    ARRAY['SU-0020'],
     NOW() - INTERVAL '20 days',
     NOW() - INTERVAL '20 days'
   ),
@@ -1878,10 +1946,11 @@ VALUES
     'room',
     'Design Suite',
     'Contemporary Italian design suite',
-    'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1200&fit=crop',
+    '/uploads/roomi4.png',
     2,
     TRUE,
     'SU-0020',
+    ARRAY['SU-0020'],
     NOW() - INTERVAL '20 days',
     NOW() - INTERVAL '20 days'
   ),
@@ -1892,10 +1961,11 @@ VALUES
     'room',
     'Royal Suite',
     'Traditional Moroccan royal suite',
-    'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200&fit=crop',
+    '/uploads/roomi1.png',
     1,
     TRUE,
     'SU-0030',
+    ARRAY['SU-0030'],
     NOW() - INTERVAL '15 days',
     NOW() - INTERVAL '15 days'
   ),
@@ -1905,10 +1975,11 @@ VALUES
     'room',
     'Garden View',
     'Room with garden and pool views',
-    'https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=1200&fit=crop',
+    '/uploads/roomi2.png',
     2,
     TRUE,
     'SU-0030',
+    ARRAY['SU-0030'],
     NOW() - INTERVAL '15 days',
     NOW() - INTERVAL '15 days'
   )
@@ -1920,6 +1991,7 @@ ON CONFLICT (id) DO UPDATE SET
   image_url = EXCLUDED.image_url,
   sort_order = EXCLUDED.sort_order,
   is_active = EXCLUDED.is_active,
+  room_numbers = EXCLUDED.room_numbers,
   updated_at = EXCLUDED.updated_at;
 
 -- =============================================================================

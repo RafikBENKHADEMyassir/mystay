@@ -155,16 +155,30 @@ export default function RoomDetailPage() {
       if (overview?.hotel?.id) {
         try {
           const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-          const res = await fetch(`${apiBaseUrl}/api/v1/hotels/${overview.hotel.id}/room-images`);
+          const url = new URL(`${apiBaseUrl}/api/v1/hotels/${overview.hotel.id}/room-images`);
+          if (overview.stay?.roomNumber) {
+            url.searchParams.set("roomNumber", overview.stay.roomNumber);
+          }
+          console.log('[Room Detail] Fetching from:', url.toString());
+          console.log('[Room Detail] Room number:', overview.stay?.roomNumber);
+          const res = await fetch(url.toString());
           if (res.ok) {
             const data = await res.json() as { images: Array<{ imageUrl: string }> };
+            console.log('[Room Detail] Received images:', data.images?.length, data.images);
             if (data.images?.length > 0) {
-              setRoomImages(data.images.map((img) => img.imageUrl).slice(0, 6));
+              // Prepend API base URL for relative paths
+              const images = data.images.map((img) => {
+                if (img.imageUrl.startsWith('/')) {
+                  return `${apiBaseUrl}${img.imageUrl}`;
+                }
+                return img.imageUrl;
+              });
+              setRoomImages(images.slice(0, 6));
               return;
             }
           }
-        } catch {
-          // Keep default images
+        } catch (err) {
+          console.error('[Room Detail] Error:', err);
         }
       }
 
@@ -184,7 +198,7 @@ export default function RoomDetailPage() {
     }
 
     void loadRoomImages();
-  }, [overview?.hotel?.id]);
+  }, [overview?.hotel?.id, overview?.stay?.roomNumber]);
 
   const handleCopyReservation = () => {
     if (overview?.stay.confirmationNumber) {
@@ -487,13 +501,13 @@ export default function RoomDetailPage() {
 
           <div className="h-px w-full bg-border/50" />
 
-          <Link
-            href={withLocale(locale, "/messages")}
-            className="flex items-center justify-between py-4 text-sm font-semibold text-foreground transition-colors hover:text-primary"
-          >
-            <span>{strings.contactReception}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
+	          <Link
+	            href={withLocale(locale, "/messages?department=reception")}
+	            className="flex items-center justify-between py-4 text-sm font-semibold text-foreground transition-colors hover:text-primary"
+	          >
+	            <span>{strings.contactReception}</span>
+	            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+	          </Link>
         </div>
       </div>
     </div>

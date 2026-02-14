@@ -11,6 +11,8 @@ import type { Locale } from "@/lib/i18n/locales";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
 
+import ExperienceLayout from "./(experience)/layout";
+
 function formatDateShort(locale: Locale, value: Date) {
   const languageTag = locale === "fr" ? "fr-FR" : "en-US";
   try {
@@ -85,23 +87,27 @@ function FirstScreen({ locale }: { locale: Locale }) {
         };
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-64px)] max-w-md flex-col justify-between px-5 pb-12 pt-16">
-      <div className="space-y-6">
-        <h1 className="text-[26px] font-semibold leading-tight text-foreground">{strings.title}</h1>
-        <p className="whitespace-pre-line text-[15px] leading-relaxed text-muted-foreground">{strings.subtitle}</p>
+    <div className="flex min-h-screen flex-col justify-between bg-white px-5 pb-10 pt-16 font-sans">
+      {/* Top section with title and description */}
+      <div className="mt-8 space-y-4">
+        <h1 className="text-[26px] font-medium leading-[1.2] tracking-[-0.01em] text-[#1a1a1a]">{strings.title}</h1>
+        <p className="whitespace-pre-line text-[15px] leading-[1.6] text-[#8a8a8a]">{strings.subtitle}</p>
       </div>
 
-      <div className="space-y-4 pt-8">
-        <p className="text-center text-sm font-semibold text-foreground">{strings.noAccount}</p>
+      {/* Bottom section with buttons */}
+      <div className="w-full space-y-3">
+        <p className="mb-1 text-center text-[14px] font-semibold text-black">{strings.noAccount}</p>
+        
         <Link
           href={withLocale(locale, "/signup")}
-          className="block w-full rounded-full border border-border bg-background py-3.5 text-center text-sm font-semibold text-foreground transition-colors hover:bg-muted/30"
+          className="block w-full rounded-full border border-[#e0e0e0] bg-white py-[14px] text-center text-[15px] font-medium text-black transition-all hover:bg-gray-50 active:scale-[0.98]"
         >
           {strings.setup}
         </Link>
+
         <Link
           href={withLocale(locale, "/login")}
-          className="block w-full rounded-full bg-foreground py-3.5 text-center text-sm font-semibold text-background transition-colors hover:bg-foreground/90"
+          className="block w-full rounded-full bg-black py-[14px] text-center text-[15px] font-medium text-white transition-all hover:bg-black/90 active:scale-[0.98]"
         >
           {strings.login}
         </Link>
@@ -271,21 +277,37 @@ export default function OverviewPage() {
       if (!overview?.hotel?.id) return;
       try {
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-        const res = await fetch(`${apiBaseUrl}/api/v1/hotels/${overview.hotel.id}/room-images`);
+        const url = new URL(`${apiBaseUrl}/api/v1/hotels/${overview.hotel.id}/room-images`);
+        if (overview.stay?.roomNumber) {
+          url.searchParams.set("roomNumber", overview.stay.roomNumber);
+        }
+        
+        console.log('[Room Images] Fetching from:', url.toString());
+        console.log('[Room Images] Room number:', overview.stay?.roomNumber);
+        
+        const res = await fetch(url.toString());
         if (!res.ok) return;
         const data = (await res.json()) as { images?: RoomImage[] };
+        console.log('[Room Images] Received images:', data.images?.length, data.images);
         const images = Array.isArray(data.images) ? data.images : [];
         const first = images
           .filter((img) => img.isActive)
           .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0];
-        if (first?.imageUrl) setRoomThumbnailUrl(first.imageUrl);
-      } catch {
-        // ignore
+        console.log('[Room Images] Selected first image:', first);
+        if (first?.imageUrl) {
+          // Prepend API base URL for relative paths
+          const imageUrl = first.imageUrl.startsWith('/') 
+            ? `${apiBaseUrl}${first.imageUrl}` 
+            : first.imageUrl;
+          setRoomThumbnailUrl(imageUrl);
+        }
+      } catch (err) {
+        console.error('[Room Images] Error:', err);
       }
     }
 
     void loadRoomThumbnail();
-  }, [overview?.hotel?.id]);
+  }, [overview?.hotel?.id, overview?.stay?.roomNumber]);
 
   // Fetch agenda events for the stay (seeded in DB for demo)
   useEffect(() => {
@@ -373,7 +395,8 @@ export default function OverviewPage() {
   );
 
   return (
-    <div className="mx-auto max-w-md pb-24 lg:max-w-3xl">
+    <ExperienceLayout>
+      <div className="mx-auto max-w-md pb-24 lg:max-w-3xl">
       {/* Hero Card with Hotel Image */}
       <section className="relative h-[480px] w-full overflow-hidden shadow-sm">
         <div className="absolute inset-0 bg-cover bg-bottom"
@@ -642,6 +665,7 @@ export default function OverviewPage() {
           </div>
         </section>
       ))}
-    </div>
+      </div>
+    </ExperienceLayout>
   );
 }

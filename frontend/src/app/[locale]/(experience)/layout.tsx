@@ -1,4 +1,6 @@
 // frontend/src/app/[locale]/(experience)/layout.tsx
+"use client";
+
 import { BottomNav } from "@/components/navigation/bottom-nav";
 import { DesktopNav } from "@/components/navigation/desktop-nav";
 import { guestBottomNav, guestNav } from "@/lib/navigation";

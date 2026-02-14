@@ -28,7 +28,7 @@ const services = [
     titleFr: "Concierge",
     titleEn: "Concierge",
     href: "/concierge",
-    chatHref: "/messages",
+    chatHref: "/messages?department=concierge",
     background: "/images/services/concierge_background.png"
   },
   {
@@ -36,7 +36,7 @@ const services = [
     titleFr: "Housekeeping",
     titleEn: "Housekeeping",
     href: "/housekeeping",
-    chatHref: "/messages",
+    chatHref: "/messages?department=housekeeping",
     background: "/images/services/housekeeping_background.png"
   },
   {
@@ -44,7 +44,7 @@ const services = [
     titleFr: "Room Service",
     titleEn: "Room Service",
     href: "/room-service",
-    chatHref: "/messages",
+    chatHref: "/messages?department=room-service",
     background: "/images/services/roomservice_background.png"
   },
   {
@@ -52,7 +52,7 @@ const services = [
     titleFr: "Réception",
     titleEn: "Reception",
     href: "/reception/check-in",
-    chatHref: "/messages",
+    chatHref: "/messages?department=reception",
     background: "/images/services/reception_background.png"
   },
   {
@@ -60,7 +60,7 @@ const services = [
     titleFr: "Restaurant",
     titleEn: "Restaurant",
     href: "/restaurants",
-    chatHref: "/messages",
+    chatHref: "/messages?department=restaurants",
     background: "/images/services/restaurant_background.png"
   },
   {
@@ -68,7 +68,7 @@ const services = [
     titleFr: "Spa & Gym",
     titleEn: "Spa & Gym",
     href: "/spa-gym",
-    chatHref: "/messages",
+    chatHref: "/messages?department=spa-gym",
     background: "/images/services/spa_gym_background.png"
   }
 ] as const;

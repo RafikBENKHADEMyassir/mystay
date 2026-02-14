@@ -12,9 +12,12 @@ import { withLocale } from "@/lib/i18n/paths";
 
 type Thread = {
   id: string;
+  hotelId: string;
+  stayId: string | null;
   department: string;
   status: string;
   title: string;
+  assignedStaffUser: { id: string; displayName: string | null; email: string | null } | null;
   updatedAt: string;
 };
 
@@ -42,20 +45,27 @@ export default function ThreadPage({ params }: ThreadPageProps) {
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
-  const [attachments, setAttachments] = useState<Array<{ id: string; label: string }>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const session = useMemo(() => getDemoSession(), []);
 
+  const departmentLabel = useMemo(() => {
+    const normalized = (thread?.department ?? "").trim().replace(/_/g, "-");
+    if (!normalized) return "";
+    if (normalized === "reception") return locale === "fr" ? "Réception" : "Reception";
+    if (normalized === "concierge") return "Concierge";
+    if (normalized === "housekeeping") return "Housekeeping";
+    if (normalized === "room-service") return locale === "fr" ? "Room service" : "Room service";
+    if (normalized === "spa-gym") return "Spa & Gym";
+    if (normalized === "restaurants") return locale === "fr" ? "Restaurants" : "Restaurants";
+    return normalized.replace(/[-_]/g, " ").trim();
+  }, [locale, thread?.department]);
+
   const staffDisplayName = useMemo(() => {
-    if (thread?.department === "concierge") return "Mohamed";
-    if (thread?.department === "housekeeping") return "Mohamed";
-    if (thread?.department === "restaurants") return "Mohamed";
-    if (thread?.department === "room_service") return "Mohamed";
-    if (thread?.department === "spa") return "Mohamed";
-    return "Julia";
-  }, [thread?.department]);
+    const name = (thread?.assignedStaffUser?.displayName ?? "").trim();
+    return name || departmentLabel || (locale === "fr" ? "Staff" : "Staff");
+  }, [departmentLabel, locale, thread?.assignedStaffUser?.displayName]);
 
   async function load() {
     setIsLoading(true);
@@ -146,44 +156,35 @@ export default function ThreadPage({ params }: ThreadPageProps) {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.guestToken}` },
           body: JSON.stringify({
-            senderType: "guest",
-            senderName: "Guest",
             bodyText
           })
         }
       );
 
       if (!response.ok) {
-        setError("Could not send message.");
+        const errorData = await response.json().catch(() => ({}));
+        setError(`Could not send message: ${errorData.error || response.statusText}`);
         return;
       }
 
       setDraft("");
-      setAttachments([]);
       await load();
-    } catch {
+    } catch (err) {
       setError("Backend unreachable. Start `npm run dev:backend` then try again.");
     } finally {
       setIsSending(false);
     }
   }
 
-  function addFakeAttachment() {
-    setAttachments((current) => {
-      const next = [...current, { id: `att_${Math.random().toString(16).slice(2)}`, label: "Attachment" }];
-      return next.slice(0, 2);
-    });
-  }
-
-  function removeAttachment(attachmentId: string) {
-    setAttachments((current) => current.filter((item) => item.id !== attachmentId));
-  }
-
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Topbar
         title={staffDisplayName}
-        subtitle={thread ? `Concierge de ${session?.hotelName ?? "Four Seasons"}` : session?.hotelName ?? "Hôtel Four Seasons"}
+        subtitle={
+          thread
+            ? `${departmentLabel || thread.department} • ${session?.hotelName ?? "Hôtel"}`
+            : session?.hotelName ?? "Hôtel Four Seasons"
+        }
         backHref={withLocale(locale, "/messages")}
         leading={<Avatar alt={staffDisplayName} className="h-9 w-9" />}
         className="border-b-0"
@@ -213,16 +214,13 @@ export default function ThreadPage({ params }: ThreadPageProps) {
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/90 backdrop-blur">
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur">
         <div className="mx-auto max-w-md">
           <MessageComposer
             value={draft}
             onChange={setDraft}
             onSend={sendMessage}
             disabled={isSending}
-            attachments={attachments}
-            onRemoveAttachment={removeAttachment}
-            onAddAttachment={addFakeAttachment}
             placeholder={locale === "fr" ? "Écrire un message" : "Write a message"}
           />
         </div>

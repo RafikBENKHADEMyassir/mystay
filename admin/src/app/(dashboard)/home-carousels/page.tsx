@@ -403,15 +403,19 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
 	                        <input type="hidden" name="itemId" value={item.id} />
 
 	                        <div className="relative h-16 w-full overflow-hidden rounded-md border bg-muted/20 md:h-12">
-	                          {item.imageUrl.startsWith("http") ? (
+                          {item.imageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.imageUrl} alt={item.label} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[11px] text-muted-foreground">
-                              Preview
-                            </div>
-                          )}
-                        </div>
+                            <img 
+                              src={item.imageUrl.startsWith('/') ? `${backendUrl}${item.imageUrl}` : item.imageUrl} 
+                              alt={item.label} 
+                              className="h-full w-full object-cover" 
+                            />
+	                          ) : (
+	                            <div className="flex h-full w-full items-center justify-center text-[11px] text-muted-foreground">
+	                              No image
+	                            </div>
+	                          )}
+	                        </div>
 
 	                        <div className="space-y-2 md:space-y-0">
 	                          <Label className="md:hidden">Label</Label>

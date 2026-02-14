@@ -23,7 +23,18 @@ export function AppShell({ children }: AppShellProps) {
   const locale = useLocale();
 
   useEffect(() => {
-    setSession(getDemoSession());
+    const currentSession = getDemoSession();
+    setSession(currentSession);
+    
+    // Sync authentication cookie from sessionStorage
+    if (currentSession?.guestToken) {
+      // Check if cookie already exists
+      const hasCookie = document.cookie.split(';').some(c => c.trim().startsWith('guest_session='));
+      if (!hasCookie) {
+        // Set cookie if session exists but cookie doesn't
+        document.cookie = `guest_session=${currentSession.guestToken}; path=/; max-age=86400; SameSite=Lax`;
+      }
+    }
   }, []);
 
   return (

@@ -103,6 +103,8 @@ export default function LoginPage() {
             guestEmail: data.guest.email,
             guestPhone: data.guest.phone
           });
+          // Set authentication cookie for middleware
+          document.cookie = `guest_session=${data.token}; path=/; max-age=86400; SameSite=Lax`;
           router.push(withLocale(locale, "/"));
         } else {
           router.push(withLocale(locale, "/link-reservation"));

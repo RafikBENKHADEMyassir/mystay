@@ -3,12 +3,12 @@
 
 import { useEffect, useState } from "react";
 import { Menu, LogOut, User } from "lucide-react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SideDrawer } from "./side-drawer";
+import { clearDemoSession } from "@/lib/demo-session";
 import { useLocale } from "@/components/providers/locale-provider";
 import { withLocale } from "@/lib/i18n/paths";
 
@@ -20,7 +20,6 @@ type UserInfo = {
 };
 
 export function Header() {
-  const router = useRouter();
   const locale = useLocale();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,8 +37,9 @@ export function Header() {
   }, []);
 
   const handleLogout = async () => {
+    clearDemoSession();
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push(withLocale(locale, "/login"));
+    window.location.href = withLocale(locale, "/");
   };
 
   return (
