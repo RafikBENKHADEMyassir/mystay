@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
+import { useSearchParams } from "next/navigation";
 /* eslint-disable @next/next/no-img-element */
 import {
   ChevronLeft,
@@ -16,19 +17,16 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession } from "@/lib/demo-session";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
-import { useTranslations } from "@/lib/i18n/translate";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
 import { cn } from "@/lib/utils";
-
-const HERO_IMAGE = "/images/services/spa_gym_background.png";
 
 type Service = {
   id: string;
   name: string;
-  nameFr: string;
   description: string;
-  descriptionFr: string;
   duration: number; // minutes
   price: number;
   category: "spa" | "gym";
@@ -46,96 +44,13 @@ type Booking = {
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-// Mock services
-const services: Service[] = [
-  // Spa
-  {
-    id: "relaxing_massage",
-    name: "Relaxing Massage",
-    nameFr: "Massage relaxant",
-    description: "Full body massage to relieve tension and stress",
-    descriptionFr: "Massage du corps entier pour soulager les tensions et le stress",
-    duration: 50,
-    price: 120,
-    category: "spa",
-    image: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400&q=80"
-  },
-  {
-    id: "therapeutic_massage",
-    name: "Therapeutic Massage",
-    nameFr: "Massage thérapeutique",
-    description: "Deep tissue massage for muscle recovery",
-    descriptionFr: "Massage en profondeur pour la récupération musculaire",
-    duration: 60,
-    price: 150,
-    category: "spa",
-    image: "https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=400&q=80"
-  },
-  {
-    id: "facial_treatment",
-    name: "Facial Treatment",
-    nameFr: "Soin du visage",
-    description: "Rejuvenating facial with premium products",
-    descriptionFr: "Soin du visage rajeunissant avec des produits premium",
-    duration: 45,
-    price: 95,
-    category: "spa",
-    image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=400&q=80"
-  },
-  {
-    id: "couples_massage",
-    name: "Couples Massage",
-    nameFr: "Massage en duo",
-    description: "Side-by-side relaxation for two",
-    descriptionFr: "Relaxation côte à côte pour deux personnes",
-    duration: 60,
-    price: 220,
-    category: "spa",
-    image: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=400&q=80"
-  },
-  // Gym
-  {
-    id: "personal_training",
-    name: "Personal Training",
-    nameFr: "Coaching personnel",
-    description: "One-on-one session with a certified trainer",
-    descriptionFr: "Séance individuelle avec un coach certifié",
-    duration: 60,
-    price: 80,
-    category: "gym",
-    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80"
-  },
-  {
-    id: "yoga_class",
-    name: "Yoga Class",
-    nameFr: "Cours de yoga",
-    description: "Group yoga session for all levels",
-    descriptionFr: "Cours de yoga en groupe pour tous niveaux",
-    duration: 45,
-    price: 30,
-    category: "gym",
-    image: "https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b?w=400&q=80"
-  },
-  {
-    id: "pilates_class",
-    name: "Pilates Class",
-    nameFr: "Cours de Pilates",
-    description: "Core strengthening and flexibility",
-    descriptionFr: "Renforcement du tronc et flexibilité",
-    duration: 45,
-    price: 35,
-    category: "gym",
-    image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&q=80"
-  }
-];
-
-// Mock available time slots
-const timeSlots = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
-
 export default function SpaGymPage() {
   const locale = useLocale();
-  const t = useTranslations();
+  const searchParams = useSearchParams();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.spaGym;
+  const common = content?.common;
   const [activeTab, setActiveTab] = useState<"spa" | "gym">("spa");
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -146,8 +61,8 @@ export default function SpaGymPage() {
   const [error, setError] = useState<string | null>(null);
 
   const filteredServices = useMemo(
-    () => services.filter((s) => s.category === activeTab),
-    [activeTab]
+    () => (page?.services ?? []).filter((s) => s.category === activeTab),
+    [activeTab, page?.services]
   );
 
   useEffect(() => {
@@ -158,6 +73,17 @@ export default function SpaGymPage() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     setSelectedDate(tomorrow.toISOString().split("T")[0]);
   }, []);
+
+  useEffect(() => {
+    const requested = (searchParams?.get("tab") ?? "").trim().toLowerCase();
+    if (requested === "gym") {
+      setActiveTab("gym");
+      return;
+    }
+    if (requested === "spa") {
+      setActiveTab("spa");
+    }
+  }, [searchParams]);
 
   // Load bookings
   async function loadBookings(activeSession = session) {
@@ -223,7 +149,7 @@ export default function SpaGymPage() {
           hotelId: session.hotelId,
           stayId: session.stayId,
           type: selectedService.category,
-          title: locale === "fr" ? selectedService.nameFr : selectedService.name,
+          title: selectedService.name,
           startAt: startAt.toISOString(),
           endAt: endAt.toISOString(),
           metadata: {
@@ -235,7 +161,7 @@ export default function SpaGymPage() {
       });
 
       if (!response.ok) {
-        setError(t("spaGymPage.errors.couldNotBook"));
+        setError(page?.errors.couldNotBook ?? "");
         return;
       }
 
@@ -244,32 +170,36 @@ export default function SpaGymPage() {
       setSelectedTime("");
       await loadBookings(session);
     } catch {
-      setError(t("spaGymPage.errors.serviceUnavailable"));
+      setError(page?.errors.serviceUnavailable ?? "");
     } finally {
       setIsBooking(false);
     }
+  }
+
+  if (!page || !common) {
+    return <div className="min-h-screen bg-white" />;
   }
 
   if (!session) {
     return (
       <div className="min-h-screen bg-white">
         <div className="flex items-center justify-between px-4 py-4">
-          <Link href={withLocale(locale, "/services")} className="-ml-2 p-2">
+          <AppLink href={withLocale(locale, "/services")} className="-ml-2 p-2">
             <ChevronLeft className="h-6 w-6 text-gray-900" />
-          </Link>
+          </AppLink>
           <div className="text-center">
-            <p className="font-medium text-gray-900">{t("spaGymPage.title")}</p>
+            <p className="font-medium text-gray-900">{page.title}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">{t("common.signInToAccessSpaGym")}</p>
-          <Link
+          <p className="text-gray-500">{common.signInToAccessSpaGym}</p>
+          <AppLink
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {t("common.startCheckIn")}
-          </Link>
+            {common.startCheckIn}
+          </AppLink>
         </div>
       </div>
     );
@@ -279,23 +209,23 @@ export default function SpaGymPage() {
     <div className="flex min-h-screen flex-col bg-white pb-20">
       {/* Hero Header */}
       <div className="relative h-48 flex-shrink-0">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${HERO_IMAGE})` }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${page.heroImage})` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/60" />
 
         {/* Topbar */}
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 py-4">
-          <Link
+          <AppLink
             href={withLocale(locale, "/services")}
             className="-ml-2 rounded-full bg-white/10 p-2 backdrop-blur-sm"
           >
             <ChevronLeft className="h-5 w-5 text-white" />
-          </Link>
+          </AppLink>
           <Leaf className="h-6 w-6 text-white/80" />
         </div>
 
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{t("spaGymPage.title")}</h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{page.title}</h1>
         </div>
       </div>
 
@@ -311,26 +241,26 @@ export default function SpaGymPage() {
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">{t("common.availabilityCard.currentlyAvailableTo")}</p>
-              <p className="text-sm text-gray-500">{t("common.availabilityCard.chat")}</p>
+              <p className="font-medium text-gray-900">{common.availabilityCard.currentlyAvailableTo}</p>
+              <p className="text-sm text-gray-500">{common.availabilityCard.chat}</p>
             </div>
 
-            <Link
+            <AppLink
               href={withLocale(locale, "/messages?department=spa-gym")}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"
             >
               <MessageSquare className="h-5 w-5 text-gray-600" />
-            </Link>
+            </AppLink>
           </div>
 
           {/* Hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{t("common.availabilityCard.availability")}</span>
+            <span className="text-gray-500">{common.availabilityCard.availability}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{t("common.availabilityCard.from")}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{t("common.availabilityCard.to")}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
+              <span className="text-gray-400">{common.availabilityCard.from}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingFrom}</span>
+              <span className="text-gray-400">{common.availabilityCard.to}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingTo}</span>
             </div>
           </div>
         </div>
@@ -347,7 +277,7 @@ export default function SpaGymPage() {
             )}
           >
             <Sparkles className="h-4 w-4" />
-            {t("spaGymPage.tabs.spa")}
+            {page.tabs.spa}
           </button>
           <button
             onClick={() => setActiveTab("gym")}
@@ -357,7 +287,7 @@ export default function SpaGymPage() {
             )}
           >
             <Dumbbell className="h-4 w-4" />
-            {t("spaGymPage.tabs.gym")}
+            {page.tabs.gym}
           </button>
         </div>
       </div>
@@ -365,7 +295,7 @@ export default function SpaGymPage() {
       {/* Active Bookings */}
       {bookings.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
-          <h2 className="mb-3 text-sm font-medium text-gray-500">{t("spaGymPage.yourBookings")}</h2>
+          <h2 className="mb-3 text-sm font-medium text-gray-500">{page.yourBookings}</h2>
           <div className="space-y-2">
             {bookings.map((booking) => (
               <div key={booking.id} className="flex items-center gap-3 rounded-xl bg-purple-50 p-3">
@@ -373,7 +303,7 @@ export default function SpaGymPage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">{booking.serviceName}</p>
                   <p className="text-xs text-gray-500">
-                    {booking.date} à {booking.time}
+                    {booking.date} {page.dateTimeSeparator} {booking.time}
                   </p>
                 </div>
                 <span
@@ -385,8 +315,8 @@ export default function SpaGymPage() {
                   )}
                 >
                   {booking.status === "confirmed"
-                    ? t("spaGymPage.bookingStatus.confirmed")
-                    : t("spaGymPage.bookingStatus.pending")}
+                    ? page.bookingStatus.confirmed
+                    : page.bookingStatus.pending}
                 </span>
               </div>
             ))}
@@ -398,8 +328,8 @@ export default function SpaGymPage() {
       <div className="flex-1 px-4 py-4">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">
           {activeTab === "spa"
-            ? t("spaGymPage.sectionTitles.spa")
-            : t("spaGymPage.sectionTitles.gym")}
+            ? page.sectionTitles.spa
+            : page.sectionTitles.gym}
         </h2>
 
         <div className="space-y-3">
@@ -422,18 +352,16 @@ export default function SpaGymPage() {
 
                 {/* Content */}
                 <div className="flex flex-1 flex-col justify-center p-3">
-                  <h3 className="font-medium text-gray-900">
-                    {locale === "fr" ? service.nameFr : service.name}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    {locale === "fr" ? service.descriptionFr : service.description}
-                  </p>
+                  <h3 className="font-medium text-gray-900">{service.name}</h3>
+                  <p className="mt-0.5 text-xs text-gray-500">{service.description}</p>
                   <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {service.duration} min
+                      {service.duration} {common.minutesLabel}
                     </span>
-                    <span className="font-medium text-gray-900">{service.price} €</span>
+                    <span className="font-medium text-gray-900">
+                      {service.price} {common.currencySymbol}
+                    </span>
                   </div>
                 </div>
 
@@ -448,7 +376,7 @@ export default function SpaGymPage() {
               {/* Booking Panel */}
               {selectedService?.id === service.id && (
                 <div className="border-t border-gray-100 bg-gray-50 p-4">
-                  <p className="mb-3 text-sm font-medium text-gray-700">{t("spaGymPage.chooseTimeSlot")}</p>
+                  <p className="mb-3 text-sm font-medium text-gray-700">{page.chooseTimeSlot}</p>
 
                   {/* Date */}
                   <input
@@ -461,7 +389,7 @@ export default function SpaGymPage() {
 
                   {/* Time slots */}
                   <div className="mb-4 flex flex-wrap gap-2">
-                    {timeSlots.map((time) => (
+                    {page.timeSlots.map((time) => (
                       <button
                         key={time}
                         onClick={(e) => {
@@ -490,8 +418,8 @@ export default function SpaGymPage() {
                     className="w-full rounded-full bg-purple-600 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-50"
                   >
                     {isBooking
-                      ? t("spaGymPage.bookingLoading")
-                      : t("spaGymPage.bookingAction", { price: service.price.toFixed(2) })}
+                      ? page.bookingLoading
+                      : interpolateTemplate(page.bookingAction, { price: service.price.toFixed(2) })}
                   </button>
                 </div>
               )}

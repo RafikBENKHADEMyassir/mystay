@@ -8,6 +8,7 @@
     "backend"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1"
   },
@@ -21,6 +22,12 @@
     "lint": "npm -w frontend run lint",
     "test": "npm -w frontend run test",
     "test:watch": "npm -w frontend run test:watch",
+    "test:e2e": "npx playwright test",
+    "test:e2e:api": "npx playwright test e2e/api-restaurant-booking.spec.ts",
+    "test:e2e:guest": "npx playwright test e2e/guest-restaurant-flow.spec.ts",
+    "test:e2e:admin": "npx playwright test e2e/admin-restaurant-config.spec.ts",
+    "test:e2e:show": "npx playwright test --headed --retries=0",
+    "test:e2e:debug": "npx playwright test --headed --retries=0 --timeout=0",
     "dev:frontend": "npm -w frontend run dev",
     "build:frontend": "npm -w frontend run build",
     "start:frontend": "npm -w frontend run start",

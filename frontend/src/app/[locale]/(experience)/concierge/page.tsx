@@ -1,19 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
   Leaf,
-  MessageSquare,
   RefreshCw,
-  Smile,
-  Car,
-  Ticket,
-  MapPin,
-  Plane,
-  UtensilsCrossed
+  Smile
 } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 
@@ -21,11 +15,9 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { getDemoSession } from "@/lib/demo-session";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
-import { useTranslations } from "@/lib/i18n/translate";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
-
-const HERO_IMAGE = "/images/services/concierge_background.png";
 
 type Ticket = {
   id: string;
@@ -57,20 +49,15 @@ type Message = {
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-// Quick action definitions
-const quickActions = [
-  { id: "restaurant", labelKey: "conciergePage.quickActions.restaurant", icon: UtensilsCrossed },
-  { id: "transport", labelKey: "conciergePage.quickActions.transport", icon: Car },
-  { id: "ticket", labelKey: "conciergePage.quickActions.ticket", icon: Ticket },
-  { id: "airport", labelKey: "conciergePage.quickActions.airport", icon: Plane },
-  { id: "activities", labelKey: "conciergePage.quickActions.activities", icon: MapPin }
-] as const;
-
 export default function ConciergePage() {
   const router = useRouter();
   const locale = useLocale();
-  const t = useTranslations();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.concierge;
+  const common = content?.common;
+  const threadStrings = content?.pages.messages.thread;
+
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -88,7 +75,6 @@ export default function ConciergePage() {
     setSession(getDemoSession());
   }, []);
 
-  // Load tickets
   async function loadTickets(activeSession = session) {
     if (!activeSession) return;
 
@@ -109,12 +95,10 @@ export default function ConciergePage() {
     }
   }
 
-  // Load or create concierge thread
   async function loadThread(activeSession = session) {
     if (!activeSession) return;
 
     try {
-      // First try to find existing concierge thread
       const threadsUrl = new URL("/api/v1/threads", apiBaseUrl);
       threadsUrl.searchParams.set("stayId", activeSession.stayId);
 
@@ -125,12 +109,11 @@ export default function ConciergePage() {
 
       if (threadsRes.ok) {
         const data = (await threadsRes.json()) as { items?: Thread[] };
-        const conciergeThread = data.items?.find((t) => t.department === "concierge");
+        const conciergeThread = data.items?.find((entry) => entry.department === "concierge");
 
         if (conciergeThread) {
           setThread(conciergeThread);
           await loadMessages(conciergeThread.id, activeSession);
-          return;
         }
       }
     } catch {
@@ -138,7 +121,6 @@ export default function ConciergePage() {
     }
   }
 
-  // Load messages for thread
   async function loadMessages(threadId: string, activeSession = session) {
     if (!activeSession) return;
 
@@ -167,7 +149,6 @@ export default function ConciergePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.stayId]);
 
-  // Real-time message updates
   const handleRealtimeMessage = useCallback(() => {
     if (thread) {
       void loadMessages(thread.id, session);
@@ -181,9 +162,8 @@ export default function ConciergePage() {
     onMessage: handleRealtimeMessage
   });
 
-  // Create thread and send message
   async function sendMessage(initialMessage?: string) {
-    if (!session) return;
+    if (!session || !page) return;
 
     const bodyText = (initialMessage ?? draft).trim();
     if (!bodyText || isSending) return;
@@ -194,7 +174,6 @@ export default function ConciergePage() {
     try {
       let currentThread = thread;
 
-      // Create thread if doesn't exist
       if (!currentThread) {
         const createRes = await fetch(new URL("/api/v1/threads", apiBaseUrl).toString(), {
           method: "POST",
@@ -203,13 +182,13 @@ export default function ConciergePage() {
             hotelId: session.hotelId,
             stayId: session.stayId,
             department: "concierge",
-            title: t("conciergePage.title"),
+            title: page.title,
             initialMessage: bodyText
           })
         });
 
         if (!createRes.ok) {
-          setError(t("conciergePage.errors.createConversation"));
+          setError(page.errors.createConversation);
           return;
         }
 
@@ -221,61 +200,61 @@ export default function ConciergePage() {
         return;
       }
 
-      // Send message to existing thread
       const response = await fetch(
         new URL(`/api/v1/threads/${encodeURIComponent(currentThread.id)}/messages`, apiBaseUrl).toString(),
         {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.guestToken}` },
-          body: JSON.stringify({
-            bodyText
-          })
+          body: JSON.stringify({ bodyText })
         }
       );
 
       if (!response.ok) {
-        setError(t("conciergePage.errors.sendMessage"));
+        setError(page.errors.sendMessage);
         return;
       }
 
       setDraft("");
       await loadMessages(currentThread.id, session);
     } catch {
-      setError(t("conciergePage.errors.serviceUnavailable"));
+      setError(page.errors.serviceUnavailable);
     } finally {
       setIsSending(false);
     }
   }
 
-  // Handle quick action click
   function handleQuickAction(actionId: string) {
-    const action = quickActions.find((a) => a.id === actionId);
+    if (!page) return;
+    const action = page.quickActions.find((entry) => entry.id === actionId);
     if (!action) return;
 
-    const message = t(action.labelKey);
-    void sendMessage(message);
+    void sendMessage(action.label);
+  }
+
+  if (!page || !common) {
+    return <div className="min-h-screen bg-white" />;
   }
 
   if (!session) {
     return (
       <div className="min-h-screen bg-white">
         <div className="flex items-center justify-between px-4 py-4">
-          <Link href={withLocale(locale, "/services")} className="-ml-2 p-2">
+          <AppLink href={withLocale(locale, "/services")} className="-ml-2 p-2">
             <ChevronLeft className="h-6 w-6 text-gray-900" />
-          </Link>
+          </AppLink>
           <div className="text-center">
-            <p className="font-medium text-gray-900">{t("conciergePage.title")}</p>
+            <p className="font-medium text-gray-900">{page.title}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">{t("common.signInToAccessServices")}</p>
-          <Link
+          <p className="text-gray-500">{common.signInToAccessServices}</p>
+          <AppLink
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {t("common.startCheckIn")}
-          </Link>
+            {common.startCheckIn}
+          </AppLink>
         </div>
       </div>
     );
@@ -285,23 +264,23 @@ export default function ConciergePage() {
     <div className="flex min-h-screen flex-col bg-white">
       {/* Hero Header */}
       <div className="relative h-48 flex-shrink-0">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${HERO_IMAGE})` }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${page.heroImage})` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/60" />
 
         {/* Topbar */}
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 py-4">
-          <Link
+          <AppLink
             href={withLocale(locale, "/services")}
             className="-ml-2 rounded-full bg-white/10 p-2 backdrop-blur-sm"
           >
             <ChevronLeft className="h-5 w-5 text-white" />
-          </Link>
+          </AppLink>
           <Leaf className="h-6 w-6 text-white/80" />
         </div>
 
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{t("conciergePage.title")}</h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{page.title}</h1>
         </div>
       </div>
 
@@ -311,14 +290,14 @@ export default function ConciergePage() {
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-100 to-amber-200">
-                <span className="text-lg font-medium text-amber-800">M</span>
+                <span className="text-lg font-medium text-amber-800">{page.title.slice(0, 1).toUpperCase()}</span>
               </div>
               <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" />
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">{t("common.availabilityCard.currentlyAvailableTo")}</p>
-              <p className="text-sm text-gray-500">{t("common.availabilityCard.chat")}</p>
+              <p className="font-medium text-gray-900">{common.availabilityCard.currentlyAvailableTo}</p>
+              <p className="text-sm text-gray-500">{common.availabilityCard.chat}</p>
             </div>
 
             <ChevronRight className="h-5 w-5 text-gray-300" />
@@ -326,12 +305,12 @@ export default function ConciergePage() {
 
           {/* Availability hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{t("common.availabilityCard.availability")}</span>
+            <span className="text-gray-500">{common.availabilityCard.availability}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{t("common.availabilityCard.from")}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{t("common.availabilityCard.to")}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
+              <span className="text-gray-400">{common.availabilityCard.from}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingFrom}</span>
+              <span className="text-gray-400">{common.availabilityCard.to}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingTo}</span>
               <ChevronRight className="h-4 w-4 rotate-90 text-gray-300" />
             </div>
           </div>
@@ -342,7 +321,7 @@ export default function ConciergePage() {
       {thread && messages.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">{t("conciergePage.resumeConversation")}</p>
+            <p className="text-sm font-medium text-gray-500">{page.resumeConversation}</p>
             <button
               onClick={() => router.push(withLocale(locale, `/messages/${thread.id}`))}
               className="rounded-full p-1.5 hover:bg-gray-100"
@@ -365,18 +344,26 @@ export default function ConciergePage() {
                     minute: "2-digit"
                   })}
                   compact
+                  labels={
+                    threadStrings
+                      ? {
+                          sendErrorHint: threadStrings.sendErrorHint,
+                          translateAction: threadStrings.translateAction
+                        }
+                      : undefined
+                  }
                 />
               );
             })}
           </div>
 
           {/* View full thread */}
-          <Link
+          <AppLink
             href={withLocale(locale, `/messages/${thread.id}`)}
             className="mt-3 block text-center text-sm text-amber-600 hover:underline"
           >
-            {t("conciergePage.viewFullConversation")}
-          </Link>
+            {page.viewFullConversation}
+          </AppLink>
         </div>
       )}
 
@@ -384,7 +371,7 @@ export default function ConciergePage() {
       {conciergeTickets.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">{t("conciergePage.activeRequests")}</p>
+            <p className="text-sm font-medium text-gray-500">{page.activeRequests}</p>
             <button
               onClick={() => loadTickets()}
               disabled={isLoading}
@@ -405,22 +392,22 @@ export default function ConciergePage() {
                 </div>
                 <p className="mt-2 text-sm text-gray-500">
                   {ticket.status === "in_progress"
-                    ? t("conciergePage.ticketStatus.inProgress")
+                    ? page.ticketStatus.inProgress
                     : ticket.status === "resolved"
-                      ? t("conciergePage.ticketStatus.resolved")
-                      : t("conciergePage.ticketStatus.pending")}
+                      ? page.ticketStatus.resolved
+                      : page.ticketStatus.pending}
                 </p>
               </div>
             ))}
           </div>
 
           {/* Tipping prompt */}
-          {conciergeTickets.some((t) => t.status === "resolved") && (
+          {conciergeTickets.some((ticket) => ticket.status === "resolved") && (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
-              <p className="text-sm text-gray-600">{t("conciergePage.tipPrompt")}</p>
+              <p className="text-sm text-gray-600">{page.tipPrompt}</p>
               <button className="mt-2 inline-flex items-center gap-2 text-amber-600">
                 <Smile className="h-4 w-4" />
-                <span className="text-sm">{t("conciergePage.leaveTip")}</span>
+                <span className="text-sm">{page.leaveTip}</span>
               </button>
             </div>
           )}
@@ -430,14 +417,14 @@ export default function ConciergePage() {
       {/* Quick Actions */}
       <div className="flex-1 px-4 py-6">
         <div className="space-y-2">
-          {quickActions.map((action) => (
+          {page.quickActions.map((action) => (
             <button
               key={action.id}
               onClick={() => handleQuickAction(action.id)}
               disabled={isSending}
               className="flex w-full items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 text-left shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
             >
-              <span className="text-sm text-gray-700">{t(action.labelKey)}</span>
+              <span className="text-sm text-gray-700">{action.label}</span>
               <ChevronRight className="h-4 w-4 text-gray-300" />
             </button>
           ))}
@@ -454,7 +441,18 @@ export default function ConciergePage() {
             onChange={setDraft}
             onSend={() => sendMessage()}
             disabled={isSending}
-            placeholder={t("conciergePage.composerPlaceholder")}
+            placeholder={page.composerPlaceholder}
+            labels={
+              threadStrings
+                ? {
+                    removeAttachmentAria: threadStrings.removeAttachmentAria,
+                    addAttachmentAria: threadStrings.addAttachmentAria,
+                    quickActionAria: threadStrings.quickActionAria,
+                    sendAria: threadStrings.sendAria,
+                    writePlaceholder: threadStrings.writePlaceholder
+                  }
+                : undefined
+            }
           />
         </div>
       </div>

@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/components/providers/locale-provider";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { ServiceItem } from "./service-request-form";
 import { ServiceRequestDialog } from "./service-request-dialog";
 
@@ -98,6 +100,9 @@ export function ServiceCatalog({
   roomNumber,
   onRequestSubmitted
 }: ServiceCatalogProps) {
+  const locale = useLocale();
+  const { content } = useGuestContent(locale, hotelId);
+  const serviceStrings = content?.pages.services;
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [items, setItems] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,6 +111,7 @@ export function ServiceCatalog({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const loadCatalog = useCallback(async () => {
+    if (!serviceStrings) return;
     setIsLoading(true);
     setError(null);
 
@@ -120,7 +126,7 @@ export function ServiceCatalog({
       });
 
       if (!categoriesRes.ok) {
-        throw new Error("Failed to load service categories");
+        throw new Error("could_not_load_categories");
       }
 
       const categoriesData = await categoriesRes.json();
@@ -136,17 +142,24 @@ export function ServiceCatalog({
       });
 
       if (!itemsRes.ok) {
-        throw new Error("Failed to load service items");
+        throw new Error("could_not_load_items");
       }
 
       const itemsData = await itemsRes.json();
       setItems(itemsData.items || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load services");
+      const code = err instanceof Error ? err.message : "";
+      if (code === "could_not_load_categories") {
+        setError(serviceStrings.catalog.couldNotLoadCategories);
+      } else if (code === "could_not_load_items") {
+        setError(serviceStrings.catalog.couldNotLoadItems);
+      } else {
+        setError(serviceStrings.catalog.fallbackLoadError);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [hotelId, department, guestToken]);
+  }, [hotelId, department, guestToken, serviceStrings]);
 
   useEffect(() => {
     loadCatalog();
@@ -166,8 +179,11 @@ export function ServiceCatalog({
     serviceItem: ServiceItem,
     formData: Record<string, unknown>
   ): Promise<{ success: boolean; ticketId?: string; error?: string }> => {
+    if (!serviceStrings) {
+      return { success: false };
+    }
     if (!roomNumber) {
-      return { success: false, error: "Room number is required to submit requests" };
+      return { success: false, error: serviceStrings.catalog.roomNumberRequired };
     }
 
     try {
@@ -197,7 +213,7 @@ export function ServiceCatalog({
         const errorData = await response.json().catch(() => ({}));
         return { 
           success: false, 
-          error: errorData.error || "Failed to submit request" 
+          error: typeof errorData.error === "string" ? errorData.error : serviceStrings.catalog.submitFailed
         };
       }
 
@@ -211,10 +227,18 @@ export function ServiceCatalog({
     } catch (err) {
       return { 
         success: false, 
-        error: err instanceof Error ? err.message : "Network error" 
+        error: err instanceof Error && err.message ? err.message : serviceStrings.catalog.networkError
       };
     }
   };
+
+  if (!serviceStrings) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
 
   // Group items by category
   const itemsByCategory = items.reduce((acc, item) => {
@@ -239,7 +263,7 @@ export function ServiceCatalog({
         <CardContent className="py-8 text-center">
           <p className="text-sm text-red-500">{error}</p>
           <Button variant="outline" size="sm" className="mt-4" onClick={loadCatalog}>
-            Réessayer
+            {serviceStrings.catalog.retry}
           </Button>
         </CardContent>
       </Card>
@@ -250,7 +274,7 @@ export function ServiceCatalog({
     return (
       <div className="py-8 text-center">
         <p className="text-sm text-gray-500">
-          Aucun service disponible pour le moment.
+          {serviceStrings.catalog.noServicesAvailable}
         </p>
       </div>
     );
@@ -279,6 +303,7 @@ export function ServiceCatalog({
                       key={item.id}
                       item={item}
                       onClick={() => handleItemClick(item)}
+                      locale={locale}
                     />
                   ))}
                 </div>
@@ -293,6 +318,7 @@ export function ServiceCatalog({
                 key={item.id}
                 item={item}
                 onClick={() => handleItemClick(item)}
+                locale={locale}
               />
             ))}
           </div>
@@ -308,9 +334,9 @@ export function ServiceCatalog({
               <MessageCircle className="h-5 w-5 text-gray-500" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-900">Autre demande</p>
+              <p className="font-medium text-gray-900">{serviceStrings.catalog.otherRequestTitle}</p>
               <p className="text-sm text-gray-500">
-                Contactez directement notre équipe
+                {serviceStrings.catalog.otherRequestDescription}
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-300" />
@@ -320,6 +346,10 @@ export function ServiceCatalog({
 
       <ServiceRequestDialog
         serviceItem={selectedItem}
+        content={{
+          requestDialog: serviceStrings.requestDialog,
+          requestForm: serviceStrings.requestForm
+        }}
         isOpen={isDialogOpen}
         onClose={handleDialogClose}
         onSubmit={handleSubmit}
@@ -331,12 +361,23 @@ export function ServiceCatalog({
 // Clean list item component matching the design
 function ServiceListItem({ 
   item, 
-  onClick 
+  onClick,
+  locale
 }: { 
   item: ServiceItem; 
   onClick: () => void;
+  locale: "en" | "fr" | "es";
 }) {
   const ItemIcon = getIcon(item.icon);
+
+  function formatMoney(amountCents: number, currency: string) {
+    const languageTag = locale === "fr" ? "fr-FR" : locale === "es" ? "es-ES" : "en-US";
+    try {
+      return new Intl.NumberFormat(languageTag, { style: "currency", currency }).format(amountCents / 100);
+    } catch {
+      return `${(amountCents / 100).toFixed(2)} ${currency}`;
+    }
+  }
   
   return (
     <button
@@ -350,7 +391,7 @@ function ServiceListItem({
         <p className="font-medium text-gray-900">{item.nameDefault}</p>
         {item.priceCents !== null && item.priceCents > 0 && (
           <p className="text-sm text-gray-500">
-            {(item.priceCents / 100).toFixed(0)},00 €
+            {formatMoney(item.priceCents, item.currency)}
           </p>
         )}
       </div>

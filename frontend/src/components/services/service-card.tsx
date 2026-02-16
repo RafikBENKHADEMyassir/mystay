@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { ChevronRight, MessageCircle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ export function ServiceCard({
   return (
     <div className={cn("relative overflow-hidden rounded-2xl", className)}>
       {/* Background Image */}
-      <Link href={href} className="block">
+      <AppLink href={href} className="block">
         <div
           className="relative h-[88px] bg-cover bg-center"
           style={{ backgroundImage: `url(${backgroundImage})` }}
@@ -41,17 +41,17 @@ export function ServiceCard({
             </div>
           </div>
         </div>
-      </Link>
+      </AppLink>
 
       {/* Chat button */}
       {chatHref && (
-        <Link
+        <AppLink
           href={chatHref}
           className="absolute right-3 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg transition-transform hover:scale-105 active:scale-95"
           aria-label={`Chat with ${title}`}
         >
           <MessageCircle className="h-5 w-5 text-gray-700" />
-        </Link>
+        </AppLink>
       )}
     </div>
   );

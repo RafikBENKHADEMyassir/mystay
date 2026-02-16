@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { getDemoSession } from "@/lib/demo-session";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 
 type Thread = {
@@ -42,38 +43,40 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 export default function ThreadPage({ params }: ThreadPageProps) {
   const threadId = params.threadId;
   const locale = useLocale();
+  const session = useMemo(() => getDemoSession(), []);
+  const { content } = useGuestContent(locale, session?.hotelId ?? null);
+  const page = content?.pages.messages;
+  const threadStrings = page?.thread;
+
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const session = useMemo(() => getDemoSession(), []);
 
   const departmentLabel = useMemo(() => {
     const normalized = (thread?.department ?? "").trim().replace(/_/g, "-");
     if (!normalized) return "";
-    if (normalized === "reception") return locale === "fr" ? "Réception" : "Reception";
-    if (normalized === "concierge") return "Concierge";
-    if (normalized === "housekeeping") return "Housekeeping";
-    if (normalized === "room-service") return locale === "fr" ? "Room service" : "Room service";
-    if (normalized === "spa-gym") return "Spa & Gym";
-    if (normalized === "restaurants") return locale === "fr" ? "Restaurants" : "Restaurants";
+    const matched = page?.departments.find((dept) => dept.id === normalized);
+    if (matched) return matched.label;
     return normalized.replace(/[-_]/g, " ").trim();
-  }, [locale, thread?.department]);
+  }, [page?.departments, thread?.department]);
 
   const staffDisplayName = useMemo(() => {
     const name = (thread?.assignedStaffUser?.displayName ?? "").trim();
-    return name || departmentLabel || (locale === "fr" ? "Staff" : "Staff");
-  }, [departmentLabel, locale, thread?.assignedStaffUser?.displayName]);
+    return name || departmentLabel || thread?.title || page?.thread.staffFallback || "";
+  }, [departmentLabel, page?.thread.staffFallback, thread?.assignedStaffUser?.displayName, thread?.title]);
 
   async function load() {
+    if (!page) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
       if (!session) {
-        setError("Connect a stay first.");
+        setError(page.errors.connectStayFirst);
         return;
       }
 
@@ -89,12 +92,12 @@ export default function ThreadPage({ params }: ThreadPageProps) {
       ]);
 
       if (!threadRes.ok) {
-        setError("Thread not found.");
+        setError(page.errors.threadNotFound);
         return;
       }
 
       if (!messagesRes.ok) {
-        setError("Could not load messages.");
+        setError(page.errors.loadMessages);
         return;
       }
 
@@ -104,19 +107,20 @@ export default function ThreadPage({ params }: ThreadPageProps) {
 
       window.dispatchEvent(new Event("mystay:refresh-unread"));
     } catch {
-      setError("Backend unreachable. Start `npm run dev:backend` then refresh.");
+      setError(page.errors.backendUnreachable);
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
+    if (!page) return;
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId]);
+  }, [threadId, page?.title]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !page) return;
 
     const url = new URL("/api/v1/realtime/messages", apiBaseUrl);
     url.searchParams.set("threadId", threadId);
@@ -135,11 +139,13 @@ export default function ThreadPage({ params }: ThreadPageProps) {
       source.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId, session?.guestToken]);
+  }, [threadId, session?.guestToken, page?.title]);
 
   async function sendMessage() {
+    if (!page) return;
+
     if (!session) {
-      setError("Connect a stay first.");
+      setError(page.errors.connectStayFirst);
       return;
     }
 
@@ -155,25 +161,28 @@ export default function ThreadPage({ params }: ThreadPageProps) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.guestToken}` },
-          body: JSON.stringify({
-            bodyText
-          })
+          body: JSON.stringify({ bodyText })
         }
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        setError(`Could not send message: ${errorData.error || response.statusText}`);
+        const detail = typeof errorData.error === "string" && errorData.error.trim() ? errorData.error.trim() : response.statusText;
+        setError(`${page.errors.sendMessagePrefix}: ${detail}`);
         return;
       }
 
       setDraft("");
       await load();
-    } catch (err) {
-      setError("Backend unreachable. Start `npm run dev:backend` then try again.");
+    } catch {
+      setError(page.errors.backendUnreachable);
     } finally {
       setIsSending(false);
     }
+  }
+
+  if (!page) {
+    return <div className="min-h-screen bg-background" />;
   }
 
   return (
@@ -182,8 +191,8 @@ export default function ThreadPage({ params }: ThreadPageProps) {
         title={staffDisplayName}
         subtitle={
           thread
-            ? `${departmentLabel || thread.department} • ${session?.hotelName ?? "Hôtel"}`
-            : session?.hotelName ?? "Hôtel Four Seasons"
+            ? `${departmentLabel || thread.department} • ${session?.hotelName ?? page.hotelFallback}`
+            : session?.hotelName ?? page.hotelFallback
         }
         backHref={withLocale(locale, "/messages")}
         leading={<Avatar alt={staffDisplayName} className="h-9 w-9" />}
@@ -192,7 +201,7 @@ export default function ThreadPage({ params }: ThreadPageProps) {
 
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-32 pt-4">
         {error ? <p className="mb-3 text-sm text-destructive">{error}</p> : null}
-        {isLoading ? <p className="mb-3 text-sm text-muted-foreground">{locale === "fr" ? "Chargement…" : "Loading…"}</p> : null}
+        {isLoading ? <p className="mb-3 text-sm text-muted-foreground">{page.loading}</p> : null}
 
         <div className="flex-1 space-y-3">
           {messages.map((message, index) => {
@@ -208,6 +217,14 @@ export default function ThreadPage({ params }: ThreadPageProps) {
                 body={message.bodyText}
                 timestamp={timestamp}
                 showTranslate={!isGuest}
+                labels={
+                  threadStrings
+                    ? {
+                        sendErrorHint: threadStrings.sendErrorHint,
+                        translateAction: threadStrings.translateAction
+                      }
+                    : undefined
+                }
               />
             );
           })}
@@ -221,7 +238,14 @@ export default function ThreadPage({ params }: ThreadPageProps) {
             onChange={setDraft}
             onSend={sendMessage}
             disabled={isSending}
-            placeholder={locale === "fr" ? "Écrire un message" : "Write a message"}
+            placeholder={page.thread.writePlaceholder}
+            labels={{
+              removeAttachmentAria: page.thread.removeAttachmentAria,
+              addAttachmentAria: page.thread.addAttachmentAria,
+              quickActionAria: page.thread.quickActionAria,
+              sendAria: page.thread.sendAria,
+              writePlaceholder: page.thread.writePlaceholder
+            }}
           />
         </div>
       </div>

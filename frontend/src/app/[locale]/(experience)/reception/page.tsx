@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,11 +15,11 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession } from "@/lib/demo-session";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
 import { cn } from "@/lib/utils";
-
-const HERO_IMAGE = "/images/services/reception_background.png";
 
 type Ticket = {
   id: string;
@@ -33,36 +33,21 @@ type Ticket = {
   updatedAt: string;
 };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+const quickActionIcons = {
+  "clipboard-check": ClipboardCheck,
+  "help-circle": HelpCircle,
+  clock: Clock
+} as const;
 
-// Quick actions
-const quickActions = [
-  {
-    id: "check_in",
-    labelFr: "Complétez votre check-in",
-    labelEn: "Complete your check-in",
-    icon: ClipboardCheck,
-    href: "/reception/check-in"
-  },
-  {
-    id: "info",
-    labelFr: "Demander un renseignement",
-    labelEn: "Request information",
-    icon: HelpCircle,
-    action: "info_request"
-  },
-  {
-    id: "late_checkout",
-    labelFr: "Late check-out",
-    labelEn: "Late check-out",
-    icon: Clock,
-    action: "late_checkout"
-  }
-] as const;
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
 export default function ReceptionPage() {
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.reception;
+  const common = content?.common;
+
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -106,14 +91,12 @@ export default function ReceptionPage() {
     if (!session) return;
     void loadTickets(session);
 
-    // Check if check-in is already complete (has room number)
     if (session.roomNumber) {
       setCheckInComplete(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.stayId]);
 
-  // Real-time updates
   const handleRealtimeUpdate = useCallback(() => {
     void loadTickets(session);
   }, [session]);
@@ -126,9 +109,8 @@ export default function ReceptionPage() {
     onMessage: handleRealtimeUpdate
   });
 
-  // Submit a request
   async function submitRequest(type: string, title: string) {
-    if (!session || isSubmitting) return;
+    if (!session || !page || isSubmitting) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -148,59 +130,49 @@ export default function ReceptionPage() {
       });
 
       if (!response.ok) {
-        setError(locale === "fr" ? "Impossible d'envoyer la demande." : "Could not submit request.");
+        setError(page.errors.submitRequest);
         return;
       }
 
       await loadTickets(session);
     } catch {
-      setError(locale === "fr" ? "Service indisponible." : "Service unavailable.");
+      setError(page.errors.serviceUnavailable);
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  // Handle quick action click
-  function handleAction(action: (typeof quickActions)[number]) {
-    if ("href" in action && action.href) {
-      // Navigation handled by Link
-      return;
-    }
-    if ("action" in action && action.action) {
-      const title =
-        action.action === "late_checkout"
-          ? locale === "fr"
-            ? "Demande de late check-out"
-            : "Late check-out request"
-          : locale === "fr"
-            ? "Demande de renseignement"
-            : "Information request";
-      void submitRequest(action.action, title);
-    }
+  function handleAction(action: { href?: string; action?: string; requestTitle?: string }) {
+    if (action.href) return;
+    if (!action.action || !action.requestTitle) return;
+
+    void submitRequest(action.action, action.requestTitle);
+  }
+
+  if (!page || !common) {
+    return <div className="min-h-screen bg-white" />;
   }
 
   if (!session) {
     return (
       <div className="min-h-screen bg-white">
         <div className="flex items-center justify-between px-4 py-4">
-          <Link href={withLocale(locale, "/services")} className="-ml-2 p-2">
+          <AppLink href={withLocale(locale, "/services")} className="-ml-2 p-2">
             <ChevronLeft className="h-6 w-6 text-gray-900" />
-          </Link>
+          </AppLink>
           <div className="text-center">
-            <p className="font-medium text-gray-900">{locale === "fr" ? "Réception" : "Reception"}</p>
+            <p className="font-medium text-gray-900">{page.title}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">
-            {locale === "fr" ? "Connectez-vous pour accéder à la réception." : "Sign in to access reception."}
-          </p>
-          <Link
+          <p className="text-gray-500">{page.signInToAccess}</p>
+          <AppLink
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {locale === "fr" ? "Commencer le check-in" : "Start check-in"}
-          </Link>
+            {common.startCheckIn}
+          </AppLink>
         </div>
       </div>
     );
@@ -208,31 +180,25 @@ export default function ReceptionPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white pb-20">
-      {/* Hero Header */}
       <div className="relative h-48 flex-shrink-0">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${HERO_IMAGE})` }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${page.heroImage})` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/60" />
 
-        {/* Topbar */}
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 py-4">
-          <Link
+          <AppLink
             href={withLocale(locale, "/services")}
             className="-ml-2 rounded-full bg-white/10 p-2 backdrop-blur-sm"
           >
             <ChevronLeft className="h-5 w-5 text-white" />
-          </Link>
+          </AppLink>
           <Leaf className="h-6 w-6 text-white/80" />
         </div>
 
-        {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">
-            {locale === "fr" ? "Réception" : "Reception"}
-          </h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{page.title}</h1>
         </div>
       </div>
 
-      {/* Staff Availability Card */}
       <div className="relative z-10 -mt-6 px-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-lg">
           <div className="flex items-center gap-3">
@@ -244,46 +210,37 @@ export default function ReceptionPage() {
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">
-                {locale === "fr" ? "Reprenez votre discussion :" : "Resume your conversation:"}
-              </p>
-              <p className="text-sm text-gray-500">
-                {locale === "fr"
-                  ? "Ceci est un message d'exemple qui..."
-                  : "This is an example message that..."}
-              </p>
+              <p className="font-medium text-gray-900">{page.resumeConversation}</p>
+              <p className="text-sm text-gray-500">{page.conversationPreview}</p>
             </div>
 
-            <Link
+            <AppLink
               href={withLocale(locale, "/messages?department=reception")}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"
             >
               <MessageSquare className="h-5 w-5 text-gray-600" />
-            </Link>
+            </AppLink>
             <ChevronRight className="h-5 w-5 text-gray-300" />
           </div>
 
-          {/* Hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{locale === "fr" ? "Disponibilités" : "Availability"}</span>
+            <span className="text-gray-500">{common.availabilityCard.availability}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{locale === "fr" ? "De" : "From"}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{locale === "fr" ? "à" : "to"}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
+              <span className="text-gray-400">{common.availabilityCard.from}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingFrom}</span>
+              <span className="text-gray-400">{common.availabilityCard.to}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingTo}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
       <div className="flex-1 px-4 py-6">
         <div className="space-y-3">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
+          {page.quickActions.map((action) => {
+            const Icon = quickActionIcons[action.icon as keyof typeof quickActionIcons] ?? HelpCircle;
             const isCheckIn = action.id === "check_in";
 
-            // Show check-in completed state
             if (isCheckIn && checkInComplete) {
               return (
                 <div
@@ -294,11 +251,9 @@ export default function ReceptionPage() {
                     <ClipboardCheck className="h-5 w-5 text-green-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-green-800">
-                      {locale === "fr" ? "Check-in complété" : "Check-in complete"}
-                    </p>
+                    <p className="text-sm font-medium text-green-800">{page.checkInComplete}</p>
                     <p className="text-xs text-green-600">
-                      {locale === "fr" ? `Chambre ${session.roomNumber}` : `Room ${session.roomNumber}`}
+                      {interpolateTemplate(page.roomLabel, { roomNumber: session.roomNumber ?? "" })}
                     </p>
                   </div>
                   <span className="text-green-600">✓</span>
@@ -306,9 +261,9 @@ export default function ReceptionPage() {
               );
             }
 
-            if ("href" in action && action.href) {
+            if (action.href) {
               return (
-                <Link
+                <AppLink
                   key={action.id}
                   href={withLocale(locale, action.href)}
                   className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm transition hover:bg-gray-50"
@@ -316,11 +271,9 @@ export default function ReceptionPage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
                     <Icon className="h-5 w-5 text-gray-600" />
                   </div>
-                  <span className="flex-1 text-sm font-medium text-gray-700">
-                    {locale === "fr" ? action.labelFr : action.labelEn}
-                  </span>
+                  <span className="flex-1 text-sm font-medium text-gray-700">{action.label}</span>
                   <ChevronRight className="h-5 w-5 text-gray-300" />
-                </Link>
+                </AppLink>
               );
             }
 
@@ -334,9 +287,7 @@ export default function ReceptionPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
                   <Icon className="h-5 w-5 text-gray-600" />
                 </div>
-                <span className="flex-1 text-left text-sm font-medium text-gray-700">
-                  {locale === "fr" ? action.labelFr : action.labelEn}
-                </span>
+                <span className="flex-1 text-left text-sm font-medium text-gray-700">{action.label}</span>
                 <ChevronRight className="h-5 w-5 text-gray-300" />
               </button>
             );
@@ -346,13 +297,10 @@ export default function ReceptionPage() {
         {error && <p className="mt-4 text-center text-sm text-red-500">{error}</p>}
       </div>
 
-      {/* Active Requests */}
       {receptionTickets.length > 0 && (
         <div className="border-t border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              {locale === "fr" ? "Demandes en cours" : "Active requests"}
-            </p>
+            <p className="text-sm font-medium text-gray-500">{page.activeRequests}</p>
             <button
               onClick={() => loadTickets()}
               disabled={isLoading}
@@ -379,16 +327,10 @@ export default function ReceptionPage() {
                   )}
                 >
                   {ticket.status === "resolved"
-                    ? locale === "fr"
-                      ? "Terminé"
-                      : "Done"
+                    ? page.ticketStatus.resolved
                     : ticket.status === "in_progress"
-                      ? locale === "fr"
-                        ? "En cours"
-                        : "In progress"
-                      : locale === "fr"
-                        ? "En attente"
-                        : "Pending"}
+                      ? page.ticketStatus.inProgress
+                      : page.ticketStatus.pending}
                 </span>
               </div>
             ))}

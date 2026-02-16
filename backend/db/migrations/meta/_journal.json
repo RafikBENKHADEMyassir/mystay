@@ -113,6 +113,27 @@
       "when": 1769961600000,
       "tag": "0015_add_experience_sections",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1770048000000,
+      "tag": "0016_link_images_to_rooms",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1770134400000,
+      "tag": "0017_add_guest_content_configs",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1770220800000,
+      "tag": "0018_add_experience_item_type",
+      "breakpoints": true
     }
   ]
 }

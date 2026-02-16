@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { BarChart3, Gauge, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDemoSession } from "@/lib/demo-session";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 
 type Summary = {
@@ -43,6 +45,9 @@ function formatCents(amountCents: number) {
 export default function AnalyticsPage() {
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.analytics;
+
   const [summary, setSummary] = useState<Summary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +60,7 @@ export default function AnalyticsPage() {
   }, []);
 
   async function loadSummary(activeSession = session) {
-    if (!activeSession) return;
+    if (!activeSession || !page) return;
     setIsLoading(true);
     setError(null);
 
@@ -67,39 +72,43 @@ export default function AnalyticsPage() {
         headers: { Authorization: `Bearer ${activeSession.guestToken}` }
       });
       if (!response.ok) {
-        setError("Could not load analytics.");
+        setError(page.errors.loadAnalytics);
         return;
       }
       setSummary((await response.json()) as Summary);
     } catch {
-      setError("Backend unreachable. Start `npm run dev:backend` then refresh.");
+      setError(page.errors.backendUnreachable);
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !page) return;
     void loadSummary(session);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.stayId]);
+  }, [session?.stayId, page?.title]);
+
+  if (!page) {
+    return <div className="min-h-screen bg-background" />;
+  }
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Analytics"
-        description="KPIs synced from the backend DB (demo slice)."
+        title={page.title}
+        description={page.description}
         actions={
           session ? (
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{session.hotelName}</Badge>
               <Button size="sm" variant="outline" onClick={() => loadSummary()} disabled={isLoading}>
-                {isLoading ? "Refreshing…" : "Refresh"}
+                {isLoading ? page.refreshing : page.refresh}
               </Button>
             </div>
           ) : (
             <Button size="sm" asChild>
-              <Link href={withLocale(locale, "/reception/check-in")}>Start check-in</Link>
+              <AppLink href={withLocale(locale, "/reception/check-in")}>{page.startCheckIn}</AppLink>
             </Button>
           )
         }
@@ -110,42 +119,42 @@ export default function AnalyticsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" />
-              <CardTitle>Performance</CardTitle>
-              <Badge variant="secondary">KPIs</Badge>
+              <CardTitle>{page.performanceTitle}</CardTitle>
+              <Badge variant="secondary">{page.performanceBadge}</Badge>
             </div>
-            <CardDescription>Stay-wide metrics for response times, revenue, and satisfaction.</CardDescription>
+            <CardDescription>{page.performanceDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            {!session ? (
-              <p className="text-sm text-muted-foreground">Connect a stay to load analytics.</p>
-            ) : null}
-            {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
+            {!session ? <p className="text-sm text-muted-foreground">{page.connectStay}</p> : null}
+            {isLoading ? <p className="text-sm text-muted-foreground">{page.loading}</p> : null}
 
             {summary ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border bg-card p-4">
-                  <p className="text-sm font-semibold text-foreground">Tickets</p>
+                  <p className="text-sm font-semibold text-foreground">{page.ticketsLabel}</p>
                   <p className="mt-1 text-2xl font-semibold">{summary.tickets.total}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {pendingTickets} pending · {inProgressTickets} in progress
+                    {pendingTickets} {page.pendingSuffix} · {inProgressTickets} {page.inProgressSuffix}
                   </p>
                 </div>
                 <div className="rounded-lg border bg-card p-4">
-                  <p className="text-sm font-semibold text-foreground">Threads</p>
+                  <p className="text-sm font-semibold text-foreground">{page.threadsLabel}</p>
                   <p className="mt-1 text-2xl font-semibold">{summary.threads.total}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Across all departments</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{page.threadsSubtitle}</p>
                 </div>
                 <div className="rounded-lg border bg-card p-4">
-                  <p className="text-sm font-semibold text-foreground">Revenue (invoices)</p>
+                  <p className="text-sm font-semibold text-foreground">{page.revenueLabel}</p>
                   <p className="mt-1 text-2xl font-semibold">{formatCents(summary.revenue.totalCents)}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">+{summary.revenue.totalPoints} points</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {interpolateTemplate(page.pointsTemplate, { points: summary.revenue.totalPoints })}
+                  </p>
                 </div>
                 <div className="rounded-lg border bg-card p-4">
-                  <p className="text-sm font-semibold text-foreground">Upcoming events</p>
+                  <p className="text-sm font-semibold text-foreground">{page.upcomingEventsLabel}</p>
                   <p className="mt-1 text-2xl font-semibold">{summary.upcomingEvents}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Generated {new Date(summary.generatedAt).toLocaleString()}
+                    {interpolateTemplate(page.generatedTemplate, { time: new Date(summary.generatedAt).toLocaleString() })}
                   </p>
                 </div>
               </div>
@@ -154,20 +163,20 @@ export default function AnalyticsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Health indicators</CardTitle>
-            <CardDescription>Operational readiness and alerts.</CardDescription>
+            <CardTitle>{page.health.title}</CardTitle>
+            <CardDescription>{page.health.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2 text-foreground">
               <Gauge className="h-4 w-4" />
-              <span>Capacity</span>
+              <span>{page.health.capacityTitle}</span>
             </div>
-            <p>Occupancy, staffing coverage, and backlog by service type.</p>
+            <p>{page.health.capacityText}</p>
             <div className="flex items-center gap-2 text-foreground">
               <TrendingUp className="h-4 w-4" />
-              <span>Forecasts</span>
+              <span>{page.health.forecastsTitle}</span>
             </div>
-            <p>Predictive cues for rush hours; suggestions for staffing and menu changes.</p>
+            <p>{page.health.forecastsText}</p>
           </CardContent>
         </Card>
       </div>

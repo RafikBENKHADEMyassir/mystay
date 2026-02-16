@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { LayoutGrid, Plus, Save, Trash2 } from "lucide-react";
+import { LayoutGrid, Plus, Save, Trash2, UtensilsCrossed } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireStaffToken } from "@/lib/staff-auth";
 import { getStaffPrincipal } from "@/lib/staff-token";
+import { RestaurantConfigEditor } from "./_components/restaurant-config-editor";
 
 type ExperienceItem = {
   id: string;
@@ -16,6 +17,8 @@ type ExperienceItem = {
   label: string;
   imageUrl: string;
   linkUrl: string | null;
+  type: string;
+  restaurantConfig: Record<string, unknown>;
   sortOrder: number;
   isActive: boolean;
 };
@@ -184,6 +187,7 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
     const sectionId = String(formData.get("sectionId") ?? "").trim();
     const label = String(formData.get("label") ?? "").trim();
     const linkUrl = String(formData.get("linkUrl") ?? "").trim();
+    const itemType = String(formData.get("type") ?? "default").trim();
 
     let imageUrl = String(formData.get("imageUrl") ?? "").trim();
     const file = formData.get("imageFile");
@@ -201,7 +205,7 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
     const response = await fetch(`${backendUrl}/api/v1/staff/experiences/items`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ sectionId, label, imageUrl, linkUrl: linkUrl || null }),
+      body: JSON.stringify({ sectionId, label, imageUrl, linkUrl: linkUrl || null, type: itemType }),
       cache: "no-store"
     });
 
@@ -226,6 +230,7 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
     const linkUrl = String(formData.get("linkUrl") ?? "").trim();
     const sortOrder = parseNumber(formData.get("sortOrder"));
     const isActive = String(formData.get("isActive") ?? "") === "on";
+    const itemType = String(formData.get("type") ?? "").trim();
 
     let imageUrl = String(formData.get("imageUrl") ?? "").trim();
     const file = formData.get("imageFile");
@@ -245,6 +250,7 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
         label: label || undefined,
         imageUrl: imageUrl || undefined,
         linkUrl: linkUrl || null,
+        type: itemType || undefined,
         sortOrder: sortOrder ?? undefined,
         isActive
       }),
@@ -383,8 +389,9 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
               </div>
 
 	              <div className="overflow-hidden rounded-lg border">
-	                <div className="hidden grid-cols-[1fr,2fr,2fr,2fr,1fr,1fr] gap-2 bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground md:grid">
+	                <div className="hidden grid-cols-[1fr,1fr,2fr,2fr,2fr,1fr,1fr] gap-2 bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground md:grid">
 	                  <span>Preview</span>
+	                  <span>Type</span>
 	                  <span>Label</span>
 	                  <span>Image</span>
 	                  <span>Link</span>
@@ -394,11 +401,11 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
 
                 <div className="divide-y">
 	                  {section.items.map((item) => (
-	                    <div key={item.id} className="p-3">
+	                    <div key={item.id} className="p-3 space-y-3">
 	                      <form
 	                        action={updateItem}
 	                        encType="multipart/form-data"
-	                        className="grid gap-3 md:grid-cols-[1fr,2fr,2fr,2fr,1fr,1fr] md:items-end"
+	                        className="grid gap-3 md:grid-cols-[1fr,1fr,2fr,2fr,2fr,1fr,1fr] md:items-end"
 	                      >
 	                        <input type="hidden" name="itemId" value={item.id} />
 
@@ -415,6 +422,18 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
 	                              No image
 	                            </div>
 	                          )}
+	                        </div>
+
+	                        <div className="space-y-2 md:space-y-0">
+	                          <Label className="md:hidden">Type</Label>
+	                          <select
+	                            name="type"
+	                            defaultValue={item.type || "default"}
+	                            className="flex h-10 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+	                          >
+	                            <option value="default">Default</option>
+	                            <option value="restaurant">Restaurant</option>
+	                          </select>
 	                        </div>
 
 	                        <div className="space-y-2 md:space-y-0">
@@ -454,6 +473,21 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
                           </div>
                         </div>
                       </form>
+
+                      {/* Restaurant config editor for restaurant-type items */}
+                      {item.type === "restaurant" && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <UtensilsCrossed className="h-4 w-4 text-amber-600" />
+                            <span className="text-xs font-semibold text-amber-600">Restaurant Menu Config</span>
+                          </div>
+                          <RestaurantConfigEditor
+                            itemId={item.id}
+                            config={(item.restaurantConfig ?? {}) as Record<string, unknown>}
+                            backendUrl={backendUrl}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -462,14 +496,26 @@ export default async function HomeCarouselsPage({ searchParams }: HomeCarouselsP
 	              <Card className="bg-muted/20">
 	                <CardHeader>
 	                  <CardTitle className="text-base">Add a card</CardTitle>
-	                  <CardDescription>Upload an image (stored in backend `/uploads`).</CardDescription>
+	                  <CardDescription>Upload an image (stored in backend `/uploads`). Set type to &quot;Restaurant&quot; to enable menu configuration.</CardDescription>
 	                </CardHeader>
 	                <CardContent>
-	                  <form action={createItem} encType="multipart/form-data" className="grid gap-4 md:grid-cols-5">
+	                  <form action={createItem} encType="multipart/form-data" className="grid gap-4 md:grid-cols-6">
 	                    <input type="hidden" name="sectionId" value={section.id} />
 	                    <div className="space-y-2">
+	                      <Label htmlFor={`type-${section.id}`}>Type</Label>
+	                      <select
+	                        id={`type-${section.id}`}
+	                        name="type"
+	                        defaultValue="default"
+	                        className="flex h-10 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+	                      >
+	                        <option value="default">Default</option>
+	                        <option value="restaurant">Restaurant</option>
+	                      </select>
+	                    </div>
+	                    <div className="space-y-2">
 	                      <Label htmlFor={`label-${section.id}`}>Label</Label>
-	                      <Input id={`label-${section.id}`} name="label" placeholder="FLEURS" required />
+	                      <Input id={`label-${section.id}`} name="label" placeholder="SEA FU" required />
 	                    </div>
 	                    <div className="space-y-2 md:col-span-2">
 	                      <Label htmlFor={`img-${section.id}`}>Image</Label>

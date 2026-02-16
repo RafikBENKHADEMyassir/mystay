@@ -10,9 +10,13 @@ type MessageBubbleProps = {
   timestamp?: string;
   showTranslate?: boolean;
   compact?: boolean;
+  labels?: {
+    sendErrorHint: string;
+    translateAction: string;
+  };
 };
 
-export function MessageBubble({ variant, body, timestamp, showTranslate, compact }: MessageBubbleProps) {
+export function MessageBubble({ variant, body, timestamp, showTranslate, compact, labels }: MessageBubbleProps) {
   const isOutgoing = variant === "outgoing";
   const isError = variant === "error";
 
@@ -32,12 +36,12 @@ export function MessageBubble({ variant, body, timestamp, showTranslate, compact
         {isError ? (
           <p className="mt-2 flex items-center gap-2 text-xs text-destructive">
             <TriangleAlert className="h-4 w-4" />
-            <span>Erreur lors de l&apos;envoi. Appuyez pour réessayer.</span>
+            <span>{labels?.sendErrorHint ?? ""}</span>
           </p>
         ) : null}
 
         <div className="mt-2 flex items-center justify-end gap-2">
-          {showTranslate ? <button className="text-xs text-muted-foreground underline">Traduire</button> : null}
+          {showTranslate ? <button className="text-xs text-muted-foreground underline">{labels?.translateAction ?? ""}</button> : null}
           {timestamp ? <span className={cn("text-xs", isOutgoing ? "text-white/70" : "text-muted-foreground")}>{timestamp}</span> : null}
           {isOutgoing ? (
             <span className="inline-flex items-center gap-1 text-white/70">

@@ -10,6 +10,14 @@ type Attachment = {
   label: string;
 };
 
+type MessageComposerLabels = {
+  removeAttachmentAria: string;
+  addAttachmentAria: string;
+  quickActionAria: string;
+  sendAria: string;
+  writePlaceholder: string;
+};
+
 type MessageComposerProps = {
   value: string;
   onChange: (nextValue: string) => void;
@@ -19,6 +27,7 @@ type MessageComposerProps = {
   onRemoveAttachment?: (attachmentId: string) => void;
   onAddAttachment?: () => void;
   placeholder?: string;
+  labels?: MessageComposerLabels;
 };
 
 export function MessageComposer({
@@ -29,7 +38,8 @@ export function MessageComposer({
   attachments,
   onRemoveAttachment,
   onAddAttachment,
-  placeholder
+  placeholder,
+  labels
 }: MessageComposerProps) {
   const canSend = Boolean(value.trim()) && !disabled;
   const shownAttachments = useMemo(() => attachments?.slice(0, 2) ?? [], [attachments]);
@@ -48,7 +58,7 @@ export function MessageComposer({
                   type="button"
                   className="absolute -right-1 -top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background shadow-sm"
                   onClick={() => onRemoveAttachment(attachment.id)}
-                  aria-label="Remove attachment"
+                  aria-label={labels?.removeAttachmentAria ?? ""}
                 >
                   ×
                 </button>
@@ -64,7 +74,7 @@ export function MessageComposer({
           type="button"
           className={cn("inline-flex h-11 w-11 items-center justify-center rounded-xl border bg-background text-foreground shadow-sm", disabled && "opacity-60")}
           disabled={disabled}
-          aria-label="Add attachment"
+          aria-label={labels?.addAttachmentAria ?? ""}
           onClick={onAddAttachment}
         >
           <PlusSquare className="h-6 w-6" />
@@ -77,19 +87,19 @@ export function MessageComposer({
             disabled && "opacity-60"
           )}
           disabled={disabled}
-          aria-label="Quick action"
+          aria-label={labels?.quickActionAria ?? ""}
         >
           <Zap className="h-5 w-5" />
         </button>
 
         <div className="flex min-w-0 flex-1 items-center rounded-full border bg-background px-4 py-2 shadow-sm">
-          <input
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder ?? "Écrire un message"}
-            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            disabled={disabled}
-          />
+            <input
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={placeholder ?? labels?.writePlaceholder ?? ""}
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              disabled={disabled}
+            />
         </div>
 
         <button
@@ -100,7 +110,7 @@ export function MessageComposer({
             "inline-flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-background shadow-sm transition",
             !canSend && "bg-muted text-muted-foreground"
           )}
-          aria-label="Send"
+          aria-label={labels?.sendAria ?? ""}
         >
           <Send className="h-5 w-5" />
         </button>

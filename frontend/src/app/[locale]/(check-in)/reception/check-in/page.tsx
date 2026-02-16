@@ -16,7 +16,8 @@ import {
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession, setDemoSession } from "@/lib/demo-session";
-import { formatMoney, getCheckInStrings, localeLabel, requiredMessage } from "@/lib/i18n/check-in";
+import type { GuestContent } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import type { Locale } from "@/lib/i18n/locales";
 import { stripLocaleFromPathname, withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
@@ -52,23 +53,13 @@ type StayLookupResponse = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 const devDefaultConfirmation = "0123456789";
 
-function isValidEmail(value: string) {
-  const email = value.trim();
-  if (!email) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function buildE164(countryCode: string, nationalNumber: string) {
-  const cc = countryCode.trim();
-  const national = nationalNumber.trim();
-  if (!cc || !national) return null;
-
-  const ccNormalized = cc.startsWith("+") ? cc : `+${cc.replace(/[^\d]/g, "")}`;
-  const nationalDigits = national.replace(/[^\d]/g, "");
-  const combined = `${ccNormalized}${nationalDigits}`;
-  const normalized = `+${combined.replace(/[^\d]/g, "")}`;
-  if (!/^\+\d{8,15}$/.test(normalized)) return null;
-  return normalized;
+function formatMoney(locale: Locale, amountCents: number) {
+  const languageTag = locale === "fr" ? "fr-FR" : "en-US";
+  try {
+    return new Intl.NumberFormat(languageTag, { style: "currency", currency: "EUR" }).format(amountCents / 100);
+  } catch {
+    return `${(amountCents / 100).toFixed(2)} EUR`;
+  }
 }
 
 function luhnCheck(digits: string) {
@@ -130,33 +121,30 @@ function isExpiryValid(expiry: { month: number; year: number }) {
   return expiry.month >= 1 && expiry.month <= 12;
 }
 
-function validationMessage(locale: Locale, key: string) {
-  const fr: Record<string, string> = {
-    invalid_email: "Adresse e-mail invalide.",
-    invalid_phone: "Numéro de téléphone invalide.",
-    select_gender: "Veuillez sélectionner une option.",
-    invalid_card_number: "Numéro de carte invalide.",
-    invalid_card_expiry: "Date d’expiration invalide.",
-    invalid_card_cvc: "Cryptogramme invalide.",
-    invalid_file_type: "Format de fichier non supporté (PNG, JPG ou PDF).",
-    file_too_large: "Fichier trop volumineux (max 4MB).",
-    fix_fields: "Veuillez vérifier les champs."
-  };
+type CheckInValidationKey =
+  | "invalid_email"
+  | "invalid_phone"
+  | "select_gender"
+  | "invalid_card_number"
+  | "invalid_card_expiry"
+  | "invalid_card_cvc"
+  | "invalid_file_type"
+  | "file_too_large"
+  | "fix_fields";
 
-  const en: Record<string, string> = {
-    invalid_email: "Invalid email address.",
-    invalid_phone: "Invalid phone number.",
-    select_gender: "Please select an option.",
-    invalid_card_number: "Invalid card number.",
-    invalid_card_expiry: "Invalid expiry date.",
-    invalid_card_cvc: "Invalid CVC.",
-    invalid_file_type: "Unsupported file type (PNG, JPG, or PDF).",
-    file_too_large: "File too large (max 4MB).",
-    fix_fields: "Please review the fields."
+function validationMessage(content: GuestContent["pages"]["checkIn"], key: CheckInValidationKey) {
+  const messages: Record<CheckInValidationKey, string> = {
+    invalid_email: content.validation.invalidEmail,
+    invalid_phone: content.validation.invalidPhone,
+    select_gender: content.validation.selectGender,
+    invalid_card_number: content.validation.invalidCardNumber,
+    invalid_card_expiry: content.validation.invalidCardExpiry,
+    invalid_card_cvc: content.validation.invalidCardCvc,
+    invalid_file_type: content.validation.invalidFileType,
+    file_too_large: content.validation.fileTooLarge,
+    fix_fields: content.validation.fixFields
   };
-
-  const messages = locale === "fr" ? fr : en;
-  return messages[key] ?? (locale === "fr" ? "Champ invalide." : "Invalid field.");
+  return messages[key] ?? content.validation.invalidField;
 }
 
 export default function CheckInPage() {
@@ -176,7 +164,7 @@ export default function CheckInPage() {
     firstName: "",
     lastName: "",
     email: "",
-    phoneCountryCode: "+33",
+    phoneCountryCode: "",
     phoneNumber: "",
     gender: null
   });
@@ -199,6 +187,9 @@ export default function CheckInPage() {
     extra_bed: true,
     flowers: false
   });
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const strings = content?.pages.checkIn;
+  const defaultPhoneCountryCode = strings?.defaultPhoneCountryCode ?? "";
 
   // Populate form with guest data from session when available
   useEffect(() => {
@@ -248,46 +239,51 @@ export default function CheckInPage() {
         setSession(getDemoSession());
       })
       .catch(() => {
-        setSessionError(getCheckInStrings(locale).sessionError);
+        setSessionError("backend_unreachable");
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const strings = useMemo(() => getCheckInStrings(locale), [locale]);
-  const topbarHotelName = session?.hotelName ?? strings.hotelNameFallback;
+  useEffect(() => {
+    if (!defaultPhoneCountryCode) return;
+    if (form.phoneCountryCode) return;
+    setForm((current) => ({ ...current, phoneCountryCode: defaultPhoneCountryCode }));
+  }, [defaultPhoneCountryCode, form.phoneCountryCode]);
 
-  const genderError = submitted && !form.gender ? validationMessage(locale, "select_gender") : null;
+  const topbarHotelName = session?.hotelName ?? strings?.hotelNameFallback ?? "";
+
+  const genderError = submitted && !form.gender && strings ? validationMessage(strings, "select_gender") : null;
 
   const identityFilesError = useMemo(() => {
-    if (identityFiles.length === 0) return requiredMessage(locale);
+    if (!strings) return null;
+    if (identityFiles.length === 0) return strings.required;
     const maxBytes = 4 * 1024 * 1024;
     const allowed = new Set(["image/png", "image/jpeg", "application/pdf"]);
     for (const file of identityFiles) {
-      if (!allowed.has(file.type)) return validationMessage(locale, "invalid_file_type");
-      if (file.size > maxBytes) return validationMessage(locale, "file_too_large");
+      if (!allowed.has(file.type)) return validationMessage(strings, "invalid_file_type");
+      if (file.size > maxBytes) return validationMessage(strings, "file_too_large");
     }
     return null;
-  }, [identityFiles, locale]);
+  }, [identityFiles, strings]);
 
   const identityError = identitySubmitted ? identityFilesError : null;
   const identityDisplayError = identityPickError ?? identityError;
 
   const baseLineItems = useMemo(
-    () => [
-      { label: "Sea View Suite", amountCents: 120000 },
-      { label: locale === "fr" ? "Petits déjeuners x2" : "Breakfast x2", amountCents: 20000 }
-    ],
-    [locale]
+    () => (strings ? strings.baseLineItems.map((item) => ({ label: item.label, amountCents: item.amountCents })) : []),
+    [strings]
   );
 
   const extraCatalog = useMemo(
     () =>
-      [
-        { id: "baby_bed" as const, label: locale === "fr" ? "Lit bébé" : "Baby bed", priceCents: 0 },
-        { id: "extra_bed" as const, label: locale === "fr" ? "Lit supplémentaire" : "Extra bed", priceCents: 20000 },
-        { id: "flowers" as const, label: locale === "fr" ? "Fleurs" : "Flowers", priceCents: 20000 }
-      ] satisfies Array<{ id: ExtraId; label: string; priceCents: number }>,
-    [locale]
+      strings
+        ? (strings.extrasCatalog.map((extra) => ({
+            id: extra.id as ExtraId,
+            label: extra.label,
+            priceCents: extra.priceCents
+          })) satisfies Array<{ id: ExtraId; label: string; priceCents: number }>)
+        : [],
+    [strings]
   );
 
   const extrasTotal = useMemo(() => {
@@ -298,6 +294,15 @@ export default function CheckInPage() {
     const baseTotal = baseLineItems.reduce((sum, item) => sum + item.amountCents, 0);
     return baseTotal + extrasTotal;
   }, [baseLineItems, extrasTotal]);
+
+  if (!strings) {
+    return (
+      <div className="flex min-h-[80vh] items-center justify-center">
+        <CloudUpload className="h-6 w-6 animate-pulse text-muted-foreground" />
+      </div>
+    );
+  }
+  const pageStrings = strings;
 
   function switchLocale(nextLocale: Locale) {
     const basePath = stripLocaleFromPathname(pathname);
@@ -322,7 +327,7 @@ export default function CheckInPage() {
     setPaymentSubmitted(true);
 
     if (!session?.guestToken) {
-      setSubmitError(strings.sessionError);
+      setSubmitError(pageStrings.sessionError);
       return;
     }
 
@@ -339,7 +344,7 @@ export default function CheckInPage() {
       !(cvcDigits.length === 3 || cvcDigits.length === 4);
 
     if (missingOrInvalid) {
-      setSubmitError(validationMessage(locale, "fix_fields"));
+      setSubmitError(validationMessage(pageStrings, "fix_fields"));
       return;
     }
 
@@ -360,18 +365,18 @@ export default function CheckInPage() {
       if (!response.ok) {
         const code = typeof payload?.error === "string" ? payload.error : `checkin_failed_${response.status}`;
         if (code === "unauthorized" || code === "invalid_token") {
-          setSubmitError(locale === "fr" ? "Veuillez vous connecter pour finaliser votre check‑in." : "Please sign in to complete check-in.");
+          setSubmitError(pageStrings.submitErrors.unauthorized);
         } else if (code === "pms_unavailable") {
-          setSubmitError(locale === "fr" ? "PMS indisponible. Réessayez plus tard." : "PMS unavailable. Try again later.");
+          setSubmitError(pageStrings.submitErrors.pmsUnavailable);
         } else {
-          setSubmitError(locale === "fr" ? "Impossible de finaliser le check‑in." : "Could not complete check-in.");
+          setSubmitError(pageStrings.submitErrors.couldNotComplete);
         }
         return;
       }
 
       router.push(withLocale(locale, "/"));
     } catch {
-      setSubmitError(locale === "fr" ? "Service indisponible." : "Service unavailable.");
+      setSubmitError(pageStrings.submitErrors.serviceUnavailable);
     } finally {
       setIsSubmitting(false);
     }
@@ -387,11 +392,11 @@ export default function CheckInPage() {
     let firstError: string | null = null;
     const accepted = incoming.filter((file) => {
       if (!allowed.has(file.type)) {
-        if (!firstError) firstError = validationMessage(locale, "invalid_file_type");
+        if (!firstError) firstError = validationMessage(pageStrings, "invalid_file_type");
         return false;
       }
       if (file.size > maxBytes) {
-        if (!firstError) firstError = validationMessage(locale, "file_too_large");
+        if (!firstError) firstError = validationMessage(pageStrings, "file_too_large");
         return false;
       }
       return true;
@@ -415,7 +420,7 @@ export default function CheckInPage() {
       <Topbar title={strings.topbarTitle} subtitle={topbarHotelName} backHref={withLocale(locale, "/")} />
 
       <main className="mx-auto max-w-md space-y-4 px-4 pb-10 pt-4">
-        {sessionError ? <p className="text-xs text-muted-foreground">{sessionError}</p> : null}
+        {sessionError ? <p className="text-xs text-muted-foreground">{strings.sessionError}</p> : null}
 
         {step === "personal" ? (
           <>
@@ -429,8 +434,9 @@ export default function CheckInPage() {
                   value={locale}
                   onChange={(event) => switchLocale(event.target.value as Locale)}
                 >
-                  <option value="fr">{localeLabel("fr")}</option>
-                  <option value="en">{localeLabel("en")}</option>
+                  <option value="fr">{strings.localeNames.fr}</option>
+                  <option value="en">{strings.localeNames.en}</option>
+                  <option value="es">{strings.localeNames.es}</option>
                 </select>
               </div>
             </section>
@@ -542,7 +548,7 @@ export default function CheckInPage() {
                         type="button"
                         onClick={() => removeIdentityFile(index)}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                        aria-label="Remove file"
+                        aria-label={strings.removeFileAria}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -579,9 +585,9 @@ export default function CheckInPage() {
                 <p className="text-sm font-semibold text-foreground">
                   {form.firstName} {form.lastName}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">{form.email || "email@email.com"}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{form.email || strings.emailFallback}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {form.phoneCountryCode} {form.phoneNumber || "1 23 45 67 89"}
+                  {form.phoneCountryCode} {form.phoneNumber || strings.phoneFallback}
                 </p>
               </div>
             </section>
@@ -657,28 +663,24 @@ export default function CheckInPage() {
 
         {step === "payment" ? (
           <>
-            <h1 className="text-2xl font-semibold text-foreground">
-              {locale === "fr" ? "Paiement en ligne" : "Online payment"}
-            </h1>
-            <p className="text-sm text-muted-foreground">{locale === "fr" ? "Paiement sécurisé." : "Secure payment."}</p>
+            <h1 className="text-2xl font-semibold text-foreground">{strings.paymentTitle}</h1>
+            <p className="text-sm text-muted-foreground">{strings.paymentSubtitle}</p>
 
             {submitError ? <p className="text-xs text-destructive">{submitError}</p> : null}
 
             <section className="space-y-3 rounded-2xl bg-muted/20 p-4">
-              <p className="text-sm font-semibold text-foreground">
-                {locale === "fr" ? "Confirmez votre moyen de paiement" : "Confirm your payment method"}
-              </p>
+              <p className="text-sm font-semibold text-foreground">{strings.confirmPaymentMethod}</p>
 
               {(() => {
-                const cardNameError = paymentSubmitted && !cardName.trim() ? requiredMessage(locale) : null;
+                const cardNameError = paymentSubmitted && !cardName.trim() ? strings.required : null;
                 const cardNumberDigits = cardNumber.replace(/[^\d]/g, "");
                 const cardNumberError =
                   !paymentSubmitted
                     ? null
                     : !cardNumberDigits
-                      ? requiredMessage(locale)
+                      ? strings.required
                       : !luhnCheck(cardNumberDigits)
-                        ? validationMessage(locale, "invalid_card_number")
+                        ? validationMessage(strings, "invalid_card_number")
                         : null;
 
                 const expiry = parseCardExpiry(cardExpiry);
@@ -686,9 +688,9 @@ export default function CheckInPage() {
                   !paymentSubmitted
                     ? null
                     : !cardExpiry.trim()
-                      ? requiredMessage(locale)
+                      ? strings.required
                       : !expiry || !isExpiryValid(expiry)
-                        ? validationMessage(locale, "invalid_card_expiry")
+                        ? validationMessage(strings, "invalid_card_expiry")
                         : null;
 
                 const cvcDigits = cardCvc.replace(/[^\d]/g, "");
@@ -696,41 +698,41 @@ export default function CheckInPage() {
                   !paymentSubmitted
                     ? null
                     : !cvcDigits
-                      ? requiredMessage(locale)
+                      ? strings.required
                       : !(cvcDigits.length === 3 || cvcDigits.length === 4)
-                        ? validationMessage(locale, "invalid_card_cvc")
+                        ? validationMessage(strings, "invalid_card_cvc")
                         : null;
 
                 return (
                   <>
                     <LabeledField
-                      label={locale === "fr" ? "Nom sur la carte" : "Name on card"}
+                      label={strings.paymentFields.cardNameLabel}
                       value={cardName}
                       onChange={setCardName}
-                      placeholder={locale === "fr" ? "Nom Prénom" : "Full name"}
+                      placeholder={strings.paymentFields.cardNamePlaceholder}
                       error={cardNameError}
                     />
                     <LabeledField
-                      label={locale === "fr" ? "Numéro de carte" : "Card number"}
+                      label={strings.paymentFields.cardNumberLabel}
                       value={cardNumber}
                       onChange={(val) => setCardNumber(formatCardNumber(val))}
-                      placeholder="1234 1234 1234 1234"
+                      placeholder={strings.paymentFields.cardNumberPlaceholder}
                       error={cardNumberError}
                     />
 
                     <div className="grid grid-cols-2 gap-3">
                       <LabeledField
-                        label={locale === "fr" ? "Date d’expiration" : "Expiry date"}
+                        label={strings.paymentFields.cardExpiryLabel}
                         value={cardExpiry}
                         onChange={(val) => setCardExpiry(formatCardExpiry(val))}
-                        placeholder="MM/AA"
+                        placeholder={strings.paymentFields.cardExpiryPlaceholder}
                         error={cardExpiryError}
                       />
                       <LabeledField
-                        label={locale === "fr" ? "Cryptogramme visuel" : "CVC"}
+                        label={strings.paymentFields.cardCvcLabel}
                         value={cardCvc}
                         onChange={setCardCvc}
-                        placeholder="•••"
+                        placeholder={strings.paymentFields.cardCvcPlaceholder}
                         type="password"
                         error={cardCvcError}
                       />
@@ -746,7 +748,7 @@ export default function CheckInPage() {
               disabled={isSubmitting}
               className="mt-4 w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm disabled:opacity-50"
             >
-              {isSubmitting ? "..." : locale === "fr" ? "Valider" : "Validate"}
+              {strings.paymentFields.submit}
             </button>
           </>
         ) : null}

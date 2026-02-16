@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 
 import type { Locale } from "@/lib/i18n/locales";
 import { withLocale } from "@/lib/i18n/paths";
@@ -9,24 +9,37 @@ import { cn } from "@/lib/utils";
 
 type FeatureGridProps = {
   title?: string;
+  subtitle?: string;
   items?: FeatureTile[];
+  modulesLabel?: string;
   locale?: Locale;
   className?: string;
 };
 
-export function FeatureGrid({ title = "Experience modules", items = featureTiles, locale, className }: FeatureGridProps) {
+export function FeatureGrid({
+  title = "",
+  subtitle = "",
+  items = featureTiles,
+  modulesLabel = "",
+  locale,
+  className
+}: FeatureGridProps) {
+  const countLabel = modulesLabel ? `${items.length} ${modulesLabel}` : String(items.length);
+
   return (
     <section className={cn("space-y-4", className)}>
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <p className="text-sm text-muted-foreground">Scaffolded routes mapped to the MyStay brief.</p>
-        </div>
-        <Badge variant="outline">{items.length} modules</Badge>
+        {(title || subtitle) ? (
+          <div>
+            {title ? <h2 className="text-lg font-semibold">{title}</h2> : null}
+            {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+          </div>
+        ) : <div />}
+        <Badge variant="outline">{countLabel}</Badge>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
-          <Link key={item.href} href={locale ? withLocale(locale, item.href) : item.href}>
+          <AppLink key={item.href} href={locale ? withLocale(locale, item.href) : item.href}>
             <Card className="h-full transition hover:-translate-y-0.5 hover:shadow-md">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -38,7 +51,7 @@ export function FeatureGrid({ title = "Experience modules", items = featureTiles
                 </div>
               </CardHeader>
             </Card>
-          </Link>
+          </AppLink>
         ))}
       </div>
     </section>

@@ -1,66 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { AlertCircle, Hotel } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
 import { setDemoSession } from "@/lib/demo-session";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
-
-function getLinkStrings(locale: string) {
-  if (locale === "fr") {
-    return {
-      topbarTitle: "Lier une réservation",
-      title: "Associez votre réservation",
-      subtitle: "Entrez votre numéro de confirmation pour accéder aux services de votre hôtel",
-      confirmationLabel: "Numéro de confirmation",
-      confirmationPlaceholder: "Ex: ABC123456",
-      link: "Lier la réservation",
-      skip: "Explorer les hôtels",
-      noReservation: "Pas encore de réservation ?",
-      exploreHotels: "Découvrez nos hôtels partenaires",
-      required: "Ce champ est requis",
-      notFound: "Aucune réservation trouvée avec ce numéro",
-      unexpectedError: "Une erreur inattendue s'est produite"
-    };
-  }
-
-  return {
-    topbarTitle: "Link Reservation",
-    title: "Link your reservation",
-    subtitle: "Enter your confirmation number to access your hotel services",
-    confirmationLabel: "Confirmation number",
-    confirmationPlaceholder: "e.g. ABC123456",
-    link: "Link Reservation",
-    skip: "Explore Hotels",
-    noReservation: "No reservation yet?",
-    exploreHotels: "Discover our partner hotels",
-    required: "This field is required",
-    notFound: "No reservation found with this number",
-    unexpectedError: "An unexpected error occurred"
-  };
-}
-
-function requiredMessage(locale: string) {
-  return locale === "fr" ? "Ce champ est requis" : "This field is required";
-}
 
 export default function LinkReservationPage() {
   const locale = useLocale();
   const router = useRouter();
+  const { content } = useGuestContent(locale);
 
   const [confirmationNumber, setConfirmationNumber] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const strings = useMemo(() => getLinkStrings(locale), [locale]);
+  const strings = content?.pages.auth.linkReservation;
+  if (!strings) return <div className="min-h-screen bg-background" />;
+  const pageStrings = strings;
 
-  const confirmationError = submitted && !confirmationNumber.trim() ? requiredMessage(locale) : null;
+  const confirmationError = submitted && !confirmationNumber.trim() ? strings.required : null;
 
   async function handleLink() {
     setSubmitted(true);
@@ -90,7 +56,7 @@ export default function LinkReservationPage() {
           if (token && data.stay) {
             setDemoSession({
               hotelId: data.stay.hotelId,
-              hotelName: data.stay.hotelName ?? "Hotel",
+              hotelName: data.stay.hotelName ?? pageStrings.fallbackHotelName,
               stayId: data.stay.id,
               confirmationNumber: data.stay.confirmationNumber,
               guestToken: token,
@@ -106,13 +72,13 @@ export default function LinkReservationPage() {
         router.push(withLocale(locale, "/"));
       } else {
         if (data.error === "reservation_not_found") {
-          setError(strings.notFound);
+          setError(pageStrings.notFound);
         } else {
-          setError(data.error || strings.unexpectedError);
+          setError(pageStrings.unexpectedError);
         }
       }
     } catch {
-      setError(strings.unexpectedError);
+      setError(pageStrings.unexpectedError);
     } finally {
       setIsLoading(false);
     }
@@ -158,21 +124,21 @@ export default function LinkReservationPage() {
             disabled={isLoading}
             className="w-full rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-sm disabled:opacity-50"
           >
-            {isLoading ? "..." : strings.link}
+            {isLoading ? strings.loadingLabel : strings.linkAction}
           </button>
-          <Link
+          <AppLink
             href={withLocale(locale, "/hotels")}
             className="w-full rounded-2xl border border-border bg-background py-3 text-center text-sm font-semibold text-foreground shadow-sm"
           >
             {strings.skip}
-          </Link>
+          </AppLink>
         </div>
 
         <p className="pt-4 text-center text-sm text-muted-foreground">
           {strings.noReservation}{" "}
-          <Link href={withLocale(locale, "/hotels")} className="font-semibold text-foreground underline">
+          <AppLink href={withLocale(locale, "/hotels")} className="font-semibold text-foreground underline">
             {strings.exploreHotels}
-          </Link>
+          </AppLink>
         </p>
       </main>
     </div>

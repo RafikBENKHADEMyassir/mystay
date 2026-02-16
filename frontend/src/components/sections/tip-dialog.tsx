@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { DollarSign, Heart } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
-import { getTipStrings } from "@/lib/i18n/tips";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,21 +18,22 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 
 type TipDialogProps = {
   staffName: string;
   staffUserId: string;
   department: string;
+  hotelId?: string | null;
   trigger?: React.ReactNode;
   onSuccess?: () => void;
 };
 
 const presetAmounts = [5, 10, 15, 20, 25];
 
-export function TipDialog({ staffName, staffUserId, department, trigger, onSuccess }: TipDialogProps) {
+export function TipDialog({ staffName, staffUserId, department, hotelId, trigger, onSuccess }: TipDialogProps) {
   const locale = useLocale();
-  const t = getTipStrings(locale);
+  const { content } = useGuestContent(locale, hotelId);
+  const t = content?.pages.services.widgets.tipDialog;
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
@@ -39,6 +41,7 @@ export function TipDialog({ staffName, staffUserId, department, trigger, onSucce
   const [error, setError] = useState<string | null>(null);
 
   const selectedAmount = amount !== null ? amount : customAmount ? parseFloat(customAmount) : null;
+  if (!t) return null;
 
   const handlePresetClick = (preset: number) => {
     setAmount(preset);
@@ -54,7 +57,7 @@ export function TipDialog({ staffName, staffUserId, department, trigger, onSucce
 
   const handleSubmit = async () => {
     if (!selectedAmount || selectedAmount <= 0) {
-      setError("Please enter a valid amount");
+      setError(t.invalidAmount);
       return;
     }
 
@@ -78,7 +81,7 @@ export function TipDialog({ staffName, staffUserId, department, trigger, onSucce
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || "Failed to process tip");
+        throw new Error(data.message || t.tipFailed);
       }
 
       // Success
@@ -87,7 +90,7 @@ export function TipDialog({ staffName, staffUserId, department, trigger, onSucce
       setCustomAmount("");
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError(err instanceof Error ? err.message : t.unexpectedError);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +110,7 @@ export function TipDialog({ staffName, staffUserId, department, trigger, onSucce
         <DialogHeader>
           <DialogTitle>{t.dialogTitle}</DialogTitle>
           <DialogDescription>
-            {t.dialogDescription(staffName, department)}
+            {interpolateTemplate(t.dialogDescriptionTemplate, { staffName, department })}
           </DialogDescription>
         </DialogHeader>
 
@@ -138,7 +141,7 @@ export function TipDialog({ staffName, staffUserId, department, trigger, onSucce
               <Input
                 id="custom-amount"
                 type="number"
-                placeholder="0.00"
+                placeholder={t.customPlaceholder}
                 className="pl-9"
                 value={customAmount}
                 onChange={(e) => handleCustomChange(e.target.value)}

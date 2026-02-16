@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, Package, Truck } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
-import { getOrderTrackingStrings } from "@/lib/i18n/order-tracking";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,14 +14,16 @@ type OrderStatus = "pending" | "preparing" | "delivering" | "completed" | "cance
 type OrderTrackingProps = {
   orderId: string;
   initialStatus?: OrderStatus;
+  hotelId?: string | null;
   onStatusChange?: (status: OrderStatus) => void;
 };
 
 const statusOrder: OrderStatus[] = ["pending", "preparing", "delivering", "completed"];
 
-export function OrderTracking({ orderId, initialStatus = "pending", onStatusChange }: OrderTrackingProps) {
+export function OrderTracking({ orderId, initialStatus = "pending", hotelId, onStatusChange }: OrderTrackingProps) {
   const locale = useLocale();
-  const t = getOrderTrackingStrings(locale);
+  const { content } = useGuestContent(locale, hotelId);
+  const t = content?.pages.services.widgets.orderTracking;
   const [status, setStatus] = useState<OrderStatus>(initialStatus);
   const [lastUpdate, setLastUpdate] = useState<string>(new Date().toISOString());
   const [isConnected, setIsConnected] = useState(false);
@@ -96,6 +98,8 @@ export function OrderTracking({ orderId, initialStatus = "pending", onStatusChan
     };
   }, [orderId, onStatusChange]);
 
+  if (!t) return null;
+
   const currentStepIndex = statusOrder.indexOf(status);
 
   return (
@@ -110,7 +114,7 @@ export function OrderTracking({ orderId, initialStatus = "pending", onStatusChan
             </Badge>
           )}
         </div>
-        <CardDescription>{t.orderId} {orderId}</CardDescription>
+        <CardDescription>{t.orderIdPrefix} {orderId}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -146,11 +150,11 @@ export function OrderTracking({ orderId, initialStatus = "pending", onStatusChan
                   </p>
                   {isCurrent && (
                     <p className="text-xs text-muted-foreground">
-                      {t.updated} {new Date(lastUpdate).toLocaleTimeString()}
+                      {t.updatedPrefix} {new Date(lastUpdate).toLocaleTimeString()}
                     </p>
                   )}
                   {isCompleted && (
-                    <p className="text-xs text-muted-foreground">{t.statusCompleted}</p>
+                    <p className="text-xs text-muted-foreground">{`✓ ${t.statusCompleted}`}</p>
                   )}
                 </div>
 

@@ -1,30 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { ChevronRight, Mail, KeyRound } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
-
-function helpStrings(locale: string) {
-  if (locale === "fr") {
-    return {
-      title: "Besoin d’aide ?",
-      forgotPassword: "J’ai oublié mon mot de passe",
-      forgotEmail: "J’ai oublié mon adresse e‑mail",
-      contact: "Contacter l’assistance"
-    };
-  }
-
-  return {
-    title: "Need help?",
-    forgotPassword: "I forgot my password",
-    forgotEmail: "I forgot my email address",
-    contact: "Contact support"
-  };
-}
 
 function HelpRow({
   href,
@@ -36,7 +19,7 @@ function HelpRow({
   label: string;
 }) {
   return (
-    <Link
+    <AppLink
       href={href}
       className={cn(
         "flex items-center justify-between gap-3 rounded-2xl bg-background px-4 py-4 shadow-sm ring-1 ring-border",
@@ -50,13 +33,15 @@ function HelpRow({
         <span className="text-sm font-semibold text-foreground">{label}</span>
       </span>
       <ChevronRight className="h-4 w-4 text-muted-foreground" />
-    </Link>
+    </AppLink>
   );
 }
 
 export default function ForgotPasswordPage() {
   const locale = useLocale();
-  const strings = helpStrings(locale);
+  const { content } = useGuestContent(locale);
+  const strings = content?.pages.auth.forgotPassword;
+  if (!strings) return <div className="min-h-screen bg-background" />;
 
   return (
     <div>
@@ -83,4 +68,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-

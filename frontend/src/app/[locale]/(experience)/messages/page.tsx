@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -11,6 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Topbar } from "@/components/layout/topbar";
 import { getDemoSession } from "@/lib/demo-session";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
 
@@ -30,54 +32,25 @@ type Thread = {
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-const departments = [
-  { id: "reception", labelFr: "Réception", labelEn: "Reception" },
-  { id: "concierge", labelFr: "Concierge", labelEn: "Concierge" },
-  { id: "housekeeping", labelFr: "Housekeeping", labelEn: "Housekeeping" },
-  { id: "room-service", labelFr: "Room service", labelEn: "Room service" },
-  { id: "spa-gym", labelFr: "Spa & Gym", labelEn: "Spa & Gym" },
-  { id: "restaurants", labelFr: "Restaurants", labelEn: "Restaurants" }
-] as const;
-
 export default function MessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.messages;
+
   const [threads, setThreads] = useState<Thread[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const strings = useMemo(() => {
-    if (locale === "fr") {
-      return {
-        title: "Messagerie directe",
-        intro: "Entrez directement en contact avec notre personnel. Nous sommes à l’écoute.",
-        connect: "Démarrer le check‑in",
-        refresh: "Actualiser",
-        newChat: "Nouvelle conversation",
-        noThreads: "Aucune conversation pour le moment.",
-        offline: "Backend inaccessible. Démarrez le backend puis réessayez."
-      };
-    }
-    return {
-      title: "Direct messaging",
-      intro: "Reach hotel staff instantly. We’re listening.",
-      connect: "Start check-in",
-      refresh: "Refresh",
-      newChat: "New conversation",
-      noThreads: "No conversations yet.",
-      offline: "Backend unreachable. Start the backend then refresh."
-    };
-  }, [locale]);
 
   useEffect(() => {
     setSession(getDemoSession());
   }, []);
 
   async function loadThreads(activeSession = session) {
-    if (!activeSession) return;
+    if (!activeSession || !page) return;
 
     setIsLoading(true);
     setError(null);
@@ -91,14 +64,14 @@ export default function MessagesPage() {
       });
 
       if (!response.ok) {
-        setError("Could not load threads.");
+        setError(page.errors.loadThreads);
         return;
       }
 
       const data = (await response.json()) as { items?: Thread[] };
       setThreads(Array.isArray(data.items) ? data.items : []);
     } catch {
-      setError(strings.offline);
+      setError(page.errors.offline);
     } finally {
       setIsLoading(false);
     }
@@ -108,17 +81,17 @@ export default function MessagesPage() {
     if (!session) return;
     void loadThreads(session);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.stayId]);
+  }, [session?.stayId, page?.title]);
 
   function departmentTitle(departmentId: string) {
     const normalized = departmentId.trim().replace(/_/g, "-");
-    const matched = departments.find((item) => item.id === normalized);
-    if (matched) return locale === "fr" ? matched.labelFr : matched.labelEn;
+    const matched = page?.departments.find((item) => item.id === normalized);
+    if (matched) return matched.label;
     return normalized.replace(/[-_]/g, " ").trim() || normalized;
   }
 
   async function openDepartmentThread(departmentId: string) {
-    if (!session || isCreating) return;
+    if (!session || !page || isCreating) return;
 
     setIsCreating(true);
     setError(null);
@@ -137,7 +110,7 @@ export default function MessagesPage() {
       });
 
       if (!response.ok) {
-        setError("Could not create thread.");
+        setError(page.errors.createThread);
         return;
       }
 
@@ -149,7 +122,7 @@ export default function MessagesPage() {
 
       await loadThreads(session);
     } catch {
-      setError("Backend unreachable. Start `npm run dev:backend` then try again.");
+      setError(page.errors.backendUnreachable);
     } finally {
       setIsCreating(false);
     }
@@ -158,7 +131,7 @@ export default function MessagesPage() {
   const requestedDepartment = (searchParams?.get("department") ?? "").trim();
   const handledDepartment = useRef<string | null>(null);
   useEffect(() => {
-    if (!session) return;
+    if (!session || !page) return;
     if (!requestedDepartment) return;
 
     const normalized = requestedDepartment.replace(/_/g, "-");
@@ -166,25 +139,35 @@ export default function MessagesPage() {
     handledDepartment.current = normalized;
     void openDepartmentThread(normalized);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedDepartment, session?.guestToken]);
+  }, [requestedDepartment, session?.guestToken, page?.title]);
+
+  if (!page) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
+  const roomLabelTemplate = content?.pages.reception.roomLabel ?? "{{roomNumber}}";
 
   return (
     <div>
-      <Topbar title={strings.title} subtitle={session?.hotelName ?? "Hôtel Four Seasons"} />
+      <Topbar title={page.title} subtitle={session?.hotelName ?? page.hotelFallback} />
 
       <main className="mx-auto max-w-md space-y-4 px-4 pb-10 pt-4">
-        <p className="text-sm text-muted-foreground">{strings.intro}</p>
+        <p className="text-sm text-muted-foreground">{page.intro}</p>
 
         {!session ? (
           <Button asChild className="w-full rounded-2xl">
-            <Link href={withLocale(locale, "/reception/check-in")}>{strings.connect}</Link>
+            <AppLink href={withLocale(locale, "/reception/check-in")}>{page.connect}</AppLink>
           </Button>
         ) : (
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{session.hotelName}</Badge>
-            {session.roomNumber ? <Badge variant="outline">Room {session.roomNumber}</Badge> : null}
+            {session.roomNumber ? (
+              <Badge variant="outline">
+                {interpolateTemplate(roomLabelTemplate, { roomNumber: session.roomNumber })}
+              </Badge>
+            ) : null}
             <Button size="sm" variant="outline" className="ml-auto" onClick={() => loadThreads()} disabled={isLoading}>
-              {isLoading ? (locale === "fr" ? "Chargement…" : "Loading…") : strings.refresh}
+              {isLoading ? page.loading : page.refresh}
             </Button>
           </div>
         )}
@@ -195,9 +178,9 @@ export default function MessagesPage() {
           <CardContent className="space-y-3 p-4">
             {session ? (
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-foreground">{strings.newChat}</p>
+                <p className="text-sm font-semibold text-foreground">{page.newChat}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {departments.map((dept) => (
+                  {page.departments.map((dept) => (
                     <Button
                       key={dept.id}
                       variant="outline"
@@ -205,7 +188,7 @@ export default function MessagesPage() {
                       onClick={() => openDepartmentThread(dept.id)}
                       disabled={isCreating}
                     >
-                      {locale === "fr" ? dept.labelFr : dept.labelEn}
+                      {dept.label}
                     </Button>
                   ))}
                 </div>
@@ -213,7 +196,7 @@ export default function MessagesPage() {
             ) : null}
 
             {!isLoading && session && threads.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{strings.noThreads}</p>
+              <p className="text-sm text-muted-foreground">{page.noThreads}</p>
             ) : null}
 
             <div className="space-y-3">
@@ -225,7 +208,7 @@ export default function MessagesPage() {
                 const unreadCount = typeof thread.unreadCount === "number" ? thread.unreadCount : 0;
 
                 return (
-                  <Link
+                  <AppLink
                     key={thread.id}
                     href={withLocale(locale, `/messages/${thread.id}`)}
                     className="block rounded-2xl bg-white shadow-sm ring-1 ring-border transition hover:bg-muted/10"
@@ -241,7 +224,7 @@ export default function MessagesPage() {
                       </div>
                       {unreadCount ? (
                         <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-foreground px-2 text-xs font-semibold text-background">
-                          {unreadCount}
+                          {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
                       ) : (
                         <span className="h-6 w-6" />
@@ -259,7 +242,7 @@ export default function MessagesPage() {
                         </span>
                       </div>
                     ) : null}
-                  </Link>
+                  </AppLink>
                 );
               })}
             </div>

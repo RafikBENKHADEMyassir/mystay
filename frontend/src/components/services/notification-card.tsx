@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { ChevronRight, History } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ type NotificationCardProps = {
   message: string;
   href?: string;
   showHistory?: boolean;
+  historyAriaLabel?: string;
   onHistoryClick?: () => void;
   className?: string;
 };
@@ -20,6 +21,7 @@ export function NotificationCard({
   message,
   href,
   showHistory = true,
+  historyAriaLabel,
   onHistoryClick,
   className
 }: NotificationCardProps) {
@@ -54,7 +56,7 @@ export function NotificationCard({
         <button
           onClick={onHistoryClick}
           className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:bg-gray-50"
-          aria-label="View history"
+          aria-label={historyAriaLabel ?? ""}
         >
           <History className="h-4 w-4" />
         </button>
@@ -63,7 +65,7 @@ export function NotificationCard({
   );
 
   if (href) {
-    return <Link href={href}>{content}</Link>;
+    return <AppLink href={href}>{content}</AppLink>;
   }
 
   return content;

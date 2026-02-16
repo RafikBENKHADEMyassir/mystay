@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Leaf } from "lucide-react";
-import Link from "next/link";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { ServiceCard, NotificationCard } from "@/components/services";
 import { getDemoSession } from "@/lib/demo-session";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
-import { useTranslations } from "@/lib/i18n/translate";
 
 type Ticket = {
   id: string;
@@ -22,57 +22,13 @@ type Ticket = {
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-// Service definitions with background images
-const services = [
-  {
-    id: "concierge",
-    titleKey: "servicesPage.cards.concierge",
-    href: "/concierge",
-    chatHref: "/messages?department=concierge",
-    background: "/images/services/concierge_background.png"
-  },
-  {
-    id: "housekeeping",
-    titleKey: "servicesPage.cards.housekeeping",
-    href: "/housekeeping",
-    chatHref: "/messages?department=housekeeping",
-    background: "/images/services/housekeeping_background.png"
-  },
-  {
-    id: "room_service",
-    titleKey: "servicesPage.cards.roomService",
-    href: "/room-service",
-    chatHref: "/messages?department=room-service",
-    background: "/images/services/roomservice_background.png"
-  },
-  {
-    id: "reception",
-    titleKey: "servicesPage.cards.reception",
-    href: "/reception/check-in",
-    chatHref: "/messages?department=reception",
-    background: "/images/services/reception_background.png"
-  },
-  {
-    id: "restaurant",
-    titleKey: "servicesPage.cards.restaurant",
-    href: "/restaurants",
-    chatHref: "/messages?department=restaurants",
-    background: "/images/services/restaurant_background.png"
-  },
-  {
-    id: "spa_gym",
-    titleKey: "servicesPage.cards.spaGym",
-    href: "/spa-gym",
-    chatHref: "/messages?department=spa-gym",
-    background: "/images/services/spa_gym_background.png"
-  }
-] as const;
-
 export default function ServicesPage() {
   const locale = useLocale();
-  const t = useTranslations();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const { content } = useGuestContent(locale, session?.hotelId);
+
+  const page = content?.pages.services;
 
   useEffect(() => {
     setSession(getDemoSession());
@@ -104,23 +60,29 @@ export default function ServicesPage() {
 
   // Find active transport/concierge ticket for notification
   const activeNotification = useMemo(() => {
+    if (!page) return null;
+
     const conciergeTicket = tickets.find(
       (t) => t.department === "concierge" && t.status !== "resolved"
     );
     if (conciergeTicket) {
       return {
-        badge: t("servicesPage.transportBadge"),
-        message: t("servicesPage.transportBookedMessage", { time: "15:30" })
+        badge: page.transportBadge,
+        message: interpolateTemplate(page.transportBookedMessage, { time: "15:30" })
       };
     }
     return null;
-  }, [tickets, t]);
+  }, [tickets, page]);
+
+  if (!page) {
+    return <div className="min-h-screen bg-gray-50" />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="flex items-center justify-between bg-white px-4 py-4">
-        <h1 className="text-xl font-semibold text-gray-900">{t("servicesPage.title")}</h1>
+        <h1 className="text-xl font-semibold text-gray-900">{page.title}</h1>
         <Leaf className="h-6 w-6 text-gray-400" />
       </header>
 
@@ -131,29 +93,32 @@ export default function ServicesPage() {
             badge={activeNotification.badge}
             message={activeNotification.message}
             href={withLocale(locale, "/concierge")}
+            historyAriaLabel={page.historyAriaLabel}
           />
         ) : session ? (
           <NotificationCard
-            badge={t("servicesPage.welcomeBadge")}
-            message={t("servicesPage.welcomeMessage", { hotelName: session.hotelName })}
+            badge={page.welcomeBadge}
+            message={interpolateTemplate(page.welcomeMessage, { hotelName: session.hotelName })}
+            historyAriaLabel={page.historyAriaLabel}
           />
         ) : (
           <NotificationCard
-            badge={t("servicesPage.checkInBadge")}
-            message={t("servicesPage.checkInMessage")}
+            badge={page.checkInBadge}
+            message={page.checkInMessage}
             href={withLocale(locale, "/reception/check-in")}
+            historyAriaLabel={page.historyAriaLabel}
           />
         )}
 
         {/* Service Cards */}
         <div className="space-y-3">
-          {services.map((service) => (
+          {page.cards.map((service) => (
             <ServiceCard
               key={service.id}
-              title={t(service.titleKey)}
+              title={service.title}
               href={withLocale(locale, service.href)}
               chatHref={withLocale(locale, service.chatHref)}
-              backgroundImage={service.background}
+              backgroundImage={service.backgroundImage}
             />
           ))}
         </div>

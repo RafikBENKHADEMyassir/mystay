@@ -2037,39 +2037,204 @@ INSERT INTO experience_items (
   label,
   image_url,
   link_url,
+  type,
+  restaurant_config,
   sort_order,
   is_active,
   created_at,
   updated_at
 ) VALUES
   -- Four Seasons Paris - Tailored (Plaisirs sur mesure)
-  ('EI-1001', 'ES-1001', 'H-FOURSEASONS', 'FLEURS', '/uploads/1770222745347-fleurs.png', '/services', 1, TRUE, NOW(), NOW()),
-  ('EI-1002', 'ES-1001', 'H-FOURSEASONS', 'CHAMPAGNE', '/uploads/1770222760416-champagne.png', '/services', 2, TRUE, NOW(), NOW()),
-  ('EI-1003', 'ES-1001', 'H-FOURSEASONS', 'LETTRE', '/uploads/1770222762080-lettre.png', '/services', 3, TRUE, NOW(), NOW()),
-  ('EI-1004', 'ES-1001', 'H-FOURSEASONS', 'MAGAZINE', '/uploads/1770222764066-magazine.png', '/services', 4, TRUE, NOW(), NOW()),
+  ('EI-1001', 'ES-1001', 'H-FOURSEASONS', 'FLEURS', '/uploads/1770222745347-fleurs.png', '/services', 'default', '{}'::jsonb, 1, TRUE, NOW(), NOW()),
+  ('EI-1002', 'ES-1001', 'H-FOURSEASONS', 'CHAMPAGNE', '/uploads/1770222760416-champagne.png', '/services', 'default', '{}'::jsonb, 2, TRUE, NOW(), NOW()),
+  ('EI-1003', 'ES-1001', 'H-FOURSEASONS', 'LETTRE', '/uploads/1770222762080-lettre.png', '/services', 'default', '{}'::jsonb, 3, TRUE, NOW(), NOW()),
+  ('EI-1004', 'ES-1001', 'H-FOURSEASONS', 'MAGAZINE', '/uploads/1770222764066-magazine.png', '/services', 'default', '{}'::jsonb, 4, TRUE, NOW(), NOW()),
   
   -- Four Seasons Paris - Culinary (Expériences culinaires)
-  ('EI-1101', 'ES-1002', 'H-FOURSEASONS', 'SEA FU', '/uploads/1770222872379-seafu.png', '/restaurants', 1, TRUE, NOW(), NOW()),
-  ('EI-1102', 'ES-1002', 'H-FOURSEASONS', 'COYA', '/uploads/1770222878430-coya.png', '/restaurants', 2, TRUE, NOW(), NOW()),
-  ('EI-1103', 'ES-1002', 'H-FOURSEASONS', 'MIMI KAKUSHI', '/uploads/1770222879743-minikakushi.png', '/restaurants', 3, TRUE, NOW(), NOW()),
-  ('EI-1104', 'ES-1002', 'H-FOURSEASONS', 'SCALINI', '/uploads/1770222880978-scalini.png', '/restaurants', 4, TRUE, NOW(), NOW()),
-  ('EI-1105', 'ES-1002', 'H-FOURSEASONS', 'VERDE', '/uploads/1770222882276-verde.png', '/restaurants', 5, TRUE, NOW(), NOW()),
-  ('EI-1106', 'ES-1002', 'H-FOURSEASONS', 'PASTRIES', '/uploads/1770224008752-pastries.png', '/restaurants', 6, TRUE, NOW(), NOW()),
-  ('EI-1107', 'ES-1002', 'H-FOURSEASONS', 'NUSR-ET', '/uploads/1770223994670-nusret.png', '/restaurants', 7, TRUE, NOW(), NOW()),
-  ('EI-1108', 'ES-1002', 'H-FOURSEASONS', 'NAMMOS', '/uploads/1770223997009-nammos.png', '/restaurants', 8, TRUE, NOW(), NOW()),
+  ('EI-1101', 'ES-1002', 'H-FOURSEASONS', 'SEA FU', '/uploads/1770222872379-seafu.png', '/restaurants', 'restaurant', '{
+    "description": "Our fine dining seafood restaurant in Jumeirah Beach offers a menu with Asian flavours and happy hour drinks by the beach with sunset views.",
+    "hours": "Ouvert tous les jours,\nde 11 h à 14 h et de 19 h à 23 h.",
+    "dishes": [
+      {"id": "d1", "image": "/uploads/1770222872379-seafu.png", "caption": "Grilled salmon"},
+      {"id": "d2", "image": "/uploads/1770222878430-coya.png", "caption": "Sushi platter"},
+      {"id": "d3", "image": "/uploads/1770222879743-minikakushi.png", "caption": "Seafood tower"}
+    ],
+    "menuSections": [
+      {
+        "id": "menu-du-jour",
+        "title": "Menu du jour",
+        "price": "32,99 €",
+        "subsections": [
+          {
+            "id": "entrees-au-choix",
+            "title": "Entrées au choix",
+            "items": [
+              {"name": "Toast au chèvre et son assortiment de fruits rouges"},
+              {"name": "Salade césar du chef"}
+            ]
+          },
+          {
+            "id": "plats-au-choix",
+            "title": "Plats au choix",
+            "items": [
+              {"name": "Magret de canard"},
+              {"name": "Burger à la pistache"}
+            ]
+          },
+          {
+            "id": "desserts-au-choix",
+            "title": "Desserts au choix",
+            "linkText": "Voir la carte des desserts"
+          }
+        ]
+      },
+      {
+        "id": "entrees",
+        "title": "Entrées",
+        "items": [
+          {"name": "Toast au chèvre et son assortiment de fruits rouges", "price": "8,00 €"},
+          {"name": "Salade césar du chef", "price": "10,00 €"}
+        ]
+      },
+      {
+        "id": "plats",
+        "title": "Plats",
+        "items": [
+          {"name": "Magret de canard", "price": "17,50 €"},
+          {"name": "Burger à la pistache", "price": "15,50 €"}
+        ]
+      },
+      {
+        "id": "desserts",
+        "title": "Desserts",
+        "items": [
+          {"name": "Fondant au chocolat", "price": "3,00 €"},
+          {"name": "Café gourmand", "price": "2,50 €"}
+        ]
+      },
+      {
+        "id": "alcools",
+        "title": "Alcools",
+        "items": [
+          {"name": "Verre de vin rouge", "price": "8,00 €"},
+          {"name": "Verre de vin blanc", "price": "8,00 €"},
+          {"name": "Coupe de champagne", "price": "15,00 €"},
+          {"name": "Cocktail signature", "price": "18,00 €"}
+        ]
+      },
+      {
+        "id": "softs",
+        "title": "Softs",
+        "items": [
+          {"name": "Eau minérale", "price": "4,00 €"},
+          {"name": "Jus de fruits frais", "price": "6,00 €"},
+          {"name": "Café / Thé", "price": "3,50 €"}
+        ]
+      }
+    ]
+  }'::jsonb, 1, TRUE, NOW(), NOW()),
+  ('EI-1102', 'ES-1002', 'H-FOURSEASONS', 'COYA', '/uploads/1770222878430-coya.png', '/restaurants', 'restaurant', '{
+    "description": "Contemporary Peruvian cuisine blending Latin American flavours with Japanese precision in an elegant setting.",
+    "hours": "Ouvert du mardi au dimanche,\nde 12 h à 15 h et de 19 h à 23 h 30.",
+    "menuSections": [
+      {
+        "id": "signature",
+        "title": "Plats signature",
+        "items": [
+          {"name": "Ceviche classique", "price": "22,00 €"},
+          {"name": "Anticuchos de boeuf", "price": "28,00 €"},
+          {"name": "Poisson grillé Nikkei", "price": "34,00 €"}
+        ]
+      }
+    ]
+  }'::jsonb, 2, TRUE, NOW(), NOW()),
+  ('EI-1103', 'ES-1002', 'H-FOURSEASONS', 'MIMI KAKUSHI', '/uploads/1770222879743-minikakushi.png', '/restaurants', 'restaurant', '{
+    "description": "A vibrant Japanese restaurant celebrating the spirit of 1920s Tokyo with inventive dishes and craft cocktails.",
+    "hours": "Ouvert tous les jours,\nde 18 h à 1 h.",
+    "menuSections": [
+      {
+        "id": "sushi",
+        "title": "Sushi & Sashimi",
+        "items": [
+          {"name": "Assortiment 12 pièces", "price": "45,00 €"},
+          {"name": "Sashimi premium", "price": "38,00 €"}
+        ]
+      }
+    ]
+  }'::jsonb, 3, TRUE, NOW(), NOW()),
+  ('EI-1104', 'ES-1002', 'H-FOURSEASONS', 'SCALINI', '/uploads/1770222880978-scalini.png', '/restaurants', 'restaurant', '{
+    "description": "Authentic Italian cuisine with handmade pastas, wood-fired pizzas, and an extensive wine list.",
+    "hours": "Ouvert tous les jours,\nde 12 h à 23 h.",
+    "menuSections": [
+      {
+        "id": "pasta",
+        "title": "Pasta",
+        "items": [
+          {"name": "Truffle tagliatelle", "price": "32,00 €"},
+          {"name": "Lobster linguine", "price": "42,00 €"}
+        ]
+      }
+    ]
+  }'::jsonb, 4, TRUE, NOW(), NOW()),
+  ('EI-1105', 'ES-1002', 'H-FOURSEASONS', 'VERDE', '/uploads/1770222882276-verde.png', '/restaurants', 'restaurant', '{
+    "description": "Fresh Mediterranean flavours by the pool with a focus on healthy, locally sourced ingredients.",
+    "hours": "Ouvert tous les jours,\nde 10 h à 18 h.",
+    "menuSections": [
+      {
+        "id": "bowls",
+        "title": "Bowls & Salades",
+        "items": [
+          {"name": "Poke bowl saumon", "price": "22,00 €"},
+          {"name": "Salade méditerranéenne", "price": "18,00 €"}
+        ]
+      }
+    ]
+  }'::jsonb, 5, TRUE, NOW(), NOW()),
+  ('EI-1106', 'ES-1002', 'H-FOURSEASONS', 'PASTRIES', '/uploads/1770224008752-pastries.png', '/restaurants', 'default', '{}'::jsonb, 6, TRUE, NOW(), NOW()),
+  ('EI-1107', 'ES-1002', 'H-FOURSEASONS', 'NUSR-ET', '/uploads/1770223994670-nusret.png', '/restaurants', 'restaurant', '{
+    "description": "The world-famous steakhouse by Salt Bae, offering premium cuts and an unforgettable dining experience.",
+    "hours": "Ouvert tous les jours,\nde 12 h à 0 h.",
+    "menuSections": [
+      {
+        "id": "steaks",
+        "title": "Steaks",
+        "items": [
+          {"name": "Golden Tomahawk", "price": "250,00 €"},
+          {"name": "Filet mignon", "price": "85,00 €"},
+          {"name": "Côte de boeuf", "price": "120,00 €"}
+        ]
+      }
+    ]
+  }'::jsonb, 7, TRUE, NOW(), NOW()),
+  ('EI-1108', 'ES-1002', 'H-FOURSEASONS', 'NAMMOS', '/uploads/1770223997009-nammos.png', '/restaurants', 'restaurant', '{
+    "description": "The iconic Mykonos beach club restaurant, bringing Greek coastal cuisine and sunset vibes to Dubai.",
+    "hours": "Ouvert tous les jours,\nde 11 h à 22 h.",
+    "menuSections": [
+      {
+        "id": "seafood",
+        "title": "Fruits de mer",
+        "items": [
+          {"name": "Grilled octopus", "price": "35,00 €"},
+          {"name": "Seafood platter for 2", "price": "120,00 €"}
+        ]
+      }
+    ]
+  }'::jsonb, 8, TRUE, NOW(), NOW()),
   
   -- Four Seasons Paris - Activities (Moments à vivre)
-  ('EI-1201', 'ES-1003', 'H-FOURSEASONS', 'SAFARI', '/uploads/1770224020259-safari.png', '/services', 1, TRUE, NOW(), NOW()),
-  ('EI-1202', 'ES-1003', 'H-FOURSEASONS', 'BURJ AL ARAB TOUR', '/uploads/1770224174219-burdjalarab.png', '/services', 2, TRUE, NOW(), NOW()),
-  ('EI-1203', 'ES-1003', 'H-FOURSEASONS', 'PADEL', '/uploads/1770224175269-padel.png', '/services', 3, TRUE, NOW(), NOW()),
-  ('EI-1204', 'ES-1003', 'H-FOURSEASONS', 'JET SKI', '/uploads/1770224194933-jetski.png', '/services', 4, TRUE, NOW(), NOW()),
-  ('EI-1205', 'ES-1003', 'H-FOURSEASONS', 'SURF', '/uploads/1770224196654-surf.png', '/services', 5, TRUE, NOW(), NOW()),
-  ('EI-1206', 'ES-1003', 'H-FOURSEASONS', 'HELICOPTER TOUR', '/uploads/1770224198234-helicoptertour.png', '/services', 6, TRUE, NOW(), NOW()),
-  ('EI-1207', 'ES-1003', 'H-FOURSEASONS', 'SUNRISE BALLOON', '/uploads/1770224199611-sunriseballoon.png', '/services', 7, TRUE, NOW(), NOW())
+  ('EI-1201', 'ES-1003', 'H-FOURSEASONS', 'SAFARI', '/uploads/1770224020259-safari.png', '/services', 'default', '{}'::jsonb, 1, TRUE, NOW(), NOW()),
+  ('EI-1202', 'ES-1003', 'H-FOURSEASONS', 'BURJ AL ARAB TOUR', '/uploads/1770224174219-burdjalarab.png', '/services', 'default', '{}'::jsonb, 2, TRUE, NOW(), NOW()),
+  ('EI-1203', 'ES-1003', 'H-FOURSEASONS', 'PADEL', '/uploads/1770224175269-padel.png', '/services', 'default', '{}'::jsonb, 3, TRUE, NOW(), NOW()),
+  ('EI-1204', 'ES-1003', 'H-FOURSEASONS', 'JET SKI', '/uploads/1770224194933-jetski.png', '/services', 'default', '{}'::jsonb, 4, TRUE, NOW(), NOW()),
+  ('EI-1205', 'ES-1003', 'H-FOURSEASONS', 'SURF', '/uploads/1770224196654-surf.png', '/services', 'default', '{}'::jsonb, 5, TRUE, NOW(), NOW()),
+  ('EI-1206', 'ES-1003', 'H-FOURSEASONS', 'HELICOPTER TOUR', '/uploads/1770224198234-helicoptertour.png', '/services', 'default', '{}'::jsonb, 6, TRUE, NOW(), NOW()),
+  ('EI-1207', 'ES-1003', 'H-FOURSEASONS', 'SUNRISE BALLOON', '/uploads/1770224199611-sunriseballoon.png', '/services', 'default', '{}'::jsonb, 7, TRUE, NOW(), NOW())
 ON CONFLICT (id) DO UPDATE SET
   label = EXCLUDED.label,
   image_url = EXCLUDED.image_url,
   link_url = EXCLUDED.link_url,
+  type = EXCLUDED.type,
+  restaurant_config = EXCLUDED.restaurant_config,
   sort_order = EXCLUDED.sort_order,
   is_active = EXCLUDED.is_active,
   updated_at = EXCLUDED.updated_at;

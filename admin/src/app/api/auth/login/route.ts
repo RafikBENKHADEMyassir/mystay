@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     loginType
   });
   res.cookies.set(staffTokenCookieName, token, {
-    httpOnly: true,
+    httpOnly: false,
     sameSite: "lax",
     secure: false,
     path: "/",

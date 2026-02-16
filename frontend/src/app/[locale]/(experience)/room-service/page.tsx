@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 /* eslint-disable @next/next/no-img-element */
 import {
   ChevronLeft,
@@ -15,12 +15,11 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession } from "@/lib/demo-session";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
-import { useTranslations } from "@/lib/i18n/translate";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
 import { cn } from "@/lib/utils";
-
-const HERO_IMAGE = "/images/services/roomservice_background.png";
 
 type Ticket = {
   id: string;
@@ -37,9 +36,7 @@ type Ticket = {
 type MenuItem = {
   id: string;
   name: string;
-  nameFr: string;
   description?: string;
-  descriptionFr?: string;
   price: number;
   category: string;
   image?: string;
@@ -50,131 +47,15 @@ type CartItem = MenuItem & { quantity: number };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-// Menu categories
-const categories = [
-  { id: "breakfast", labelKey: "roomServicePage.categories.breakfast" },
-  { id: "starters", labelKey: "roomServicePage.categories.starters" },
-  { id: "mains", labelKey: "roomServicePage.categories.mains" },
-  { id: "desserts", labelKey: "roomServicePage.categories.desserts" },
-  { id: "drinks", labelKey: "roomServicePage.categories.drinks" },
-  { id: "night", labelKey: "roomServicePage.categories.night" }
-] as const;
-
-// Mock menu items (in production, this would come from the API)
-const menuItems: MenuItem[] = [
-  // Breakfast
-  {
-    id: "chocolatine",
-    name: "Chocolatine",
-    nameFr: "Chocolatine",
-    price: 1.5,
-    category: "breakfast",
-    image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=200&q=80"
-  },
-  {
-    id: "pain_chocolat",
-    name: "Chocolate bread",
-    nameFr: "Pain au chocolat boulanger",
-    price: 1.5,
-    category: "breakfast",
-    image: "https://images.unsplash.com/photo-1530610476181-d83430b64dcd?w=200&q=80"
-  },
-  // Starters
-  {
-    id: "goat_toast",
-    name: "Goat cheese toast with red fruits",
-    nameFr: "Toast au chèvre et son assortiment de fruits rouges",
-    price: 8.0,
-    category: "starters",
-    image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=200&q=80"
-  },
-  {
-    id: "caesar_salad",
-    name: "Chef's Caesar salad",
-    nameFr: "Salade césar du chef",
-    price: 10.0,
-    category: "starters",
-    image: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=200&q=80"
-  },
-  // Mains
-  {
-    id: "duck_breast",
-    name: "Duck breast",
-    nameFr: "Magret de canard",
-    price: 17.5,
-    category: "mains",
-    image: "https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=200&q=80"
-  },
-  {
-    id: "pistachio_burger",
-    name: "Pistachio burger",
-    nameFr: "Burger à la pistache",
-    description: "Vegan - Potato patty",
-    descriptionFr: "Vegan : Galette de pomme de terre",
-    price: 15.5,
-    category: "mains",
-    tags: ["vegan"],
-    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&q=80"
-  },
-  // Desserts
-  {
-    id: "chocolate_fondant",
-    name: "Chocolate fondant",
-    nameFr: "Fondant au chocolat",
-    price: 3.0,
-    category: "desserts",
-    image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=200&q=80"
-  },
-  {
-    id: "cafe_gourmand",
-    name: "Gourmet coffee",
-    nameFr: "Café gourmand",
-    price: 2.5,
-    category: "desserts",
-    image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200&q=80"
-  },
-  // Drinks
-  {
-    id: "sodas",
-    name: "Sodas",
-    nameFr: "Sodas",
-    price: 1.5,
-    category: "drinks",
-    image: "https://images.unsplash.com/photo-1527960471264-932f39eb5846?w=200&q=80"
-  },
-  {
-    id: "fruit_juice",
-    name: "Artisanal fruit juice",
-    nameFr: "Jus de fruits artisanal",
-    price: 2.0,
-    category: "drinks",
-    image: "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200&q=80"
-  },
-  // Night menu
-  {
-    id: "night_duck",
-    name: "Duck breast",
-    nameFr: "Magret de canard",
-    price: 17.5,
-    category: "night",
-    image: "https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=200&q=80"
-  },
-  {
-    id: "night_burger",
-    name: "Pistachio burger",
-    nameFr: "Burger à la pistache",
-    price: 15.5,
-    category: "night",
-    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&q=80"
-  }
-];
-
 export default function RoomServicePage() {
   const locale = useLocale();
-  const t = useTranslations();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.roomService;
+  const common = content?.common;
+
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [activeCategory, setActiveCategory] = useState("breakfast");
+  const [activeCategory, setActiveCategory] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
@@ -185,10 +66,21 @@ export default function RoomServicePage() {
     [tickets]
   );
 
-  const filteredItems = useMemo(
-    () => menuItems.filter((item) => item.category === activeCategory),
-    [activeCategory]
-  );
+  useEffect(() => {
+    setSession(getDemoSession());
+  }, []);
+
+  useEffect(() => {
+    if (!page?.categories?.length) return;
+    if (!activeCategory || !page.categories.some((category) => category.id === activeCategory)) {
+      setActiveCategory(page.categories[0].id);
+    }
+  }, [page?.categories, activeCategory]);
+
+  const filteredItems = useMemo(() => {
+    if (!page) return [];
+    return page.menuItems.filter((item) => item.category === activeCategory);
+  }, [activeCategory, page]);
 
   const cartTotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -199,10 +91,6 @@ export default function RoomServicePage() {
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
     [cart]
   );
-
-  useEffect(() => {
-    setSession(getDemoSession());
-  }, []);
 
   async function loadTickets(activeSession = session) {
     if (!activeSession) return;
@@ -247,7 +135,6 @@ export default function RoomServicePage() {
     onMessage: handleRealtimeUpdate
   });
 
-  // Cart functions
   function addToCart(item: MenuItem) {
     setCart((current) => {
       const existing = current.find((i) => i.id === item.id);
@@ -272,15 +159,14 @@ export default function RoomServicePage() {
     return cart.find((i) => i.id === itemId)?.quantity ?? 0;
   }
 
-  // Submit order
   async function submitOrder() {
-    if (!session || cart.length === 0 || isOrdering) return;
+    if (!session || !page || cart.length === 0 || isOrdering) return;
 
     setIsOrdering(true);
     setError(null);
 
     try {
-      const orderSummary = cart.map((item) => `${item.quantity}x ${locale === "fr" ? item.nameFr : item.name}`).join(", ");
+      const orderSummary = cart.map((item) => `${item.quantity}x ${item.name}`).join(", ");
 
       const response = await fetch(new URL("/api/v1/services/request", apiBaseUrl).toString(), {
         method: "POST",
@@ -290,7 +176,7 @@ export default function RoomServicePage() {
           stayId: session.stayId,
           roomNumber: session.roomNumber,
           department: "room_service",
-          title: `Commande: ${orderSummary.slice(0, 50)}`,
+          title: `${page.orderTitlePrefix}: ${orderSummary.slice(0, 50)}`,
           payload: {
             items: cart.map((item) => ({
               id: item.id,
@@ -304,59 +190,65 @@ export default function RoomServicePage() {
       });
 
       if (!response.ok) {
-        setError(t("roomServicePage.errors.couldNotPlaceOrder"));
+        setError(page.errors.couldNotPlaceOrder);
         return;
       }
 
       setCart([]);
       await loadTickets(session);
     } catch {
-      setError(t("roomServicePage.errors.serviceUnavailable"));
+      setError(page.errors.serviceUnavailable);
     } finally {
       setIsOrdering(false);
     }
+  }
+
+  if (!page || !common) {
+    return <div className="min-h-screen bg-white" />;
   }
 
   if (!session) {
     return (
       <div className="min-h-screen bg-white">
         <div className="flex items-center justify-between px-4 py-4">
-          <Link href={withLocale(locale, "/services")} className="-ml-2 p-2">
+          <AppLink href={withLocale(locale, "/services")} className="-ml-2 p-2">
             <ChevronLeft className="h-6 w-6 text-gray-900" />
-          </Link>
+          </AppLink>
           <div className="text-center">
-            <p className="font-medium text-gray-900">{t("roomServicePage.title")}</p>
+            <p className="font-medium text-gray-900">{page.title}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">{t("common.signInToAccessRoomService")}</p>
-          <Link
+          <p className="text-gray-500">{common.signInToAccessRoomService}</p>
+          <AppLink
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {t("common.startCheckIn")}
-          </Link>
+            {common.startCheckIn}
+          </AppLink>
         </div>
       </div>
     );
   }
 
+  const activeCategoryLabel = page.categories.find((category) => category.id === activeCategory)?.label ?? "";
+
   return (
     <div className="flex min-h-screen flex-col bg-white pb-24">
       {/* Hero Header */}
       <div className="relative h-48 flex-shrink-0">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${HERO_IMAGE})` }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${page.heroImage})` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/60" />
 
         {/* Topbar */}
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 py-4">
-          <Link
+          <AppLink
             href={withLocale(locale, "/services")}
             className="-ml-2 rounded-full bg-white/10 p-2 backdrop-blur-sm"
           >
             <ChevronLeft className="h-5 w-5 text-white" />
-          </Link>
+          </AppLink>
 
           {/* Order button */}
           {cartCount > 0 && (
@@ -366,7 +258,7 @@ export default function RoomServicePage() {
               className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-lg"
             >
               <ShoppingCart className="h-4 w-4" />
-              <span>{t("roomServicePage.orderButton")}</span>
+              <span>{page.orderButton}</span>
               <span className="rounded-full bg-gray-900 px-2 py-0.5 text-xs text-white">{cartCount}</span>
             </button>
           )}
@@ -376,9 +268,7 @@ export default function RoomServicePage() {
 
         {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">
-            {t("roomServicePage.title")}
-          </h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{page.title}</h1>
         </div>
       </div>
 
@@ -394,26 +284,26 @@ export default function RoomServicePage() {
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">{t("common.availabilityCard.currentlyAvailableTo")}</p>
-              <p className="text-sm text-gray-500">{t("common.availabilityCard.chat")}</p>
+              <p className="font-medium text-gray-900">{common.availabilityCard.currentlyAvailableTo}</p>
+              <p className="text-sm text-gray-500">{common.availabilityCard.chat}</p>
             </div>
 
-            <Link
+            <AppLink
               href={withLocale(locale, "/messages?department=room-service")}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"
             >
               <MessageSquare className="h-5 w-5 text-gray-600" />
-            </Link>
+            </AppLink>
           </div>
 
           {/* Hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{t("common.availabilityCard.availability")}</span>
+            <span className="text-gray-500">{common.availabilityCard.availability}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{t("common.availabilityCard.from")}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{t("common.availabilityCard.to")}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
+              <span className="text-gray-400">{common.availabilityCard.from}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingFrom}</span>
+              <span className="text-gray-400">{common.availabilityCard.to}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingTo}</span>
             </div>
           </div>
         </div>
@@ -423,7 +313,7 @@ export default function RoomServicePage() {
       {roomServiceTickets.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">{t("roomServicePage.activeOrders")}</p>
+            <p className="text-sm font-medium text-gray-500">{page.activeOrders}</p>
             <button
               onClick={() => loadTickets()}
               disabled={isLoading}
@@ -439,10 +329,10 @@ export default function RoomServicePage() {
                 <p className="text-sm font-medium text-gray-900">{ticket.title}</p>
                 <p className="mt-1 text-xs text-amber-700">
                   {ticket.status === "in_progress"
-                    ? t("roomServicePage.ticketStatus.inProgress")
+                    ? page.ticketStatus.inProgress
                     : ticket.status === "resolved"
-                      ? t("roomServicePage.ticketStatus.resolved")
-                      : t("roomServicePage.ticketStatus.pending")}
+                      ? page.ticketStatus.resolved
+                      : page.ticketStatus.pending}
                 </p>
               </div>
             ))}
@@ -453,18 +343,18 @@ export default function RoomServicePage() {
       {/* Category Tabs */}
       <div className="sticky top-0 z-20 border-b border-gray-100 bg-white">
         <div className="flex gap-1 overflow-x-auto px-4 py-3 scrollbar-hide">
-          {categories.map((cat) => (
+          {page.categories.map((category) => (
             <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
+              key={category.id}
+              onClick={() => setActiveCategory(category.id)}
               className={cn(
                 "whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition",
-                activeCategory === cat.id
+                activeCategory === category.id
                   ? "bg-gray-900 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
             >
-              {t(cat.labelKey)}
+              {category.label}
             </button>
           ))}
         </div>
@@ -472,11 +362,7 @@ export default function RoomServicePage() {
 
       {/* Menu Items */}
       <div className="flex-1 px-4 py-4">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">
-          {t(
-            categories.find((c) => c.id === activeCategory)?.labelKey ?? "roomServicePage.categories.breakfast"
-          )}
-        </h2>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">{activeCategoryLabel}</h2>
 
         {/* Items with images (horizontal scroll) */}
         {filteredItems.some((item) => item.image) && (
@@ -489,7 +375,7 @@ export default function RoomServicePage() {
                   <div className="relative h-20 w-full overflow-hidden rounded-xl bg-gray-100">
                     <img
                       src={item.image!}
-                      alt={locale === "fr" ? item.nameFr : item.name}
+                      alt={item.name}
                       className="h-full w-full object-cover"
                     />
                   </div>
@@ -509,18 +395,14 @@ export default function RoomServicePage() {
                 className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3 shadow-sm"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900">
-                    {locale === "fr" ? item.nameFr : item.name}
-                  </p>
-                  {(item.description || item.descriptionFr) && (
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {locale === "fr" ? item.descriptionFr : item.description}
-                    </p>
-                  )}
+                  <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                  {item.description && <p className="mt-0.5 text-xs text-gray-500">{item.description}</p>}
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-900">{item.price.toFixed(2)} €</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {item.price.toFixed(2)} {common.currencySymbol}
+                  </span>
 
                   {quantity > 0 ? (
                     <div className="flex items-center gap-2">
@@ -560,17 +442,17 @@ export default function RoomServicePage() {
         <div className="fixed bottom-0 left-0 right-0 border-t bg-white p-4 shadow-lg">
           <div className="mx-auto max-w-md">
             <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="text-gray-500">{t("roomServicePage.itemCount", { count: cartCount })}</span>
-              <span className="font-semibold text-gray-900">{cartTotal.toFixed(2)} €</span>
+              <span className="text-gray-500">{interpolateTemplate(page.itemCount, { count: cartCount })}</span>
+              <span className="font-semibold text-gray-900">
+                {cartTotal.toFixed(2)} {common.currencySymbol}
+              </span>
             </div>
             <button
               onClick={submitOrder}
               disabled={isOrdering}
               className="w-full rounded-full bg-gray-900 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
             >
-              {isOrdering
-                ? t("roomServicePage.placingOrder")
-                : t("roomServicePage.placeOrder")}
+              {isOrdering ? page.placingOrder : page.placeOrder}
             </button>
           </div>
         </div>

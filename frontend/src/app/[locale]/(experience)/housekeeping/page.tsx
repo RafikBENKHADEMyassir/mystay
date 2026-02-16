@@ -1,26 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Leaf,
-  RefreshCw,
-  Bath,
-  Bed,
-  Sparkles,
-  MessageSquare
-} from "lucide-react";
+import { AppLink } from "@/components/ui/app-link";
+import { ChevronLeft, ChevronRight, Leaf, RefreshCw, Sparkles, MessageSquare } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { getDemoSession } from "@/lib/demo-session";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
 import { cn } from "@/lib/utils";
-
-const HERO_IMAGE = "/images/services/housekeeping_background.png";
 
 type Ticket = {
   id: string;
@@ -36,17 +26,14 @@ type Ticket = {
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-// Quick request items with icons
-const quickItems = [
-  { id: "shampoo", labelFr: "Shampoing", labelEn: "Shampoo", icon: "🧴" },
-  { id: "pillows", labelFr: "Oreillers", labelEn: "Pillows", icon: "🛏️" },
-  { id: "toilet_paper", labelFr: "Papier toilette", labelEn: "Toilet paper", icon: "🧻" },
-  { id: "towels", labelFr: "Serviettes", labelEn: "Towels", icon: "🛁" }
-] as const;
-
 export default function HousekeepingPage() {
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.housekeeping;
+  const common = content?.common;
+  const threadStrings = content?.pages.messages.thread;
+
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [cleaningEnabled, setCleaningEnabled] = useState(true);
   const [draft, setDraft] = useState("");
@@ -82,7 +69,9 @@ export default function HousekeepingPage() {
         setTickets(Array.isArray(data.items) ? data.items : []);
       }
     } catch {
-      setError(locale === "fr" ? "Service indisponible." : "Service unavailable.");
+      if (page) {
+        setError(page.errors.serviceUnavailable);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +83,6 @@ export default function HousekeepingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.stayId]);
 
-  // Real-time updates
   const handleRealtimeUpdate = useCallback(() => {
     void loadTickets(session);
   }, [session]);
@@ -107,11 +95,10 @@ export default function HousekeepingPage() {
     onMessage: handleRealtimeUpdate
   });
 
-  // Submit quick item request
   async function submitQuickRequest(itemId: string) {
-    if (!session || isSending) return;
+    if (!session || !page || isSending) return;
 
-    const item = quickItems.find((i) => i.id === itemId);
+    const item = page.quickItems.find((entry) => entry.id === itemId);
     if (!item) return;
 
     setIsSending(true);
@@ -126,27 +113,26 @@ export default function HousekeepingPage() {
           stayId: session.stayId,
           roomNumber: session.roomNumber,
           department: "housekeeping",
-          title: locale === "fr" ? item.labelFr : item.labelEn,
+          title: item.label,
           payload: { itemId, quantity: 1 }
         })
       });
 
       if (!response.ok) {
-        setError(locale === "fr" ? "Impossible d'envoyer la demande." : "Could not submit request.");
+        setError(page.errors.submitRequest);
         return;
       }
 
       await loadTickets(session);
     } catch {
-      setError(locale === "fr" ? "Service indisponible." : "Service unavailable.");
+      setError(page.errors.serviceUnavailable);
     } finally {
       setIsSending(false);
     }
   }
 
-  // Submit free-text message
   async function sendMessage() {
-    if (!session || !draft.trim() || isSending) return;
+    if (!session || !page || !draft.trim() || isSending) return;
 
     setIsSending(true);
     setError(null);
@@ -166,41 +152,43 @@ export default function HousekeepingPage() {
       });
 
       if (!response.ok) {
-        setError(locale === "fr" ? "Impossible d'envoyer le message." : "Could not send message.");
+        setError(page.errors.sendMessage);
         return;
       }
 
       setDraft("");
       await loadTickets(session);
     } catch {
-      setError(locale === "fr" ? "Service indisponible." : "Service unavailable.");
+      setError(page.errors.serviceUnavailable);
     } finally {
       setIsSending(false);
     }
+  }
+
+  if (!page || !common) {
+    return <div className="min-h-screen bg-white" />;
   }
 
   if (!session) {
     return (
       <div className="min-h-screen bg-white">
         <div className="flex items-center justify-between px-4 py-4">
-          <Link href={withLocale(locale, "/services")} className="-ml-2 p-2">
+          <AppLink href={withLocale(locale, "/services")} className="-ml-2 p-2">
             <ChevronLeft className="h-6 w-6 text-gray-900" />
-          </Link>
+          </AppLink>
           <div className="text-center">
-            <p className="font-medium text-gray-900">Housekeeping</p>
+            <p className="font-medium text-gray-900">{page.title}</p>
           </div>
           <Leaf className="h-6 w-6 text-gray-300" />
         </div>
         <div className="px-4 py-12 text-center">
-          <p className="text-gray-500">
-            {locale === "fr" ? "Connectez-vous pour accéder aux services." : "Sign in to access services."}
-          </p>
-          <Link
+          <p className="text-gray-500">{page.signInToAccess}</p>
+          <AppLink
             href={withLocale(locale, "/reception/check-in")}
             className="mt-4 inline-block rounded-full bg-gray-900 px-6 py-3 text-sm font-medium text-white"
           >
-            {locale === "fr" ? "Commencer le check-in" : "Start check-in"}
-          </Link>
+            {common.startCheckIn}
+          </AppLink>
         </div>
       </div>
     );
@@ -208,29 +196,25 @@ export default function HousekeepingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      {/* Hero Header */}
       <div className="relative h-48 flex-shrink-0">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${HERO_IMAGE})` }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${page.heroImage})` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/60" />
 
-        {/* Topbar */}
         <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 py-4">
-          <Link
+          <AppLink
             href={withLocale(locale, "/services")}
             className="-ml-2 rounded-full bg-white/10 p-2 backdrop-blur-sm"
           >
             <ChevronLeft className="h-5 w-5 text-white" />
-          </Link>
+          </AppLink>
           <Leaf className="h-6 w-6 text-white/80" />
         </div>
 
-        {/* Title */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-6">
-          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">Housekeeping</h1>
+          <h1 className="font-serif text-3xl font-light uppercase tracking-wide text-white">{page.title}</h1>
         </div>
       </div>
 
-      {/* Staff Availability Card */}
       <div className="relative z-10 -mt-6 px-4">
         <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-lg">
           <div className="flex items-center gap-3">
@@ -242,42 +226,36 @@ export default function HousekeepingPage() {
             </div>
 
             <div className="flex-1">
-              <p className="font-medium text-gray-900">
-                {locale === "fr" ? "Actuellement disponible pour" : "Currently available to"}
-              </p>
-              <p className="text-sm text-gray-500">{locale === "fr" ? "échanger." : "chat."}</p>
+              <p className="font-medium text-gray-900">{common.availabilityCard.currentlyAvailableTo}</p>
+              <p className="text-sm text-gray-500">{common.availabilityCard.chat}</p>
             </div>
 
-	            <Link
-	              href={withLocale(locale, "/messages?department=housekeeping")}
-	              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"
-	            >
-	              <MessageSquare className="h-5 w-5 text-gray-600" />
-	            </Link>
+            <AppLink
+              href={withLocale(locale, "/messages?department=housekeeping")}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+            >
+              <MessageSquare className="h-5 w-5 text-gray-600" />
+            </AppLink>
           </div>
 
-          {/* Availability hours */}
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-500">{locale === "fr" ? "Disponibilités" : "Availability"}</span>
+            <span className="text-gray-500">{common.availabilityCard.availability}</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">{locale === "fr" ? "De" : "From"}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">6h</span>
-              <span className="text-gray-400">{locale === "fr" ? "à" : "to"}</span>
-              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">23h</span>
+              <span className="text-gray-400">{common.availabilityCard.from}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingFrom}</span>
+              <span className="text-gray-400">{common.availabilityCard.to}</span>
+              <span className="rounded bg-gray-100 px-2 py-1 text-gray-700">{common.availabilityCard.openingTo}</span>
               <ChevronRight className="h-4 w-4 rotate-90 text-gray-300" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Requests */}
       <div className="px-4 py-6">
-        <h2 className="mb-4 text-sm font-medium text-gray-500">
-          {locale === "fr" ? "Demandes rapides" : "Quick requests"}
-        </h2>
+        <h2 className="mb-4 text-sm font-medium text-gray-500">{page.quickRequestsTitle}</h2>
 
         <div className="grid grid-cols-2 gap-3">
-          {quickItems.map((item) => (
+          {page.quickItems.map((item) => (
             <button
               key={item.id}
               onClick={() => submitQuickRequest(item.id)}
@@ -285,22 +263,15 @@ export default function HousekeepingPage() {
               className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
             >
               <span className="text-2xl">{item.icon}</span>
-              <span className="text-sm text-gray-700">
-                {locale === "fr" ? item.labelFr : item.labelEn}
-              </span>
+              <span className="text-sm text-gray-700">{item.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Cleaning Preference Toggle */}
       <div className="border-t border-gray-100 px-4 py-6">
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-sm text-gray-700">
-            {locale === "fr"
-              ? "Souhaitez-vous que le housekeeping nettoie votre chambre durant votre séjour ?"
-              : "Would you like housekeeping to clean your room during your stay?"}
-          </p>
+          <p className="text-sm text-gray-700">{page.cleaningPrompt}</p>
 
           <div className="mt-4 flex gap-3">
             <button
@@ -312,7 +283,7 @@ export default function HousekeepingPage() {
                   : "border-gray-200 bg-gray-50 text-gray-500"
               )}
             >
-              {locale === "fr" ? "Oui" : "Yes"}
+              {page.yesLabel}
             </button>
             <button
               onClick={() => setCleaningEnabled(false)}
@@ -323,19 +294,16 @@ export default function HousekeepingPage() {
                   : "border-gray-200 bg-gray-50 text-gray-500"
               )}
             >
-              {locale === "fr" ? "Non" : "No"}
+              {page.noLabel}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Active Requests */}
       {housekeepingTickets.length > 0 && (
         <div className="border-t border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-500">
-              {locale === "fr" ? "Demandes en cours" : "Active requests"}
-            </p>
+            <p className="text-sm font-medium text-gray-500">{page.activeRequests}</p>
             <button
               onClick={() => loadTickets()}
               disabled={isLoading}
@@ -362,16 +330,10 @@ export default function HousekeepingPage() {
                   )}
                 >
                   {ticket.status === "resolved"
-                    ? locale === "fr"
-                      ? "Terminé"
-                      : "Done"
+                    ? page.ticketStatus.resolved
                     : ticket.status === "in_progress"
-                      ? locale === "fr"
-                        ? "En cours"
-                        : "In progress"
-                      : locale === "fr"
-                        ? "En attente"
-                        : "Pending"}
+                      ? page.ticketStatus.inProgress
+                      : page.ticketStatus.pending}
                 </span>
               </div>
             ))}
@@ -381,15 +343,25 @@ export default function HousekeepingPage() {
 
       {error && <p className="px-4 text-center text-sm text-red-500">{error}</p>}
 
-      {/* Message Composer */}
-      <div className="mt-auto sticky bottom-0 border-t bg-white/90 backdrop-blur">
+      <div className="sticky bottom-0 mt-auto border-t bg-white/90 backdrop-blur">
         <div className="mx-auto max-w-md">
           <MessageComposer
             value={draft}
             onChange={setDraft}
             onSend={sendMessage}
             disabled={isSending}
-            placeholder={locale === "fr" ? "Demande spéciale..." : "Special request..."}
+            placeholder={page.composerPlaceholder}
+            labels={
+              threadStrings
+                ? {
+                    removeAttachmentAria: threadStrings.removeAttachmentAria,
+                    addAttachmentAria: threadStrings.addAttachmentAria,
+                    quickActionAria: threadStrings.quickActionAria,
+                    sendAria: threadStrings.sendAria,
+                    writePlaceholder: threadStrings.writePlaceholder
+                  }
+                : undefined
+            }
           />
         </div>
       </div>

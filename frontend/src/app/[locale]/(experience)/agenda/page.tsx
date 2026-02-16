@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { Bell, CalendarRange, ListChecks } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDemoSession } from "@/lib/demo-session";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 
 type EventItem = {
@@ -26,6 +28,9 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 export default function AgendaPage() {
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.agenda;
+
   const [events, setEvents] = useState<EventItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +40,7 @@ export default function AgendaPage() {
   }, []);
 
   async function loadEvents(activeSession = session) {
-    if (!activeSession) return;
+    if (!activeSession || !page) return;
     setIsLoading(true);
     setError(null);
 
@@ -48,45 +53,53 @@ export default function AgendaPage() {
         headers: { Authorization: `Bearer ${activeSession.guestToken}` }
       });
       if (!response.ok) {
-        setError("Could not load agenda.");
+        setError(page.errors.loadAgenda);
         return;
       }
 
       const data = (await response.json()) as { items?: EventItem[] };
       setEvents(Array.isArray(data.items) ? data.items : []);
     } catch {
-      setError("Backend unreachable. Start `npm run dev:backend` then refresh.");
+      setError(page.errors.backendUnreachable);
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !page) return;
     void loadEvents(session);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.stayId]);
+  }, [session?.stayId, page?.title]);
+
+  if (!page) {
+    return <div className="min-h-screen bg-background" />;
+  }
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Agenda"
-        description="Bookings, invites, and reminders synced from the backend DB."
+        title={page.title}
+        description={page.description}
         actions={
           session ? (
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{session.hotelName}</Badge>
-              {session.roomNumber ? <Badge variant="outline">Room {session.roomNumber}</Badge> : null}
+              {session.roomNumber ? (
+                <Badge variant="outline">
+                  {interpolateTemplate(page.roomLabel, { roomNumber: session.roomNumber })}
+                </Badge>
+              ) : null}
               <Button size="sm" variant="outline" onClick={() => loadEvents()} disabled={isLoading}>
-                {isLoading ? "Refreshing…" : "Refresh"}
-	              </Button>
-	              <Button size="sm" variant="outline" asChild>
-	                <Link href={withLocale(locale, "/messages?department=reception")}>Message staff</Link>
-	              </Button>
-	            </div>
-	          ) : (
+                {isLoading ? page.refreshing : page.refresh}
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <AppLink href={withLocale(locale, "/messages?department=reception")}>{page.messageStaff}</AppLink>
+              </Button>
+            </div>
+          ) : (
             <Button size="sm" asChild>
-              <Link href={withLocale(locale, "/reception/check-in")}>Start check-in</Link>
+              <AppLink href={withLocale(locale, "/reception/check-in")}>{page.startCheckIn}</AppLink>
             </Button>
           )
         }
@@ -97,17 +110,17 @@ export default function AgendaPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <CalendarRange className="h-4 w-4 text-primary" />
-              <CardTitle>Guest calendar</CardTitle>
-              <Badge variant="secondary">Cross-service</Badge>
+              <CardTitle>{page.guestCalendarTitle}</CardTitle>
+              <Badge variant="secondary">{page.guestCalendarBadge}</Badge>
             </div>
-            <CardDescription>Bookings from spa, restaurants, transfers, and housekeeping appear together.</CardDescription>
+            <CardDescription>{page.guestCalendarDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            {!session ? <p className="text-sm text-muted-foreground">Connect a stay to load your agenda.</p> : null}
-            {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
+            {!session ? <p className="text-sm text-muted-foreground">{page.connectStay}</p> : null}
+            {isLoading ? <p className="text-sm text-muted-foreground">{page.loading}</p> : null}
             {session && !isLoading && events.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No agenda items yet.</p>
+              <p className="text-sm text-muted-foreground">{page.noItems}</p>
             ) : null}
 
             <ul className="space-y-2">
@@ -130,20 +143,20 @@ export default function AgendaPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-            <CardDescription>Reminders and escalations.</CardDescription>
+            <CardTitle>{page.notifications.title}</CardTitle>
+            <CardDescription>{page.notifications.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2 text-foreground">
               <Bell className="h-4 w-4" />
-              <span>Pre-event alerts</span>
+              <span>{page.notifications.preEventTitle}</span>
             </div>
-            <p>Push reminders and SMS for critical events with confirmation buttons.</p>
+            <p>{page.notifications.preEventText}</p>
             <div className="flex items-center gap-2 text-foreground">
               <ListChecks className="h-4 w-4" />
-              <span>Service prep</span>
+              <span>{page.notifications.servicePrepTitle}</span>
             </div>
-            <p>Prompt departments with prep checklists tied to bookings.</p>
+            <p>{page.notifications.servicePrepText}</p>
           </CardContent>
         </Card>
       </div>

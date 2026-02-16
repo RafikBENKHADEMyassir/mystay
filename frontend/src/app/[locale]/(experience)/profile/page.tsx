@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { Bell, CreditCard, Download, IdCard, Languages, LogOut } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { clearDemoSession, getDemoSession } from "@/lib/demo-session";
+import { interpolateTemplate } from "@/lib/guest-content";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 
 type Invoice = {
@@ -36,6 +38,9 @@ function formatMoney(amountCents: number, currency: string) {
 export default function ProfilePage() {
   const locale = useLocale();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
+  const { content } = useGuestContent(locale, session?.hotelId);
+  const page = content?.pages.profile;
+
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +55,7 @@ export default function ProfilePage() {
   }, []);
 
   async function loadInvoices(activeSession = session) {
-    if (!activeSession) return;
+    if (!activeSession || !page) return;
     setIsLoading(true);
     setError(null);
 
@@ -63,24 +68,24 @@ export default function ProfilePage() {
         headers: { Authorization: `Bearer ${activeSession.guestToken}` }
       });
       if (!response.ok) {
-        setError("Could not load invoices.");
+        setError(page.errors.loadInvoices);
         return;
       }
 
       const data = (await response.json()) as { items?: Invoice[] };
       setInvoices(Array.isArray(data.items) ? data.items : []);
     } catch {
-      setError("Backend unreachable. Start `npm run dev:backend` then refresh.");
+      setError(page.errors.backendUnreachable);
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !page) return;
     void loadInvoices(session);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.stayId]);
+  }, [session?.stayId, page?.title]);
 
   async function handleLogout() {
     clearDemoSession();
@@ -88,26 +93,34 @@ export default function ProfilePage() {
     window.location.href = withLocale(locale, "/");
   }
 
+  if (!page) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Profile"
-        description="Identity, preferences, and stay history synced from the backend DB."
+        title={page.title}
+        description={page.description}
         actions={
           session ? (
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{session.hotelName}</Badge>
-              {session.roomNumber ? <Badge variant="outline">Room {session.roomNumber}</Badge> : null}
+              {session.roomNumber ? (
+                <Badge variant="outline">
+                  {interpolateTemplate(page.roomLabel, { roomNumber: session.roomNumber })}
+                </Badge>
+              ) : null}
               <Button size="sm" variant="outline" onClick={() => loadInvoices()} disabled={isLoading}>
-                {isLoading ? "Refreshing…" : "Refresh"}
+                {isLoading ? page.refreshing : page.refresh}
               </Button>
               <Button size="sm" asChild>
-                <Link href={withLocale(locale, "/reception/check-in")}>Change reservation</Link>
+                <AppLink href={withLocale(locale, "/reception/check-in")}>{page.changeReservation}</AppLink>
               </Button>
             </div>
           ) : (
             <Button size="sm" asChild>
-              <Link href={withLocale(locale, "/reception/check-in")}>Start check-in</Link>
+              <AppLink href={withLocale(locale, "/reception/check-in")}>{page.startCheckIn}</AppLink>
             </Button>
           )
         }
@@ -118,23 +131,25 @@ export default function ProfilePage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <IdCard className="h-4 w-4 text-primary" />
-              <CardTitle>Guest identity</CardTitle>
-              <Badge variant="secondary">Secure</Badge>
+              <CardTitle>{page.guestIdentityTitle}</CardTitle>
+              <Badge variant="secondary">{page.guestIdentityBadge}</Badge>
             </div>
-            <CardDescription>Documents, signatures, and stay history.</CardDescription>
+            <CardDescription>{page.guestIdentityDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            {!session ? <p className="text-sm text-muted-foreground">Connect a stay to see invoices.</p> : null}
-            {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
+            {!session ? <p className="text-sm text-muted-foreground">{page.connectStay}</p> : null}
+            {isLoading ? <p className="text-sm text-muted-foreground">{page.loading}</p> : null}
             {session && !isLoading && invoices.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No invoices yet.</p>
+              <p className="text-sm text-muted-foreground">{page.noInvoices}</p>
             ) : null}
 
             {session && invoices.length ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Loyalty points earned: <span className="font-semibold text-foreground">+{totalPoints} pts</span>
+                  <span className="font-semibold text-foreground">
+                    {interpolateTemplate(page.loyaltyPointsTemplate, { points: totalPoints })}
+                  </span>
                 </p>
                 <ul className="divide-y rounded-lg border bg-card">
                   {invoices.map((invoice) => (
@@ -142,7 +157,7 @@ export default function ProfilePage() {
                       <div>
                         <p className="font-semibold text-foreground">{invoice.title}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {invoice.department ?? "hotel"} · {invoice.issuedAt}
+                          {invoice.department ?? session.hotelName} · {invoice.issuedAt}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -154,7 +169,7 @@ export default function ProfilePage() {
                           size="icon"
                           variant="outline"
                           disabled={!invoice.downloadUrl}
-                          aria-label="Download invoice"
+                          aria-label={page.invoiceDownloadAria}
                         >
                           <Download className="h-4 w-4" />
                         </Button>
@@ -168,33 +183,33 @@ export default function ProfilePage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Payments & notifications</CardTitle>
-            <CardDescription>Control channels and saved cards.</CardDescription>
+            <CardTitle>{page.payments.title}</CardTitle>
+            <CardDescription>{page.payments.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2 text-foreground">
               <CreditCard className="h-4 w-4" />
-              <span>Payment methods</span>
+              <span>{page.payments.paymentMethodsTitle}</span>
             </div>
-            <p>On-file cards with tokenized storage, 3DS where required, and tipping options.</p>
+            <p>{page.payments.paymentMethodsText}</p>
             <div className="flex items-center gap-2 text-foreground">
               <Bell className="h-4 w-4" />
-              <span>Alerts</span>
+              <span>{page.payments.alertsTitle}</span>
             </div>
-            <p>Control push, SMS, and email preferences per department.</p>
+            <p>{page.payments.alertsText}</p>
             <div className="flex items-center gap-2 text-foreground">
               <Languages className="h-4 w-4" />
-              <span>Localization</span>
+              <span>{page.payments.localizationTitle}</span>
             </div>
-            <p>Language and currency toggles so communications stay consistent.</p>
+            <p>{page.payments.localizationText}</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex justify-center pt-6 pb-12">
+      <div className="flex justify-center pb-12 pt-6">
         <Button variant="destructive" onClick={handleLogout} className="w-full max-w-sm gap-2">
-            <LogOut className="h-4 w-4" />
-            {locale === "fr" ? "Se déconnecter" : "Log out"}
+          <LogOut className="h-4 w-4" />
+          {content?.navigation.logout ?? ""}
         </Button>
       </div>
     </div>

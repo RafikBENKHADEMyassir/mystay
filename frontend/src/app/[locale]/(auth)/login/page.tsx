@@ -1,57 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { AlertCircle } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
 import { setDemoSession } from "@/lib/demo-session";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
-
-function getLoginStrings(locale: string) {
-  if (locale === "fr") {
-    return {
-      topbarTitle: "Connexion",
-      title: "Connexion à votre espace",
-      subtitle: "Entrez vos identifiants",
-      email: "Adresse e-mail",
-      password: "Mot de passe",
-      help: "J’ai besoin d’aide",
-      signIn: "Je me connecte",
-      noAccount: "Vous n'avez pas de compte ?",
-      signUp: "Créer un compte",
-      required: "Ce champ est requis",
-      invalidCredentials: "Les identifiants sont incorrects.",
-      unexpectedError: "Une erreur inattendue s'est produite"
-    };
-  }
-
-  return {
-    topbarTitle: "Sign In",
-    title: "Sign in to your space",
-    subtitle: "Enter your credentials",
-    email: "Email address",
-    password: "Password",
-    help: "Need help?",
-    signIn: "Sign In",
-    noAccount: "Don't have an account?",
-    signUp: "Create account",
-    required: "This field is required",
-    invalidCredentials: "Invalid email or password",
-    unexpectedError: "An unexpected error occurred"
-  };
-}
-
-function requiredMessage(locale: string) {
-  return locale === "fr" ? "Ce champ est requis" : "This field is required";
-}
 
 export default function LoginPage() {
   const locale = useLocale();
   const router = useRouter();
+  const { content } = useGuestContent(locale);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -59,10 +23,12 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const strings = useMemo(() => getLoginStrings(locale), [locale]);
+  const strings = content?.pages.auth.login;
+  if (!strings) return <div className="min-h-screen bg-background" />;
+  const pageStrings = strings;
 
-  const emailError = submitted && !email.trim() ? requiredMessage(locale) : null;
-  const passwordError = submitted && !password ? requiredMessage(locale) : null;
+  const emailError = submitted && !email.trim() ? strings.required : null;
+  const passwordError = submitted && !password ? strings.required : null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,7 +55,7 @@ export default function LoginPage() {
         if (data.stay) {
           setDemoSession({
             hotelId: data.stay.hotelId,
-            hotelName: data.stay.hotelName ?? "Hotel",
+            hotelName: data.stay.hotelName ?? pageStrings.fallbackHotelName,
             stayId: data.stay.id,
             confirmationNumber: data.stay.confirmationNumber,
             guestToken: data.token, // Backend JWT token for API calls
@@ -111,13 +77,13 @@ export default function LoginPage() {
         }
       } else {
         if (data.error === "invalid_credentials") {
-          setError(strings.invalidCredentials);
+          setError(pageStrings.invalidCredentials);
         } else {
-          setError(data.error || strings.unexpectedError);
+          setError(pageStrings.unexpectedError);
         }
       }
     } catch {
-      setError(strings.unexpectedError);
+      setError(pageStrings.unexpectedError);
     } finally {
       setIsLoading(false);
     }
@@ -144,34 +110,48 @@ export default function LoginPage() {
           <section className="space-y-4 rounded-xl bg-muted/10 p-5 ring-1 ring-border">
             <p className="text-sm font-semibold text-foreground">{strings.subtitle}</p>
 
-            <LabeledField label={strings.email} value={email} onChange={setEmail} placeholder="exemple@email.com" type="email" error={emailError} />
-            <LabeledField label={strings.password} value={password} onChange={setPassword} type="password" placeholder="••••••••" error={passwordError} />
+            <LabeledField
+              label={strings.emailLabel}
+              value={email}
+              onChange={setEmail}
+              placeholder={strings.emailPlaceholder}
+              type="email"
+              error={emailError}
+            />
+            <LabeledField
+              label={strings.passwordLabel}
+              value={password}
+              onChange={setPassword}
+              type="password"
+              placeholder={strings.passwordPlaceholder}
+              error={passwordError}
+            />
           </section>
 
           <div className="mt-8 space-y-4">
-            <Link 
+            <AppLink 
               href={withLocale(locale, "/forgot-password")} 
               className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               {strings.help}
               <span className="text-muted-foreground/60">›</span>
-            </Link>
+            </AppLink>
 
             <button
               type="submit"
               disabled={isLoading}
               className="w-full rounded-full bg-foreground py-3.5 text-sm font-semibold text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
             >
-              {isLoading ? "..." : strings.signIn}
+              {isLoading ? strings.loadingLabel : strings.signIn}
             </button>
           </div>
         </form>
 
         <p className="pt-4 text-center text-sm text-muted-foreground">
           {strings.noAccount}{" "}
-          <Link href={withLocale(locale, "/signup")} className="font-semibold text-foreground underline">
+          <AppLink href={withLocale(locale, "/signup")} className="font-semibold text-foreground underline">
             {strings.signUp}
-          </Link>
+          </AppLink>
         </p>
       </main>
     </div>

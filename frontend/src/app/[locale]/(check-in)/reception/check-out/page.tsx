@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { ChevronRight, Heart, Loader2, Smile } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { useGuestOverview } from "@/lib/hooks/use-guest-overview";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
@@ -41,26 +42,6 @@ type CheckoutConfirmResult = {
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
-const mockCheckoutData: CheckoutPreview = {
-  stay: {
-    id: "S-MOCK",
-    confirmationNumber: "12345",
-    roomNumber: "227",
-    roomName: "Sea View Suite",
-    checkIn: "2025-11-03",
-    checkOut: "2025-11-12"
-  },
-  folio: {
-    reservationId: "R-MOCK",
-    currency: "EUR",
-    balanceCents: 26000,
-    charges: [
-      { id: "1", date: "2025-11-04", description: "Lit supplémentaire", category: "extra", amountCents: 20000 },
-      { id: "2", date: "2025-11-04", description: "Fleurs", category: "extra", amountCents: 6000 }
-    ]
-  }
-};
-
 function formatMoney(locale: string, amountCents: number, currency: string) {
   const languageTag = locale === "fr" ? "fr-FR" : "en-US";
   try {
@@ -80,6 +61,8 @@ function parseMoneyToCents(value: string) {
 export default function CheckoutPage() {
   const locale = useLocale();
   const { token, overview, isLoading: isSessionLoading } = useGuestOverview();
+  const { content } = useGuestContent(locale, overview?.hotel?.id);
+  const strings = content?.pages.checkOut;
 
   const [data, setData] = useState<CheckoutPreview | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,92 +77,29 @@ export default function CheckoutPage() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState<CheckoutConfirmResult | null>(null);
 
-  const strings = useMemo(() => {
-    if (locale === "fr") {
-      return {
-        title: "Check-out",
-        yourCheckout: "Votre check-out",
-        room: "Chambre n°",
-        checkIn: "Check-in",
-        checkOut: "Check-out",
-        details: "Détails",
-        noExtras: "Aucun extra.",
-        totalExtras: "Total des extras",
-        total: "Total",
-        tipTitle: "Laissez un pourboire au personnel de l’hôtel.",
-        percent5: "5 %",
-        percent10: "10 %",
-        percent15: "15 %",
-        customize: "Personnaliser",
-        enterAmount: "Entrez un montant",
-        back: "Retour",
-        validate: "Valider",
-        confirmPay: "Confirmer et payer",
-        thanks: "Le personnel de l’hôtel vous remercie pour votre pourboire de",
-        removeTip: "Je veux retirer mon pourboire",
-        viewInvoices: "Voir mes factures"
-      };
-    }
-    return {
-      title: "Check-out",
-      yourCheckout: "Your check-out",
-      room: "Room",
-      checkIn: "Check-in",
-      checkOut: "Check-out",
-      details: "Details",
-      noExtras: "No extras.",
-      totalExtras: "Total extras",
-      total: "Total",
-      tipTitle: "Leave a tip for hotel staff.",
-      percent5: "5%",
-      percent10: "10%",
-      percent15: "15%",
-      customize: "Custom",
-      enterAmount: "Enter an amount",
-      back: "Back",
-      validate: "Validate",
-      confirmPay: "Confirm and pay",
-      thanks: "Hotel staff thanks you for your tip of",
-      removeTip: "I want to remove my tip",
-      viewInvoices: "View invoices"
-    };
-  }, [locale]);
-
   useEffect(() => {
-    if (!token && !overview && process.env.NODE_ENV !== "development") return;
+    if (!strings) return;
+    if (!token || !overview) return;
 
     setIsLoading(true);
     setError(null);
 
-    // In dev, if backend is unreachable, fallback to mock data
-    const fetchPromise = (token && overview) 
-      ? fetch(new URL("/api/v1/guest/checkout", apiBaseUrl).toString(), {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      : Promise.reject("no_token");
-
-    fetchPromise
+    fetch(new URL("/api/v1/guest/checkout", apiBaseUrl).toString(), {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
+    })
       .then(async (res) => {
         if (!res.ok) {
-          const payload = (await res.json().catch(() => null)) as { error?: string } | null;
-          const code = typeof payload?.error === "string" ? payload.error : `checkout_failed_${res.status}`;
-          throw new Error(code);
+          throw new Error("checkout_failed");
         }
         return (await res.json()) as CheckoutPreview;
       })
       .then((payload) => setData(payload))
-      .catch((err: unknown) => {
-        if (process.env.NODE_ENV === "development") {
-          // Use mock data in development if fetch fails
-          setData(mockCheckoutData);
-        } else {
-          const message = err instanceof Error ? err.message : "checkout_failed";
-          setError(message);
-        }
+      .catch(() => {
+        setError(strings.errors.couldNotLoad);
       })
       .finally(() => setIsLoading(false));
-  }, [overview, token]);
+  }, [overview, strings, token]);
 
   const currency = data?.folio.currency ?? overview?.hotel.currency ?? "EUR";
   const balanceCents = data?.folio.balanceCents ?? 0;
@@ -248,20 +168,18 @@ export default function CheckoutPage() {
 
       const data = (await res.json().catch(() => null)) as CheckoutConfirmResult | { error?: string } | null;
       if (!res.ok) {
-        const code = typeof (data as { error?: string } | null)?.error === "string" ? (data as { error: string }).error : `checkout_failed_${res.status}`;
-        throw new Error(code);
+        throw new Error("checkout_confirm_failed");
       }
 
       setConfirmed(data as CheckoutConfirmResult);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "checkout_failed";
-      setError(message);
+    } catch {
+      setError(strings?.errors.couldNotConfirm ?? null);
     } finally {
       setIsConfirming(false);
     }
   }
 
-  if (isSessionLoading || !overview) {
+  if (isSessionLoading || !overview || !strings) {
     return (
       <div className="flex min-h-[80vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -284,13 +202,13 @@ export default function CheckoutPage() {
             </p>
           </div>
 
-          <Link
+          <AppLink
             href={withLocale(locale, "/profile")}
             className="flex items-center justify-between rounded-2xl bg-background px-4 py-4 text-sm font-semibold text-foreground shadow-sm ring-1 ring-border"
           >
             <span>{strings.viewInvoices}</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
+          </AppLink>
         </main>
       </div>
     );
@@ -314,26 +232,26 @@ export default function CheckoutPage() {
           <>
             <section className="rounded-2xl bg-muted/10 p-4 ring-1 ring-border">
               <p className="text-sm text-muted-foreground">
-                {strings.room}{" "}
+                {strings.roomLabel}{" "}
                 <span className="font-semibold text-foreground">{data.stay.roomNumber ?? "—"}</span>
               </p>
-              <h2 className="text-xl font-semibold">{data.stay.roomName || "Suite"}</h2>
+              <h2 className="text-xl font-semibold">{data.stay.roomName || strings.roomNameFallback}</h2>
               <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
                 <div>
-                  <p className="font-semibold text-foreground">{strings.checkIn}</p>
+                  <p className="font-semibold text-foreground">{strings.checkInLabel}</p>
                   <p className="text-base font-medium text-foreground">{new Date(data.stay.checkIn).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                  <p>9:00</p>
+                  <p>{strings.checkInTime}</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground">{strings.checkOut}</p>
+                  <p className="font-semibold text-foreground">{strings.checkOutLabel}</p>
                   <p className="text-base font-medium text-foreground">{new Date(data.stay.checkOut).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                  <p>16:00</p>
+                  <p>{strings.checkOutTime}</p>
                 </div>
               </div>
             </section>
 
             <section className="rounded-2xl bg-muted/10 p-4 ring-1 ring-border">
-              <p className="text-sm font-semibold text-foreground">{strings.details}</p>
+              <p className="text-sm font-semibold text-foreground">{strings.detailsTitle}</p>
               <div className="mt-3 space-y-2 rounded-xl bg-background px-4 py-3 shadow-sm ring-1 ring-border">
                 {displayCharges.length ? (
                   displayCharges.map((charge) => (
@@ -357,20 +275,20 @@ export default function CheckoutPage() {
                       <span>{formatMoney(locale, balanceCents, currency)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Pourboire</span>
+                      <span>{strings.tipLabel}</span>
                       <span>
                         {presetTipPercent && !customMode ? `${presetTipPercent} % = ` : ""}
                         {formatMoney(locale, tipSelection.tipCents, currency)}
                       </span>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-lg font-semibold text-foreground">
-                      <span>{strings.total}</span>
+                      <span>{strings.totalLabel}</span>
                       <span>{formatMoney(locale, totalCents, currency)}</span>
                     </div>
                    </>
                 ) : (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-muted-foreground">{strings.total}</span>
+                    <span className="text-sm font-semibold text-muted-foreground">{strings.totalLabel}</span>
                     <span className="text-lg font-semibold text-foreground">{formatMoney(locale, balanceCents, currency)}</span>
                   </div>
                 )}
@@ -525,8 +443,8 @@ export default function CheckoutPage() {
               className="mt-6 w-full rounded-md bg-black py-4 text-sm font-semibold text-white shadow-lg disabled:opacity-50"
             >
               {isConfirming
-                ? "..."
-                : `${strings.confirmPay}`}
+                ? strings.confirmingLabel
+                : strings.confirmPay}
             </button>
           </>
         ) : null}

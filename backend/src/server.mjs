@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { hashPassword, verifyPassword } from "./auth/password.mjs";
 import { signToken, verifyToken } from "./auth/token.mjs";
 import { query } from "./db/postgres.mjs";
+import { resolveGuestContent } from "./guest-content/default-content.mjs";
 import {
   getHotelById,
   getHotelIntegrations,
@@ -133,6 +134,23 @@ function normalizeDateLike(value) {
   if (!raw) return null;
   const date = raw.slice(0, 10);
   return parseIsoDate(date);
+}
+
+function isPgRelationMissing(error) {
+  if (!error || typeof error !== "object") return false;
+  const code = typeof error.code === "string" ? error.code : "";
+  return code === "42P01";
+}
+
+async function getGuestContentOverride(hotelId) {
+  try {
+    const rows = await query(`SELECT content FROM guest_content_configs WHERE hotel_id = $1 LIMIT 1`, [hotelId]);
+    const content = rows[0]?.content;
+    return content && typeof content === "object" && !Array.isArray(content) ? content : null;
+  } catch (error) {
+    if (isPgRelationMissing(error)) return null;
+    throw error;
+  }
 }
 
 function toAmountCents(amount) {
@@ -2767,7 +2785,8 @@ async function handleRequest(req, res) {
     segments[2] === "hotels" &&
     segments[3] &&
     segments[4] !== "room-images" &&
-    segments[4] !== "experiences"
+    segments[4] !== "experiences" &&
+    segments[4] !== "guest-content"
   ) {
     const hotelId = decodeURIComponent(segments[3]);
     const principal = requirePrincipal(req, res, url, ["staff"]);
@@ -8757,6 +8776,213 @@ async function handleRequest(req, res) {
     }
   }
 
+  // POST /api/v1/restaurant-bookings - Create restaurant booking (ticket + thread + event)
+  if (url.pathname === "/api/v1/restaurant-bookings" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    const restaurantName = typeof body.restaurantName === "string" ? body.restaurantName.trim() : "";
+    const date = typeof body.date === "string" ? body.date.trim() : "";
+    const time = typeof body.time === "string" ? body.time.trim() : "";
+    const guests = typeof body.guests === "number" ? body.guests : parseInt(body.guests, 10) || 0;
+    const specialRequests = typeof body.specialRequests === "string" ? body.specialRequests.trim() : "";
+    const experienceItemId = typeof body.experienceItemId === "string" ? body.experienceItemId.trim() : "";
+
+    if (!restaurantName || !date || !time || guests < 1) {
+      sendJson(res, 400, {
+        error: "missing_fields",
+        required: ["restaurantName", "date", "time", "guests (>= 1)"]
+      });
+      return;
+    }
+
+    const stayId = principal.stayId;
+    if (!stayId) {
+      sendJson(res, 400, { error: "missing_stay_context" });
+      return;
+    }
+
+    try {
+      // Resolve room number from stay
+      let roomNumber = "";
+      const stays = await query(
+        `SELECT room_number AS "roomNumber" FROM stays WHERE id = $1 AND hotel_id = $2 LIMIT 1`,
+        [stayId, principal.hotelId]
+      );
+      roomNumber = stays[0]?.roomNumber ?? "";
+
+      const guestName = getGuestDisplayName(principal) || "Guest";
+
+      // 1. Create ticket
+      const ticketId = `T-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const ticketTitle = `Reservation ${restaurantName} - ${date} ${time} - ${guests} guest${guests > 1 ? "s" : ""}`;
+      const ticketPayload = JSON.stringify({
+        type: "restaurant_booking",
+        restaurantName,
+        date,
+        time,
+        guests,
+        specialRequests,
+        experienceItemId,
+        guestName
+      });
+
+      await query(
+        `
+          INSERT INTO tickets (id, hotel_id, stay_id, room_number, department, status, title, payload, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, 'restaurants', 'pending', $5, $6::jsonb, NOW(), NOW())
+        `,
+        [ticketId, principal.hotelId, stayId, roomNumber, ticketTitle, ticketPayload]
+      );
+
+      try {
+        await emitRealtimeEvent({
+          type: "ticket_created",
+          hotelId: principal.hotelId,
+          ticketId,
+          stayId,
+          roomNumber,
+          department: "restaurants",
+          status: "pending"
+        });
+      } catch (err) {
+        console.error("realtime_emit_failed", err);
+      }
+
+      // 2. Create or find thread + send initial message
+      const initialMessage = specialRequests
+        ? `I would like to book a table at ${restaurantName} on ${date} at ${time} for ${guests} guest${guests > 1 ? "s" : ""}.\n\nSpecial requests: ${specialRequests}`
+        : `I would like to book a table at ${restaurantName} on ${date} at ${time} for ${guests} guest${guests > 1 ? "s" : ""}.`;
+
+      const existingThreads = await query(
+        `
+          SELECT id, department, status, assigned_staff_user_id AS "assignedStaffUserId"
+          FROM threads
+          WHERE hotel_id = $1 AND stay_id = $2 AND department = 'restaurants' AND status <> 'archived'
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `,
+        [principal.hotelId, stayId]
+      );
+
+      let threadId;
+      if (existingThreads[0]) {
+        threadId = existingThreads[0].id;
+      } else {
+        threadId = `TH-${randomUUID().slice(0, 8).toUpperCase()}`;
+        const threadTitle = `Restaurants - Room ${roomNumber || "—"}`;
+
+        let assigneeId = null;
+        try {
+          assigneeId = await pickDefaultThreadAssignee({
+            hotelId: principal.hotelId,
+            department: "restaurants"
+          });
+        } catch (err) {
+          console.error("thread_assign_default_failed", err);
+        }
+
+        await query(
+          `
+            INSERT INTO threads (id, hotel_id, stay_id, department, status, title, assigned_staff_user_id, created_at, updated_at)
+            VALUES ($1, $2, $3, 'restaurants', 'pending', $4, $5, NOW(), NOW())
+          `,
+          [threadId, principal.hotelId, stayId, threadTitle, assigneeId]
+        );
+      }
+
+      // Send the booking message
+      const messageId = `M-${randomUUID().slice(0, 8).toUpperCase()}`;
+      await query(
+        `
+          INSERT INTO messages (id, thread_id, sender_type, sender_name, body_text, payload, created_at)
+          VALUES ($1, $2, 'guest', $3, $4, $5::jsonb, NOW())
+        `,
+        [messageId, threadId, guestName, initialMessage, JSON.stringify({ type: "restaurant_booking", ticketId })]
+      );
+      await query(`UPDATE threads SET updated_at = NOW() WHERE id = $1`, [threadId]);
+
+      try {
+        await emitRealtimeEvent({
+          type: "message_created",
+          hotelId: principal.hotelId,
+          stayId,
+          threadId,
+          messageId,
+          department: "restaurants",
+          senderType: "guest"
+        });
+      } catch (err) {
+        console.error("realtime_emit_failed", err);
+      }
+
+      // 3. Create a pending event in the agenda
+      const eventId = `EV-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const startAt = `${date}T${time}:00`;
+      await query(
+        `
+          INSERT INTO events (id, hotel_id, stay_id, type, title, start_at, status, metadata, created_at, updated_at)
+          VALUES ($1, $2, $3, 'restaurant', $4, $5, 'pending', $6::jsonb, NOW(), NOW())
+        `,
+        [
+          eventId,
+          principal.hotelId,
+          stayId,
+          `${restaurantName} - ${guests} guest${guests > 1 ? "s" : ""}`,
+          startAt,
+          JSON.stringify({
+            department: "restaurants",
+            restaurant: restaurantName,
+            guests,
+            ticketId,
+            threadId,
+            specialRequests
+          })
+        ]
+      );
+
+      // Notify staff
+      try {
+        const recipients = await listStaffNotificationTargets({
+          hotelId: principal.hotelId,
+          department: "restaurants"
+        });
+        const subject = `Restaurant booking • ${restaurantName} • Room ${roomNumber || "—"}`;
+        const bodyText = `New restaurant booking request.\n\nRestaurant: ${restaurantName}\nDate: ${date}\nTime: ${time}\nGuests: ${guests}\nRoom: ${roomNumber || "—"}\nGuest: ${guestName}\n${specialRequests ? `Special requests: ${specialRequests}` : ""}`;
+
+        for (const recipient of recipients) {
+          await enqueueEmailOutbox({
+            hotelId: principal.hotelId,
+            toAddress: recipient.email,
+            subject,
+            bodyText,
+            payload: { type: "restaurant_booking", ticketId, threadId, eventId }
+          });
+        }
+      } catch (err) {
+        console.error("notification_enqueue_failed", err);
+      }
+
+      sendJson(res, 201, {
+        ticketId,
+        threadId,
+        eventId,
+        message: "Booking request submitted"
+      });
+      return;
+    } catch (error) {
+      console.error("restaurant_booking_failed", error);
+      sendJson(res, 500, { error: "booking_failed" });
+      return;
+    }
+  }
+
   if (url.pathname === "/api/v1/events" && req.method === "GET") {
     const where = [];
     const params = [];
@@ -9349,6 +9575,108 @@ async function handleRequest(req, res) {
   }
 
   // ==========================================================================
+  // GUEST CONTENT - Backend-driven UI/content payload
+  // ==========================================================================
+
+  // GET /api/v1/hotels/:hotelId/guest-content - locale-resolved content payload (public)
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "hotels" &&
+    segments[3] &&
+    segments[4] === "guest-content" &&
+    !segments[5] &&
+    req.method === "GET"
+  ) {
+    const hotelId = decodeURIComponent(segments[3]);
+    const localeRaw = typeof url.searchParams.get("locale") === "string" ? url.searchParams.get("locale").trim() : "";
+    const locale = localeRaw === "fr" || localeRaw === "es" ? localeRaw : "en";
+
+    try {
+      const override = await getGuestContentOverride(hotelId);
+      const content = resolveGuestContent(locale, override);
+      sendJson(res, 200, { hotelId, locale, content });
+      return;
+    } catch (error) {
+      console.error("guest_content_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // GET/PUT /api/v1/staff/guest-content - Manage backend guest content configuration
+  if (url.pathname === "/api/v1/staff/guest-content") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    if (req.method === "GET") {
+      try {
+        const rows = await query(
+          `
+            SELECT hotel_id AS "hotelId", content, created_at AS "createdAt", updated_at AS "updatedAt"
+            FROM guest_content_configs
+            WHERE hotel_id = $1
+            LIMIT 1
+          `,
+          [principal.hotelId]
+        );
+        const row = rows[0] ?? null;
+        sendJson(res, 200, {
+          hotelId: principal.hotelId,
+          content: row?.content ?? {},
+          createdAt: row?.createdAt ?? null,
+          updatedAt: row?.updatedAt ?? null
+        });
+        return;
+      } catch (error) {
+        if (isPgRelationMissing(error)) {
+          sendJson(res, 200, { hotelId: principal.hotelId, content: {}, createdAt: null, updatedAt: null });
+          return;
+        }
+        console.error("guest_content_staff_fetch_failed", error);
+        sendJson(res, 500, { error: "fetch_failed" });
+        return;
+      }
+    }
+
+    if (req.method === "PUT") {
+      if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+      const body = await readJson(req);
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        sendJson(res, 400, { error: "invalid_json" });
+        return;
+      }
+
+      const content = body.content;
+      if (!content || typeof content !== "object" || Array.isArray(content)) {
+        sendJson(res, 400, { error: "invalid_content" });
+        return;
+      }
+
+      try {
+        const rows = await query(
+          `
+            INSERT INTO guest_content_configs (hotel_id, content, created_at, updated_at)
+            VALUES ($1, $2::jsonb, NOW(), NOW())
+            ON CONFLICT (hotel_id)
+            DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
+            RETURNING hotel_id AS "hotelId", content, created_at AS "createdAt", updated_at AS "updatedAt"
+          `,
+          [principal.hotelId, JSON.stringify(content)]
+        );
+
+        sendJson(res, 200, rows[0]);
+        return;
+      } catch (error) {
+        console.error("guest_content_staff_save_failed", error);
+        sendJson(res, 500, { error: "save_failed" });
+        return;
+      }
+    }
+  }
+
+  // ==========================================================================
   // EXPERIENCE SECTIONS - Configurable home page carousels
   // ==========================================================================
 
@@ -9396,6 +9724,8 @@ async function handleRequest(req, res) {
               label,
               image_url AS "imageUrl",
               link_url AS "linkUrl",
+              type,
+              restaurant_config AS "restaurantConfig",
               sort_order AS "sortOrder",
               is_active AS "isActive"
             FROM experience_items
@@ -9458,6 +9788,8 @@ async function handleRequest(req, res) {
               label,
               image_url AS "imageUrl",
               link_url AS "linkUrl",
+              type,
+              restaurant_config AS "restaurantConfig",
               sort_order AS "sortOrder",
               is_active AS "isActive",
               created_at AS "createdAt",
@@ -9614,6 +9946,8 @@ async function handleRequest(req, res) {
     const label = normalizeText(body?.label);
     const imageUrl = normalizeText(body?.imageUrl);
     const linkUrl = normalizeText(body?.linkUrl);
+    const itemType = normalizeText(body?.type) || "default";
+    const restaurantConfig = body?.restaurantConfig && typeof body.restaurantConfig === "object" ? body.restaurantConfig : {};
 
     if (!sectionId || !label || !imageUrl) {
       sendJson(res, 400, { error: "missing_required_fields" });
@@ -9631,14 +9965,14 @@ async function handleRequest(req, res) {
 
       await query(
         `
-          INSERT INTO experience_items (id, section_id, hotel_id, label, image_url, link_url, sort_order, is_active)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+          INSERT INTO experience_items (id, section_id, hotel_id, label, image_url, link_url, type, restaurant_config, sort_order, is_active)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, true)
         `,
-        [id, sectionId, principal.hotelId, label, imageUrl, linkUrl, sortOrder]
+        [id, sectionId, principal.hotelId, label, imageUrl, linkUrl, itemType, JSON.stringify(restaurantConfig), sortOrder]
       );
 
       const rows = await query(
-        `SELECT id, section_id AS "sectionId", hotel_id AS "hotelId", label, image_url AS "imageUrl", link_url AS "linkUrl", sort_order AS "sortOrder", is_active AS "isActive" FROM experience_items WHERE id = $1`,
+        `SELECT id, section_id AS "sectionId", hotel_id AS "hotelId", label, image_url AS "imageUrl", link_url AS "linkUrl", type, restaurant_config AS "restaurantConfig", sort_order AS "sortOrder", is_active AS "isActive" FROM experience_items WHERE id = $1`,
         [id]
       );
 
@@ -9685,6 +10019,14 @@ async function handleRequest(req, res) {
       updates.push(`link_url = $${paramIndex++}`);
       params.push(normalizeText(body.linkUrl));
     }
+    if (body.type !== undefined) {
+      updates.push(`type = $${paramIndex++}`);
+      params.push(normalizeText(body.type) || "default");
+    }
+    if (body.restaurantConfig !== undefined) {
+      updates.push(`restaurant_config = $${paramIndex++}::jsonb`);
+      params.push(JSON.stringify(body.restaurantConfig && typeof body.restaurantConfig === "object" ? body.restaurantConfig : {}));
+    }
     if (body.sortOrder !== undefined) {
       updates.push(`sort_order = $${paramIndex++}`);
       params.push(parseInt(body.sortOrder, 10));
@@ -9710,7 +10052,7 @@ async function handleRequest(req, res) {
       );
 
       const rows = await query(
-        `SELECT id, section_id AS "sectionId", hotel_id AS "hotelId", label, image_url AS "imageUrl", link_url AS "linkUrl", sort_order AS "sortOrder", is_active AS "isActive" FROM experience_items WHERE id = $1`,
+        `SELECT id, section_id AS "sectionId", hotel_id AS "hotelId", label, image_url AS "imageUrl", link_url AS "linkUrl", type, restaurant_config AS "restaurantConfig", sort_order AS "sortOrder", is_active AS "isActive" FROM experience_items WHERE id = $1`,
         [itemId]
       );
 

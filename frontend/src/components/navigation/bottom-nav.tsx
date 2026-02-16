@@ -1,28 +1,20 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink } from "@/components/ui/app-link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
+import { getDemoSession } from "@/lib/demo-session";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import type { NavItem } from "@/lib/navigation";
 import { navIcon } from "@/lib/navigation";
 import { stripLocaleFromPathname, withLocale } from "@/lib/i18n/paths";
-import { useTranslations, type TranslationKey } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
-import { getDemoSession } from "@/lib/demo-session";
 
 type BottomNavProps = {
   items: NavItem[];
 };
-
-function navLabelKey(href: string): TranslationKey | null {
-  if (href === "/") return "navigation.home";
-  if (href === "/services") return "navigation.services";
-  if (href === "/messages") return "navigation.messages";
-  if (href === "/profile") return "navigation.profile";
-  return null;
-}
 
 type SessionResponse = {
   authenticated: boolean;
@@ -33,7 +25,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 
 export function BottomNav({ items }: BottomNavProps) {
   const locale = useLocale();
-  const t = useTranslations();
+  const { content } = useGuestContent(locale, getDemoSession()?.hotelId ?? null);
   const pathname = stripLocaleFromPathname(usePathname() ?? "/");
   const visible = items.slice(0, 5);
   const [guestToken, setGuestToken] = useState<string | null>(null);
@@ -135,24 +127,27 @@ export function BottomNav({ items }: BottomNavProps) {
     };
   }, [refreshUnread]);
 
-  // Show badge for Services (index 1 in the nav)
-  const servicesHref = visible[1]?.href ?? "/services";
-  const showServicesBadge = true; // Demo badge showing pending services
+  function navLabel(href: string, fallback: string) {
+    if (!content?.navigation) return fallback;
+    if (href === "/") return content.navigation.home;
+    if (href === "/services") return content.navigation.services;
+    if (href === "/messages") return content.navigation.messages;
+    if (href === "/profile") return content.navigation.profile;
+    return fallback;
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/50 bg-background pb-[env(safe-area-inset-bottom)] lg:hidden">
       <div className={cn("grid gap-0 px-2 py-3", visible.length === 4 ? "grid-cols-4" : "grid-cols-5")}>
-        {visible.map((item, index) => {
+        {visible.map((item) => {
           const Icon = navIcon(item.icon);
           const isActive = pathname === item.href;
-          const labelKey = navLabelKey(item.href);
-          const label = labelKey ? t(labelKey) : item.title;
+          const label = navLabel(item.href, item.title);
           const showUnread = item.href === messagesHref && unreadThreads > 0;
           const unreadLabel = unreadThreads > 99 ? "99+" : String(unreadThreads);
-          const showBadge = item.href === servicesHref && showServicesBadge && !isActive;
 
           return (
-            <Link
+            <AppLink
               key={item.href}
               href={withLocale(locale, item.href)}
               className={cn(
@@ -168,15 +163,10 @@ export function BottomNav({ items }: BottomNavProps) {
                     {unreadLabel}
                   </span>
                 ) : null}
-                {showBadge && !showUnread ? (
-                  <span className="absolute -right-2.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground px-1 text-[9px] font-bold text-background">
-                    2
-                  </span>
-                ) : null}
               </span>
               <span className={cn("leading-none", isActive && "font-semibold")}>{label}</span>
               {isActive && <span className="h-[2px] w-4 rounded-full bg-foreground" />}
-            </Link>
+            </AppLink>
           );
         })}
       </div>

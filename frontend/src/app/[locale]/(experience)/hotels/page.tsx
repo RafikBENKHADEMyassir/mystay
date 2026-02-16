@@ -1,6 +1,7 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapPin, Star, Wifi, Utensils, Dumbbell, Waves, Search, Building2 } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -9,102 +10,61 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/components/providers/locale-provider";
-import { getHotelsStrings } from "@/lib/i18n/hotels";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 
-type Hotel = {
+type PublicHotel = {
   id: string;
   name: string;
-  location: string;
-  description: string;
-  rating: number;
-  reviewCount: number;
-  imageUrl: string;
-  amenities: string[];
-  priceRange: string;
-  featured: boolean;
+  description: string | null;
+  logoUrl: string | null;
+  coverImageUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  city: string | null;
+  country: string | null;
+  starRating: number | null;
+  amenities: string[] | null;
+  createdAt: string;
 };
-
-// Mock hotels data - would come from API in production
-const mockHotels: Hotel[] = [
-  {
-    id: "hotel-paris",
-    name: "Grand Hotel MySTAY Paris",
-    location: "Paris, France",
-    description: "Luxury hotel in the heart of Paris with stunning Eiffel Tower views",
-    rating: 4.8,
-    reviewCount: 1240,
-    imageUrl: "/placeholder-hotel-1.jpg",
-    amenities: ["wifi", "restaurant", "gym", "spa"],
-    priceRange: "$$$",
-    featured: true
-  },
-  {
-    id: "hotel-maldives",
-    name: "MySTAY Beach Resort",
-    location: "Maldives",
-    description: "Exclusive beachfront resort with overwater villas and world-class service",
-    rating: 4.9,
-    reviewCount: 856,
-    imageUrl: "/placeholder-hotel-2.jpg",
-    amenities: ["wifi", "restaurant", "gym", "spa", "pool"],
-    priceRange: "$$$$",
-    featured: true
-  },
-  {
-    id: "hotel-nyc",
-    name: "MySTAY City Center",
-    location: "New York, USA",
-    description: "Modern urban hotel perfect for business and leisure travelers",
-    rating: 4.6,
-    reviewCount: 2100,
-    imageUrl: "/placeholder-hotel-3.jpg",
-    amenities: ["wifi", "restaurant", "gym"],
-    priceRange: "$$",
-    featured: false
-  },
-  {
-    id: "hotel-alps",
-    name: "MySTAY Mountain Lodge",
-    location: "Swiss Alps, Switzerland",
-    description: "Cozy alpine retreat with panoramic mountain views and ski access",
-    rating: 4.7,
-    reviewCount: 680,
-    imageUrl: "/placeholder-hotel-4.jpg",
-    amenities: ["wifi", "restaurant", "spa"],
-    priceRange: "$$$",
-    featured: false
-  },
-  {
-    id: "hotel-tokyo",
-    name: "MySTAY Tokyo Tower",
-    location: "Tokyo, Japan",
-    description: "Contemporary hotel with stunning city views and traditional Japanese hospitality",
-    rating: 4.7,
-    reviewCount: 1890,
-    imageUrl: "/placeholder-hotel-5.jpg",
-    amenities: ["wifi", "restaurant", "gym", "spa"],
-    priceRange: "$$$",
-    featured: false
-  },
-  {
-    id: "hotel-dubai",
-    name: "MySTAY Marina Dubai",
-    location: "Dubai, UAE",
-    description: "Ultra-luxury waterfront hotel with world-class amenities and service",
-    rating: 4.9,
-    reviewCount: 2340,
-    imageUrl: "/placeholder-hotel-6.jpg",
-    amenities: ["wifi", "restaurant", "gym", "spa", "pool"],
-    priceRange: "$$$$",
-    featured: false
-  }
-];
 
 export default function HotelsPage() {
   const locale = useLocale();
-  const t = getHotelsStrings(locale);
+  const { content } = useGuestContent(locale, null);
+  const page = content?.pages.hotels;
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [hotels] = useState<Hotel[]>(mockHotels);
+  const [hotels, setHotels] = useState<PublicHotel[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadHotels() {
+      setIsLoading(true);
+      try {
+        const response = await fetch("/api/hotels/public", { cache: "no-store" });
+        if (!response.ok) {
+          if (!cancelled) setHotels([]);
+          return;
+        }
+
+        const data = (await response.json()) as { items?: PublicHotel[] };
+        if (!cancelled) {
+          setHotels(Array.isArray(data.items) ? data.items : []);
+        }
+      } catch {
+        if (!cancelled) setHotels([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void loadHotels();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const amenityIcons: Record<string, React.ReactNode> = {
     wifi: <Wifi className="h-4 w-4" />,
@@ -114,25 +74,35 @@ export default function HotelsPage() {
     pool: <Waves className="h-4 w-4" />
   };
 
-  const filteredHotels = hotels.filter(
-    (hotel) =>
-      hotel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      hotel.location.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredHotels = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return hotels;
+    return hotels.filter((hotel) => {
+      const name = (hotel.name ?? "").toLowerCase();
+      const city = (hotel.city ?? "").toLowerCase();
+      const country = (hotel.country ?? "").toLowerCase();
+      return name.includes(query) || city.includes(query) || country.includes(query);
+    });
+  }, [hotels, searchQuery]);
 
-  const featuredHotels = filteredHotels.filter((h) => h.featured);
-  const otherHotels = filteredHotels.filter((h) => !h.featured);
+  const featuredCount = Math.max(0, Number(page?.featuredCount ?? 0));
+  const featuredHotels = filteredHotels.slice(0, featuredCount);
+  const otherHotels = filteredHotels.slice(featuredCount);
+
+  if (!page) {
+    return <div className="min-h-screen bg-background" />;
+  }
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title={t.pageTitle}
-        description={t.pageDescription}
+        title={page.title}
+        description={page.description}
         actions={
           <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder={t.searchPlaceholder}
+              placeholder={page.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -141,57 +111,62 @@ export default function HotelsPage() {
         }
       />
 
-      {/* Featured Hotels */}
+      {isLoading ? (
+        <Card>
+          <CardContent className="py-8 text-sm text-muted-foreground">{page.searchPlaceholder}</CardContent>
+        </Card>
+      ) : null}
+
       {featuredHotels.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Star className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">{t.featuredSection}</h2>
+            <h2 className="text-lg font-semibold">{page.featuredSection}</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {featuredHotels.map((hotel) => (
               <Card key={hotel.id} className="overflow-hidden">
-                <div className="aspect-video relative bg-muted">
-                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                    <Building2 className="h-16 w-16" />
-                  </div>
-                  <Badge className="absolute top-3 right-3">
-                    {t.featured}
-                  </Badge>
+                <div className="relative aspect-video bg-muted">
+                  {hotel.coverImageUrl ? (
+                    <img src={hotel.coverImageUrl} alt={hotel.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                      <Building2 className="h-16 w-16" />
+                    </div>
+                  )}
+                  <Badge className="absolute right-3 top-3">{page.featuredBadge}</Badge>
                 </div>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle>{hotel.name}</CardTitle>
-                      <CardDescription className="flex items-center gap-1 mt-1">
+                      <CardDescription className="mt-1 flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
-                        {hotel.location}
+                        {[hotel.city, hotel.country].filter(Boolean).join(", ")}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Star className="h-4 w-4 fill-primary text-primary" />
-                      <span className="font-semibold">{hotel.rating}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({hotel.reviewCount})
-                      </span>
-                    </div>
+                    {hotel.starRating ? (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Star className="h-4 w-4 fill-primary text-primary" />
+                        <span className="font-semibold">{hotel.starRating}</span>
+                      </div>
+                    ) : null}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">{hotel.description}</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {hotel.amenities.map((amenity) => (
+                  {hotel.description ? <p className="text-sm text-muted-foreground">{hotel.description}</p> : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(hotel.amenities ?? []).map((amenity) => (
                       <Badge key={amenity} variant="outline" className="gap-1">
-                        {amenityIcons[amenity]}
-                        {t.amenities[amenity as keyof typeof t.amenities]}
+                        {amenityIcons[amenity] ?? <Waves className="h-4 w-4" />}
+                        {page.amenities[amenity as keyof typeof page.amenities] ?? amenity}
                       </Badge>
                     ))}
                   </div>
                 </CardContent>
-                <CardFooter className="flex items-center justify-between border-t pt-4">
-                  <span className="text-sm font-medium text-muted-foreground">{hotel.priceRange}</span>
-                  <Button size="sm">
-                    {t.viewDetails}
+                <CardFooter className="border-t pt-4">
+                  <Button size="sm" className="w-full">
+                    {page.viewDetails}
                   </Button>
                 </CardFooter>
               </Card>
@@ -200,42 +175,44 @@ export default function HotelsPage() {
         </div>
       )}
 
-      {/* Other Hotels */}
       {otherHotels.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">{t.allPropertiesSection}</h2>
+          <h2 className="text-lg font-semibold">{page.allPropertiesSection}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {otherHotels.map((hotel) => (
-              <Card key={hotel.id} className="overflow-hidden flex flex-col">
-                <div className="aspect-video relative bg-muted">
-                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                    <Building2 className="h-12 w-12" />
-                  </div>
+              <Card key={hotel.id} className="flex flex-col overflow-hidden">
+                <div className="relative aspect-video bg-muted">
+                  {hotel.coverImageUrl ? (
+                    <img src={hotel.coverImageUrl} alt={hotel.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                      <Building2 className="h-12 w-12" />
+                    </div>
+                  )}
                 </div>
                 <CardHeader className="flex-1">
                   <CardTitle className="text-base">{hotel.name}</CardTitle>
                   <CardDescription className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
-                    {hotel.location}
+                    {[hotel.city, hotel.country].filter(Boolean).join(", ")}
                   </CardDescription>
-                  <div className="flex items-center gap-1 mt-2">
-                    <Star className="h-3 w-3 fill-primary text-primary" />
-                    <span className="text-sm font-medium">{hotel.rating}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({hotel.reviewCount})
-                    </span>
-                  </div>
+                  {hotel.starRating ? (
+                    <div className="mt-2 flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-primary text-primary" />
+                      <span className="text-sm font-medium">{hotel.starRating}</span>
+                    </div>
+                  ) : null}
                 </CardHeader>
                 <CardFooter className="flex-col gap-3 border-t pt-4">
-                  <div className="flex items-center gap-2 flex-wrap w-full">
-                    {hotel.amenities.slice(0, 3).map((amenity) => (
+                  <div className="flex w-full flex-wrap items-center gap-2">
+                    {(hotel.amenities ?? []).slice(0, 3).map((amenity) => (
                       <div key={amenity} className="text-muted-foreground">
-                        {amenityIcons[amenity]}
+                        {amenityIcons[amenity] ?? <Waves className="h-4 w-4" />}
                       </div>
                     ))}
                   </div>
                   <Button className="w-full" variant="outline" size="sm">
-                    {t.viewDetails}
+                    {page.viewDetails}
                   </Button>
                 </CardFooter>
               </Card>
@@ -244,18 +221,15 @@ export default function HotelsPage() {
         </div>
       )}
 
-      {/* No results */}
-      {filteredHotels.length === 0 && (
+      {filteredHotels.length === 0 && !isLoading ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">{t.noResultsTitle}</h3>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              {t.noResultsDescription}
-            </p>
+            <MapPin className="mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="mb-2 text-lg font-medium">{page.noResultsTitle}</h3>
+            <p className="max-w-sm text-center text-sm text-muted-foreground">{page.noResultsDescription}</p>
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }

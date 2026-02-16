@@ -2,6 +2,9 @@
 
 import { useState, useCallback } from "react";
 import { Minus, Plus, Clock } from "lucide-react";
+import { useLocale } from "@/components/providers/locale-provider";
+import type { GuestContent } from "@/lib/guest-content";
+import { interpolateTemplate } from "@/lib/guest-content";
 
 export type FormFieldType = 
   | "quantity"
@@ -51,15 +54,18 @@ export type ServiceItem = {
 
 type ServiceRequestFormProps = {
   serviceItem: ServiceItem;
+  content: GuestContent["pages"]["services"]["requestForm"];
   onSubmit: (data: Record<string, unknown>) => Promise<void>;
   isSubmitting?: boolean;
 };
 
 export function ServiceRequestForm({
   serviceItem,
+  content,
   onSubmit,
   isSubmitting = false
 }: ServiceRequestFormProps) {
+  const locale = useLocale();
   const [formData, setFormData] = useState<Record<string, unknown>>(() => {
     const initial: Record<string, unknown> = {};
     serviceItem.formFields.forEach((field) => {
@@ -86,6 +92,15 @@ export function ServiceRequestForm({
     e.preventDefault();
     await onSubmit(formData);
   };
+
+  function formatMoney(amountCents: number, currency: string) {
+    const languageTag = locale === "fr" ? "fr-FR" : locale === "es" ? "es-ES" : "en-US";
+    try {
+      return new Intl.NumberFormat(languageTag, { style: "currency", currency }).format(amountCents / 100);
+    } catch {
+      return `${(amountCents / 100).toFixed(2)} ${currency}`;
+    }
+  }
 
   const renderField = (field: FormField) => {
     const value = formData[field.name];
@@ -273,7 +288,7 @@ export function ServiceRequestForm({
         serviceItem.formFields.map(renderField)
       ) : (
         <p className="text-center text-sm text-gray-500 py-4">
-          Aucune option supplémentaire requise. Cliquez sur Valider pour envoyer votre demande.
+          {content.noAdditionalOptions}
         </p>
       )}
 
@@ -282,12 +297,14 @@ export function ServiceRequestForm({
         {serviceItem.estimatedTimeMinutes && (
           <div className="flex items-center gap-1.5 bg-gray-50 rounded-full px-3 py-1.5">
             <Clock className="h-4 w-4" />
-            <span>~{serviceItem.estimatedTimeMinutes} min</span>
+            <span>
+              {interpolateTemplate(content.estimatedMinutesTemplate, { minutes: serviceItem.estimatedTimeMinutes })}
+            </span>
           </div>
         )}
         {serviceItem.priceCents !== null && serviceItem.priceCents > 0 && (
           <div className="bg-gray-50 rounded-full px-3 py-1.5 font-medium text-gray-700">
-            {(serviceItem.priceCents / 100).toFixed(0)},00 €
+            {formatMoney(serviceItem.priceCents, serviceItem.currency)}
           </div>
         )}
       </div>
@@ -298,7 +315,7 @@ export function ServiceRequestForm({
         disabled={isSubmitting}
         className="w-full rounded-full bg-gray-900 py-4 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
       >
-        {isSubmitting ? "Envoi en cours…" : "Valider"}
+        {isSubmitting ? content.submitting : content.submit}
       </button>
     </form>
   );

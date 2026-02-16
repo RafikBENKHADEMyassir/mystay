@@ -3,6 +3,9 @@
 
 import { BottomNav } from "@/components/navigation/bottom-nav";
 import { DesktopNav } from "@/components/navigation/desktop-nav";
+import { useLocale } from "@/components/providers/locale-provider";
+import { getDemoSession } from "@/lib/demo-session";
+import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { guestBottomNav, guestNav } from "@/lib/navigation";
 
 export default function ExperienceLayout({
@@ -10,19 +13,16 @@ export default function ExperienceLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Mock badges for demo - in production these would come from API/state
-  const badges: { [href: string]: number } = {
-    "/services": 2,
-    "/messages": 2,
-  };
+  const locale = useLocale();
+  const session = getDemoSession();
+  const { content } = useGuestContent(locale, session?.hotelId ?? null);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Desktop Sidebar - hidden on mobile, shown on lg+ */}
       <DesktopNav 
         items={guestNav} 
-        badges={badges}
-        hotelName="Four Seasons George V"
+        hotelName={session?.hotelName ?? ""}
       />
       
       {/* Main content area - full width on mobile, offset on desktop */}
@@ -32,7 +32,7 @@ export default function ExperienceLayout({
           <div className="flex-1" />
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
-              Welcome back
+              {content?.navigation.welcomeBack ?? ""}
             </span>
           </div>
         </div>

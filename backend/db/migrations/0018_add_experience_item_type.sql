@@ -1,0 +1,73 @@
+-- Add type and restaurant_config columns to experience_items
+-- type: 'default' | 'restaurant' (controls rendering behavior on frontend)
+-- restaurant_config: JSONB storing cover photo, dishes, menu sections for restaurant-type items
+
+ALTER TABLE experience_items
+  ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'default',
+  ADD COLUMN IF NOT EXISTS restaurant_config JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Example restaurant_config structure:
+-- {
+--   "coverImage": "/uploads/xxx.jpg",
+--   "description": "Our fine dining seafood restaurant...",
+--   "hours": "Ouvert tous les jours, de 11h à 14h et de 19h à 23h.",
+--   "dishes": [
+--     { "id": "d1", "image": "/uploads/dish1.jpg", "caption": "Grilled salmon" }
+--   ],
+--   "menuSections": [
+--     {
+--       "id": "menu-du-jour",
+--       "title": "Menu du jour",
+--       "price": "32,99 €",
+--       "subsections": [
+--         {
+--           "id": "entrees-au-choix",
+--           "title": "Entrées au choix",
+--           "items": [
+--             { "name": "Toast au chèvre et son assortiment de fruits rouges" },
+--             { "name": "Salade césar du chef" }
+--           ]
+--         },
+--         {
+--           "id": "plats-au-choix",
+--           "title": "Plats au choix",
+--           "items": [
+--             { "name": "Magret de canard" },
+--             { "name": "Burger à la pistache" }
+--           ]
+--         },
+--         {
+--           "id": "desserts-au-choix",
+--           "title": "Desserts au choix",
+--           "linkText": "Voir la carte des desserts"
+--         }
+--       ]
+--     },
+--     {
+--       "id": "entrees",
+--       "title": "Entrées",
+--       "items": [
+--         { "name": "Toast au chèvre et son assortiment de fruits rouges", "price": "8,00 €" },
+--         { "name": "Salade césar du chef", "price": "10,00 €" }
+--       ]
+--     },
+--     {
+--       "id": "plats",
+--       "title": "Plats",
+--       "items": [
+--         { "name": "Magret de canard", "price": "17,50 €" },
+--         { "name": "Burger à la pistache", "price": "15,50 €" }
+--       ]
+--     },
+--     {
+--       "id": "desserts",
+--       "title": "Desserts",
+--       "items": [
+--         { "name": "Fondant au chocolat", "price": "3,00 €" },
+--         { "name": "Café gourmand", "price": "2,50 €" }
+--       ]
+--     }
+--   ]
+-- }
+
+CREATE INDEX IF NOT EXISTS idx_experience_items_type ON experience_items (hotel_id, type);

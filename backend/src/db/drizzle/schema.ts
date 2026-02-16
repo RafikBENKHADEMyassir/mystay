@@ -667,6 +667,21 @@ export const translations = pgTable(
   })
 );
 
+export const guestContentConfigs = pgTable(
+  "guest_content_configs",
+  {
+    hotelId: text("hotel_id")
+      .primaryKey()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    content: jsonb("content").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_guest_content_configs_hotel_id").on(table.hotelId)
+  })
+);
+
 export const staffActivityLog = pgTable(
   "staff_activity_log",
   {
@@ -753,6 +768,8 @@ export const experienceItems = pgTable(
     label: text("label").notNull(),
     imageUrl: text("image_url").notNull(),
     linkUrl: text("link_url"),
+    type: text("type").notNull().default("default"), // 'default' | 'restaurant'
+    restaurantConfig: jsonb("restaurant_config").notNull().default({}),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -760,6 +777,7 @@ export const experienceItems = pgTable(
   },
   (table) => ({
     sectionIdx: index("idx_experience_items_section").on(table.sectionId),
-    hotelIdx: index("idx_experience_items_hotel").on(table.hotelId)
+    hotelIdx: index("idx_experience_items_hotel").on(table.hotelId),
+    typeIdx: index("idx_experience_items_type").on(table.hotelId, table.type)
   })
 );

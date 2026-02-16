@@ -4,6 +4,7 @@ import {
   CalendarRange,
   ConciergeBell,
   Dumbbell,
+  LayoutDashboard,
   LayoutGrid,
   MessageCircle,
   Settings2,

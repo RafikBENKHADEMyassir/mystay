@@ -9,10 +9,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import type { GuestContent } from "@/lib/guest-content";
+import { interpolateTemplate } from "@/lib/guest-content";
 import { ServiceRequestForm, ServiceItem } from "./service-request-form";
 
 type ServiceRequestDialogProps = {
   serviceItem: ServiceItem | null;
+  content: Pick<GuestContent["pages"]["services"], "requestDialog" | "requestForm">;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (serviceItem: ServiceItem, formData: Record<string, unknown>) => Promise<{ success: boolean; ticketId?: string; error?: string }>;
@@ -20,6 +23,7 @@ type ServiceRequestDialogProps = {
 
 export function ServiceRequestDialog({
   serviceItem,
+  content,
   isOpen,
   onClose,
   onSubmit
@@ -49,14 +53,14 @@ export function ServiceRequestDialog({
       if (result.success) {
         setSubmitState("success");
         setTicketId(result.ticketId || null);
-        setSubmitMessage("Votre demande a été envoyée avec succès !");
+        setSubmitMessage(content.requestDialog.successMessage);
       } else {
         setSubmitState("error");
-        setSubmitMessage(result.error || "Échec de l'envoi. Veuillez réessayer.");
+        setSubmitMessage(result.error || content.requestDialog.errorTitle);
       }
     } catch {
       setSubmitState("error");
-      setSubmitMessage("Une erreur inattendue s'est produite.");
+      setSubmitMessage(content.requestDialog.fallbackUnexpectedError);
     } finally {
       setIsSubmitting(false);
     }
@@ -97,24 +101,28 @@ export function ServiceRequestDialog({
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
                 <Check className="h-8 w-8 text-green-600" />
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">Demande envoyée !</h3>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">{content.requestDialog.successTitle}</h3>
               <p className="mb-4 text-sm text-gray-500">{submitMessage}</p>
               {ticketId && (
                 <p className="mb-4 text-xs text-gray-400">
-                  Référence : <span className="font-mono">{ticketId}</span>
+                  {content.requestDialog.referenceLabel}: <span className="font-mono">{ticketId}</span>
                 </p>
               )}
               {serviceItem.estimatedTimeMinutes && (
                 <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 rounded-full px-4 py-2">
                   <Clock className="h-4 w-4" />
-                  <span>Temps estimé : ~{serviceItem.estimatedTimeMinutes} min</span>
+                  <span>
+                    {interpolateTemplate(content.requestDialog.estimatedTimeTemplate, {
+                      minutes: serviceItem.estimatedTimeMinutes
+                    })}
+                  </span>
                 </div>
               )}
               <button 
                 onClick={handleClose}
                 className="mt-6 rounded-full bg-gray-900 px-8 py-3 text-sm font-medium text-white"
               >
-                Terminé
+                {content.requestDialog.done}
               </button>
             </div>
           ) : submitState === "error" ? (
@@ -122,26 +130,27 @@ export function ServiceRequestDialog({
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
                 <X className="h-8 w-8 text-red-600" />
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">Échec de l&apos;envoi</h3>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">{content.requestDialog.errorTitle}</h3>
               <p className="mb-6 text-sm text-gray-500">{submitMessage}</p>
               <div className="flex gap-3">
                 <button 
                   onClick={handleClose}
                   className="rounded-full border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-700"
                 >
-                  Annuler
+                  {content.requestDialog.cancel}
                 </button>
                 <button 
                   onClick={() => setSubmitState("idle")}
                   className="rounded-full bg-gray-900 px-6 py-2.5 text-sm font-medium text-white"
                 >
-                  Réessayer
+                  {content.requestDialog.retry}
                 </button>
               </div>
             </div>
           ) : (
             <ServiceRequestForm
               serviceItem={serviceItem}
+              content={content.requestForm}
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
             />
