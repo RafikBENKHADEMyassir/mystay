@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppLink } from "@/components/ui/app-link";
 import { AlertCircle } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
-import { setDemoSession } from "@/lib/demo-session";
+import { getDemoSession, setDemoSession } from "@/lib/demo-session";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,14 @@ export default function LoginPage() {
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect authenticated users to home page
+  useEffect(() => {
+    const session = getDemoSession();
+    if (session?.guestToken) {
+      router.replace(withLocale(locale, "/"));
+    }
+  }, [router, locale]);
 
   const strings = content?.pages.auth.login;
   if (!strings) return <div className="min-h-screen bg-background" />;

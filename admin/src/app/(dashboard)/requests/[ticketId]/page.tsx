@@ -49,6 +49,7 @@ type TicketDetailPageProps = {
 };
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+const statusOptions = ["pending", "in_progress", "resolved"];
 
 function safeJsonStringify(value: unknown): string {
   try {
@@ -93,7 +94,6 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
   const [ticket, me] = await Promise.all([getTicket(token, ticketId), getMe(token)]);
   const notes = ticket ? await getTicketNotes(token, ticketId) : [];
-  const statusOptions = ["pending", "in_progress", "resolved"];
 
   async function updateStatus(formData: FormData) {
     "use server";

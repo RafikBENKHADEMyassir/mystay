@@ -12,6 +12,8 @@ export const GUEST_EMAIL = "sophie.martin@email.com";
 export const GUEST_PASSWORD = "admin123";
 export const STAFF_EMAIL = "manager@fourseasons.demo";
 export const STAFF_PASSWORD = "admin123";
+export const RESTAURANT_MANAGER_EMAIL = "restaurant@fourseasons.demo";
+export const RESTAURANT_MANAGER_PASSWORD = "admin123";
 export const HOTEL_ID = "H-FOURSEASONS";
 
 /**

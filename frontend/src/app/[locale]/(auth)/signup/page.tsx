@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 
 import { AppLink } from "@/components/ui/app-link";
 import { Topbar } from "@/components/layout/topbar";
 import { useLocale } from "@/components/providers/locale-provider";
-import { setDemoSession } from "@/lib/demo-session";
+import { getDemoSession, setDemoSession } from "@/lib/demo-session";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 
@@ -36,6 +36,14 @@ export default function SignupPage() {
 
   // Hooks MUST be called before any early return
   const rules = useMemo(() => passwordRules(form.password), [form.password]);
+
+  // Redirect authenticated users to home page
+  useEffect(() => {
+    const session = getDemoSession();
+    if (session?.guestToken) {
+      router.replace(withLocale(locale, "/"));
+    }
+  }, [router, locale]);
 
   const strings = content?.pages.auth.signup;
   if (!strings) return <div className="min-h-screen bg-background" />;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AppLink } from "@/components/ui/app-link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -36,7 +37,12 @@ function resolveLabel(item: NavItem, content: GuestContent | null) {
 
 export function DesktopNav({ items, badges = {}, hotelName }: DesktopNavProps) {
   const locale = useLocale();
-  const { content } = useGuestContent(locale, getDemoSession()?.hotelId ?? null);
+  // Defer sessionStorage read to after mount to prevent hydration mismatch
+  const [hotelId, setHotelId] = useState<string | null>(null);
+  useEffect(() => {
+    setHotelId(getDemoSession()?.hotelId ?? null);
+  }, []);
+  const { content } = useGuestContent(locale, hotelId);
   const pathname = usePathname();
 
   return (

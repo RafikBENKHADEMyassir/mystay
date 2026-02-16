@@ -1,5 +1,6 @@
 import { LiveInboxRefresh } from "@/components/live-inbox-refresh";
 import { ConversationSearch } from "@/components/inbox/conversation-search";
+import { MessagePanel } from "@/components/inbox/message-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -96,14 +97,29 @@ async function getConversations(token: string, query: URLSearchParams): Promise<
   return (await response.json()) as ConversationsResponse;
 }
 
-async function getMessages(token: string, conversationId: string): Promise<Message[]> {
-  const response = await fetch(`${backendUrl}/api/v1/threads/${encodeURIComponent(conversationId)}/messages`, {
+type MessagesResult = {
+  items: Message[];
+  hasMore: boolean;
+  total: number;
+};
+
+const INITIAL_MESSAGE_LIMIT = 30;
+
+async function getMessages(token: string, conversationId: string): Promise<MessagesResult> {
+  const url = new URL(`${backendUrl}/api/v1/threads/${encodeURIComponent(conversationId)}/messages`);
+  url.searchParams.set("limit", String(INITIAL_MESSAGE_LIMIT));
+
+  const response = await fetch(url.toString(), {
     cache: "no-store",
     headers: { Authorization: `Bearer ${token}` }
   });
-  if (!response.ok) return [];
+  if (!response.ok) return { items: [], hasMore: false, total: 0 };
   const payload = await response.json();
-  return Array.isArray(payload?.items) ? (payload.items as Message[]) : [];
+  return {
+    items: Array.isArray(payload?.items) ? (payload.items as Message[]) : [],
+    hasMore: typeof payload?.hasMore === "boolean" ? payload.hasMore : false,
+    total: typeof payload?.total === "number" ? payload.total : 0,
+  };
 }
 
 async function getStayContext(token: string, stayId: string): Promise<StayContext | null> {
@@ -167,9 +183,9 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
     ? conversations.find((conversation) => conversation.id === requestedConversationId) ?? null
     : null;
 
-  let messages: Message[] = [];
+  let messagesResult: MessagesResult = { items: [], hasMore: false, total: 0 };
   if (selectedConversation) {
-    messages = await getMessages(token, selectedConversation.id);
+    messagesResult = await getMessages(token, selectedConversation.id);
   }
 
   const emptyStayComposer = Boolean(stayId) && conversations.length === 0;
@@ -392,10 +408,10 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           </div>
         </Card>
 
-        <Card className="flex min-h-[680px] flex-col overflow-hidden p-0">
+        <Card className="flex h-[calc(100vh-180px)] min-h-[500px] flex-col overflow-hidden p-0">
           {selectedConversation ? (
             <>
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
+              <div className="flex flex-shrink-0 flex-wrap items-start justify-between gap-3 border-b p-4">
                 <div className="min-w-0 space-y-1">
                   <p className="truncate text-lg font-semibold">
                     {(selectedConversation.guestName ?? "").trim() || selectedConversation.title}
@@ -431,45 +447,22 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
               </div>
 
               {errorParam ? (
-                <div className="border-b bg-destructive/5 px-4 py-2 text-sm text-destructive">
+                <div className="flex-shrink-0 border-b bg-destructive/5 px-4 py-2 text-sm text-destructive">
                   {errorParam.replaceAll("_", " ")}
                 </div>
               ) : null}
 
-              <div className="flex-1 space-y-4 overflow-y-auto p-4">
-                {messages.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No messages yet.</p>
-                ) : (
-                  <ul className="space-y-3">
-                    {messages.map((message) => {
-                      const isStaff = message.senderType === "staff";
-                      return (
-                        <li key={message.id} className={cn("flex", isStaff ? "justify-end" : "justify-start")}>
-                          <div
-                            className={cn(
-                              "max-w-[85%] space-y-1 rounded-2xl px-3 py-2 text-sm shadow-sm ring-1 ring-border",
-                              isStaff ? "bg-primary text-primary-foreground" : "bg-muted/30 text-foreground"
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                "flex items-center justify-between gap-3 text-xs",
-                                isStaff ? "text-primary-foreground/70" : "text-muted-foreground"
-                              )}
-                            >
-                              <span className="font-semibold">{message.senderName}</span>
-                              <span className="whitespace-nowrap">{new Date(message.createdAt).toLocaleTimeString()}</span>
-                            </div>
-                            <p className="whitespace-pre-wrap leading-relaxed">{message.bodyText}</p>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
+              <MessagePanel
+                key={selectedConversation.id}
+                conversationId={selectedConversation.id}
+                token={token}
+                backendUrl={backendUrl}
+                initialMessages={messagesResult.items}
+                initialHasMore={messagesResult.hasMore}
+                initialTotal={messagesResult.total}
+              />
 
-              <div className="border-t p-4">
+              <div className="flex-shrink-0 border-t p-4">
                 {selectedConversation.status === "archived" ? (
                   <p className="text-sm text-muted-foreground">Archived conversations are read-only.</p>
                 ) : (

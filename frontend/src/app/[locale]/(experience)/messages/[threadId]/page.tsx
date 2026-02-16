@@ -204,10 +204,9 @@ export default function ThreadPage({ params }: ThreadPageProps) {
         {isLoading ? <p className="mb-3 text-sm text-muted-foreground">{page.loading}</p> : null}
 
         <div className="flex-1 space-y-3">
-          {messages.map((message, index) => {
+          {messages.map((message) => {
             const isGuest = message.senderType === "guest";
-            const isError = index === messages.length - 2 && isGuest && message.bodyText.length > 60;
-            const variant = isError ? "error" : isGuest ? "outgoing" : "incoming";
+            const variant = isGuest ? "outgoing" : "incoming";
             const timestamp = new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
             return (

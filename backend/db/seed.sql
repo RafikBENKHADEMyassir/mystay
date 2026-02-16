@@ -315,6 +315,16 @@ VALUES
     ARRAY['room-service', 'restaurants'],
     'scrypt$8EedSiBiqAYyVxV/ipnNYw==$8997a+RkLshzu1PHSL7XFplb973ySksGoYANPNkHek9CQHkwAufeSPAnGaqU4jX+yB7QdHsCSCPrgOYnd/S4pQ=='
   ),
+  -- Restaurant Manager (dedicated)
+  (
+    'SU-0007',
+    'H-FOURSEASONS',
+    'restaurant@fourseasons.demo',
+    'Chef Antoine Dubois',
+    'staff',
+    ARRAY['restaurants'],
+    'scrypt$8EedSiBiqAYyVxV/ipnNYw==$8997a+RkLshzu1PHSL7XFplb973ySksGoYANPNkHek9CQHkwAufeSPAnGaqU4jX+yB7QdHsCSCPrgOYnd/S4pQ=='
+  ),
   -- Four Seasons Geneva Staff
   (
     'SU-0010',

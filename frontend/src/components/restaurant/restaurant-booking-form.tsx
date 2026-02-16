@@ -12,13 +12,31 @@ type Props = {
   onClose: () => void;
   onBooked: (result: { ticketId: string; threadId: string; eventId: string }) => void;
   guestToken: string;
+  /** Opening time e.g. "12:00" - parsed from restaurant config hours like "12:00 - 23:00" */
+  openingTime?: string;
+  /** Closing time e.g. "23:00" */
+  closingTime?: string;
 };
 
-function generateTimeOptions() {
+/** Parse an hour string like "12:00" into total minutes since midnight */
+function parseTimeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+function generateTimeOptions(openingTime?: string, closingTime?: string) {
+  // Parse bounds from props, default to 11:00 - 23:30
+  const openMin = openingTime ? parseTimeToMinutes(openingTime) : 11 * 60;
+  const closeMin = closingTime ? parseTimeToMinutes(closingTime) : 23 * 60 + 30;
+
   const options: string[] = [];
-  for (let h = 11; h <= 23; h++) {
-    options.push(`${h.toString().padStart(2, "0")}:00`);
-    options.push(`${h.toString().padStart(2, "0")}:30`);
+  for (let h = 0; h <= 23; h++) {
+    for (const m of [0, 30]) {
+      const totalMin = h * 60 + m;
+      if (totalMin >= openMin && totalMin <= closeMin) {
+        options.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+      }
+    }
   }
   return options;
 }
@@ -51,17 +69,23 @@ export function RestaurantBookingForm({
   onClose,
   onBooked,
   guestToken,
+  openingTime,
+  closingTime,
 }: Props) {
   const locale = useLocale();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
   const dateOptions = useMemo(() => generateDateOptions(locale), [locale]);
-  const timeOptions = useMemo(() => generateTimeOptions(), []);
+  const timeOptions = useMemo(() => generateTimeOptions(openingTime, closingTime), [openingTime, closingTime]);
 
-  const now = new Date();
-  const defaultHour = Math.max(11, Math.min(23, now.getHours()));
-  const defaultMinute = now.getMinutes() >= 30 ? "30" : "00";
-  const defaultTime = `${defaultHour.toString().padStart(2, "0")}:${defaultMinute}`;
+  // Default time: pick the first available time slot at or after the current hour
+  const defaultTime = useMemo(() => {
+    if (timeOptions.length === 0) return "19:00";
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const firstFuture = timeOptions.find((t) => parseTimeToMinutes(t) >= nowMin);
+    return firstFuture ?? timeOptions[0];
+  }, [timeOptions]);
 
   const [date, setDate] = useState(dateOptions[0]?.value ?? "");
   const [time, setTime] = useState(defaultTime);
@@ -110,8 +134,30 @@ export function RestaurantBookingForm({
     }
   };
 
+  // Derive available hours and minutes for the current selection
+  const availableHours = useMemo(() => {
+    const hours = [...new Set(timeOptions.map((t) => t.split(":")[0]))];
+    return hours;
+  }, [timeOptions]);
+
   const hourValue = time.split(":")[0] ?? "19";
   const minuteValue = time.split(":")[1] ?? "00";
+
+  const availableMinutes = useMemo(() => {
+    return timeOptions
+      .filter((t) => t.startsWith(hourValue + ":"))
+      .map((t) => t.split(":")[1]);
+  }, [timeOptions, hourValue]);
+
+  // When hour changes, snap minute to first available for that hour
+  const handleHourChange = (newHour: string) => {
+    const slotsForHour = timeOptions.filter((t) => t.startsWith(newHour + ":"));
+    if (slotsForHour.length > 0) {
+      setTime(slotsForHour[0]);
+    } else {
+      setTime(`${newHour}:00`);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white">
@@ -131,6 +177,12 @@ export function RestaurantBookingForm({
           <h1 className="mt-1 font-serif text-2xl font-light uppercase tracking-widest text-gray-900">
             {restaurantName}
           </h1>
+          {(openingTime || closingTime) && (
+            <p className="mt-1 text-xs text-gray-400">
+              {locale === "fr" ? "Ouvert de" : "Open"}{" "}
+              {openingTime ?? "?"} – {closingTime ?? "?"}
+            </p>
+          )}
         </div>
 
         {/* Date */}
@@ -166,11 +218,11 @@ export function RestaurantBookingForm({
           <div className="flex items-center gap-2">
             <select
               value={hourValue}
-              onChange={(e) => setTime(`${e.target.value}:${minuteValue}`)}
+              onChange={(e) => handleHourChange(e.target.value)}
               className="w-20 appearance-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-center text-sm text-gray-700 focus:border-gray-400 focus:outline-none"
             >
-              {Array.from({ length: 13 }, (_, i) => i + 11).map((h) => (
-                <option key={h} value={h.toString().padStart(2, "0")}>
+              {availableHours.map((h) => (
+                <option key={h} value={h}>
                   {h}
                 </option>
               ))}
@@ -181,8 +233,11 @@ export function RestaurantBookingForm({
               onChange={(e) => setTime(`${hourValue}:${e.target.value}`)}
               className="w-20 appearance-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-center text-sm text-gray-700 focus:border-gray-400 focus:outline-none"
             >
-              <option value="00">00</option>
-              <option value="30">30</option>
+              {availableMinutes.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
             </select>
           </div>
         </div>

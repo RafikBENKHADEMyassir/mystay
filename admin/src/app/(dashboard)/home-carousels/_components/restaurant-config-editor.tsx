@@ -287,7 +287,7 @@ export function RestaurantConfigEditor({ itemId, config: initialConfig, backendU
   };
 
   return (
-    <div className="space-y-6 rounded-lg border bg-amber-50/30 p-4">
+    <div className="space-y-6 rounded-lg border bg-amber-50/30 dark:bg-amber-950/20 p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Restaurant Configuration</h3>
         <Button onClick={handleSave} disabled={saving} size="sm">
@@ -297,7 +297,7 @@ export function RestaurantConfigEditor({ itemId, config: initialConfig, backendU
       </div>
 
       {message && (
-        <div className={`rounded p-2 text-sm ${message.startsWith("Save failed") ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-700"}`}>
+        <div className={`rounded p-2 text-sm ${message.startsWith("Save failed") ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-700 dark:text-green-400"}`}>
           {message}
         </div>
       )}
@@ -394,7 +394,7 @@ export function RestaurantConfigEditor({ itemId, config: initialConfig, backendU
         </div>
 
         {(config.menuSections ?? []).map((section, sIdx) => (
-          <Card key={section.id} className="bg-white">
+          <Card key={section.id} className="bg-background">
             <CardHeader className="py-3">
               <div className="flex items-center gap-2">
                 <GripVertical className="h-4 w-4 text-muted-foreground" />

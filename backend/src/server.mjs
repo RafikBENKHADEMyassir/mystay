@@ -2426,7 +2426,7 @@ async function handleRequest(req, res) {
     if (req.method === "PATCH" && segments.length === 4) {
       const principal = requirePrincipal(req, res, url, ["staff"]);
       if (!principal) return;
-      if (!requireStaffRole(res, principal, ["staff", "admin"])) return;
+      if (!requireStaffRole(res, principal, ["staff", "admin", "manager"])) return;
 
       const body = await readJson(req);
       if (!body || typeof body !== "object") {
@@ -2631,6 +2631,80 @@ async function handleRequest(req, res) {
         }
       } catch (error) {
         console.error("notification_enqueue_failed", error);
+      }
+
+      // When a restaurant booking ticket is resolved, send confirmation to guest and update event
+      try {
+        const ticketPayload = typeof updated.payload === "object" ? updated.payload : {};
+        const statusChangedForConfirm = nextStatus !== null && scope.status !== updated.status;
+        if (
+          statusChangedForConfirm &&
+          updated.status === "resolved" &&
+          ticketPayload.type === "restaurant_booking" &&
+          updated.stayId
+        ) {
+          const restaurantName = ticketPayload.restaurantName || "the restaurant";
+          const date = ticketPayload.date || "";
+          const time = ticketPayload.time || "";
+          const guests = ticketPayload.guests || "";
+
+          // Find the guest thread for restaurants
+          const threadRows = await query(
+            `SELECT id FROM threads WHERE stay_id = $1 AND department = 'restaurants' LIMIT 1`,
+            [updated.stayId]
+          );
+          const threadId = threadRows[0]?.id;
+
+          if (threadId) {
+            const confirmMsg = `Your reservation at ${restaurantName} on ${date} at ${time} for ${guests} guest${guests > 1 ? "s" : ""} has been confirmed. We look forward to welcoming you!`;
+            const msgId = `M-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+            await query(
+              `INSERT INTO messages (id, thread_id, sender_type, sender_name, body_text, payload, created_at)
+               VALUES ($1, $2, 'staff', $3, $4, $5::jsonb, NOW())`,
+              [
+                msgId,
+                threadId,
+                principal.displayName || "Restaurant",
+                confirmMsg,
+                JSON.stringify({ type: "restaurant_booking_confirmed", ticketId: updated.id })
+              ]
+            );
+
+            await query(
+              `UPDATE threads SET updated_at = NOW() WHERE id = $1`,
+              [threadId]
+            );
+
+            try {
+              await emitRealtimeEvent({
+                type: "message_created",
+                hotelId: updated.hotelId,
+                threadId,
+                stayId: updated.stayId,
+                messageId: msgId,
+                department: "restaurants"
+              });
+            } catch { /* non-critical */ }
+          }
+
+          // Update event status from pending to confirmed
+          if (ticketPayload.eventId) {
+            await query(
+              `UPDATE events SET status = 'confirmed', updated_at = NOW() WHERE id = $1`,
+              [ticketPayload.eventId]
+            );
+          }
+          // Always also try the metadata-based lookup as fallback
+          await query(
+            `UPDATE events SET status = 'confirmed', updated_at = NOW()
+             WHERE stay_id = $1 AND type = 'restaurant' AND status = 'pending'
+             AND metadata->>'ticketId' = $2`,
+            [updated.stayId, updated.id]
+          );
+        }
+      } catch (error) {
+        console.error("restaurant_confirmation_failed", error);
       }
 
       sendJson(res, 200, updated);
@@ -8465,6 +8539,11 @@ async function handleRequest(req, res) {
 		          return;
 		        }
 
+          // Pagination: ?limit=N&before=ISO_TIMESTAMP
+          const limitParam = parseInt(url.searchParams.get("limit") ?? "", 10);
+          const pageLimit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 500;
+          const beforeParam = url.searchParams.get("before") ?? "";
+
 	        const params = [threadId, principal.hotelId];
 	        let where =
 	          principal.typ === "guest"
@@ -8476,8 +8555,31 @@ async function handleRequest(req, res) {
 		          where = `${where} AND t.department = ANY($${params.length}::text[])`;
 		        }
 
-        const items = await query(
-          `
+          // If "before" cursor provided, only get messages older than that timestamp
+          if (beforeParam) {
+            params.push(beforeParam);
+            where = `${where} AND m.created_at < $${params.length}::timestamptz`;
+          }
+
+          // Get total count for this thread (without pagination filters)
+          const countParams = [threadId, principal.hotelId];
+          let countWhere =
+            principal.typ === "guest"
+              ? `m.thread_id = $1 AND t.hotel_id = $2 AND t.stay_id = $3`
+              : `m.thread_id = $1 AND t.hotel_id = $2`;
+          if (principal.typ === "guest") countParams.push(principal.stayId);
+          if (principal.typ === "staff" && principal.role !== "admin" && principal.role !== "manager") {
+            countParams.push(principal.departments);
+            countWhere = `${countWhere} AND t.department = ANY($${countParams.length}::text[])`;
+          }
+          const [{ count: totalCount }] = await query(
+            `SELECT COUNT(*)::int AS count FROM messages m JOIN threads t ON t.id = m.thread_id WHERE ${countWhere}`,
+            countParams
+          );
+
+          // Fetch newest N messages (ordered DESC to get the latest, then reverse for display order)
+          const rawItems = await query(
+            `
             SELECT
               m.id,
               m.thread_id AS "threadId",
@@ -8489,11 +8591,14 @@ async function handleRequest(req, res) {
             FROM messages m
             JOIN threads t ON t.id = m.thread_id
             WHERE ${where}
-            ORDER BY m.created_at ASC
-            LIMIT 500
+            ORDER BY m.created_at DESC
+            LIMIT ${pageLimit}
           `,
           params
         );
+
+        const items = rawItems.reverse();
+        const hasMore = items.length >= pageLimit && items.length < totalCount;
 
         if (principal.typ === "guest") {
           try {
@@ -8506,7 +8611,7 @@ async function handleRequest(req, res) {
           }
         }
 
-        sendJson(res, 200, { items });
+        sendJson(res, 200, { items, total: totalCount, hasMore });
         return;
       }
 
@@ -8819,8 +8924,9 @@ async function handleRequest(req, res) {
 
       const guestName = getGuestDisplayName(principal) || "Guest";
 
-      // 1. Create ticket
+      // 1. Create ticket (eventId will be added after event creation)
       const ticketId = `T-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const eventId = `EV-${randomUUID().slice(0, 8).toUpperCase()}`;
       const ticketTitle = `Reservation ${restaurantName} - ${date} ${time} - ${guests} guest${guests > 1 ? "s" : ""}`;
       const ticketPayload = JSON.stringify({
         type: "restaurant_booking",
@@ -8830,7 +8936,8 @@ async function handleRequest(req, res) {
         guests,
         specialRequests,
         experienceItemId,
-        guestName
+        guestName,
+        eventId
       });
 
       await query(
@@ -8923,7 +9030,6 @@ async function handleRequest(req, res) {
       }
 
       // 3. Create a pending event in the agenda
-      const eventId = `EV-${randomUUID().slice(0, 8).toUpperCase()}`;
       const startAt = `${date}T${time}:00`;
       await query(
         `

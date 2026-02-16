@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExperienceItem } from "@/types/overview";
@@ -21,6 +21,7 @@ type RestaurantConfig = {
       title: string;
       items?: Array<{ name: string; price?: string }>;
       linkText?: string;
+      linkTarget?: string;
     }>;
   }>;
 };
@@ -45,13 +46,35 @@ export function RestaurantBottomSheet({ item, onBook, onClose }: Props) {
 
   const tabTitles = menuSections.map((s) => ({ id: s.id, title: s.title }));
 
+  // Navigate to a specific tab by matching linkTarget id or title keyword
+  const handleLinkClick = useCallback(
+    (linkText: string, linkTarget?: string) => {
+      if (linkTarget) {
+        const target = menuSections.find((s) => s.id === linkTarget);
+        if (target) {
+          setActiveTab(target.id);
+          return;
+        }
+      }
+      // Fuzzy match: "voir la carte des desserts" → find "Desserts" tab
+      const lower = linkText.toLowerCase();
+      const target = menuSections.find(
+        (s) => lower.includes(s.title.toLowerCase()) || s.title.toLowerCase().includes(lower)
+      );
+      if (target) {
+        setActiveTab(target.id);
+      }
+    },
+    [menuSections]
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* Bottom sheet */}
-      <div className="relative mt-auto flex max-h-[92vh] flex-col rounded-t-[20px] bg-white animate-in slide-in-from-bottom duration-300">
+      {/* Bottom sheet - fixed height for consistent UX when switching tabs */}
+      <div className="relative mt-auto flex h-[92vh] flex-col rounded-t-[20px] bg-white animate-in slide-in-from-bottom duration-300">
         {/* Back button */}
         <button
           onClick={onClose}
@@ -177,7 +200,10 @@ export function RestaurantBottomSheet({ item, onBook, onClose }: Props) {
                       </div>
                     )}
                     {sub.linkText && (
-                      <button className="mt-2 flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600">
+                      <button
+                        onClick={() => handleLinkClick(sub.linkText!, sub.linkTarget)}
+                        className="mt-2 flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600"
+                      >
                         {sub.linkText}
                         <ChevronRight className="h-3 w-3" />
                       </button>

@@ -87,15 +87,24 @@ export function ExperienceCarousel({ locale, content, sections, error }: Props) 
       )}
 
       {/* Booking form */}
-      {selectedRestaurant && showBookingForm && session?.guestToken && (
-        <RestaurantBookingForm
-          restaurantName={selectedRestaurant.label}
-          experienceItemId={selectedRestaurant.id}
-          onClose={() => setShowBookingForm(false)}
-          onBooked={handleBooked}
-          guestToken={session.guestToken}
-        />
-      )}
+      {selectedRestaurant && showBookingForm && session?.guestToken && (() => {
+        const config = (selectedRestaurant.restaurantConfig ?? {}) as Record<string, unknown>;
+        const hoursStr = typeof config.hours === "string" ? config.hours : "";
+        const [openingTime, closingTime] = hoursStr.includes("-")
+          ? hoursStr.split("-").map((s: string) => s.trim())
+          : [undefined, undefined];
+        return (
+          <RestaurantBookingForm
+            restaurantName={selectedRestaurant.label}
+            experienceItemId={selectedRestaurant.id}
+            onClose={() => setShowBookingForm(false)}
+            onBooked={handleBooked}
+            guestToken={session.guestToken}
+            openingTime={openingTime}
+            closingTime={closingTime}
+          />
+        );
+      })()}
 
       {/* Success toast */}
       {bookingSuccess && (

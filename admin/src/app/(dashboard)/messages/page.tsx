@@ -144,7 +144,7 @@ export default async function MessagesPage({ searchParams }: MessagesPageProps) 
             ) : null}
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="max-h-[70vh] overflow-y-auto p-0">
           <Table>
             <TableHeader>
               <TableRow>

@@ -1,10 +1,11 @@
 // frontend/src/app/[locale]/(experience)/layout.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import { BottomNav } from "@/components/navigation/bottom-nav";
 import { DesktopNav } from "@/components/navigation/desktop-nav";
 import { useLocale } from "@/components/providers/locale-provider";
-import { getDemoSession } from "@/lib/demo-session";
+import { getDemoSession, type DemoSession } from "@/lib/demo-session";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { guestBottomNav, guestNav } from "@/lib/navigation";
 
@@ -14,7 +15,11 @@ export default function ExperienceLayout({
   children: React.ReactNode;
 }) {
   const locale = useLocale();
-  const session = getDemoSession();
+  // Defer sessionStorage read to after mount to prevent hydration mismatch
+  const [session, setSession] = useState<DemoSession | null>(null);
+  useEffect(() => {
+    setSession(getDemoSession());
+  }, []);
   const { content } = useGuestContent(locale, session?.hotelId ?? null);
 
   return (

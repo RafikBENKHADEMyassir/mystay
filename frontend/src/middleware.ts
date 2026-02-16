@@ -77,6 +77,14 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
+    // Redirect authenticated users away from auth pages (login/signup)
+    const isAuthPath = authPaths.some((p) => pathWithoutLocale.startsWith(p));
+    if (isAuthPath && isAuthenticated) {
+      const homeUrl = request.nextUrl.clone();
+      homeUrl.pathname = `/${maybeLocale}`;
+      return NextResponse.redirect(homeUrl);
+    }
+
     return response;
   }
 

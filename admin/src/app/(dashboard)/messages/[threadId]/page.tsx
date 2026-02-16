@@ -33,13 +33,19 @@ type ThreadDetail = {
   lastMessageAt: string | null;
 };
 
+type MessagePayload = {
+  type?: string;
+  ticketId?: string;
+  [key: string]: unknown;
+};
+
 type Message = {
   id: string;
   threadId: string;
   senderType: "guest" | "staff";
   senderName: string;
   bodyText: string;
-  payload: unknown;
+  payload: MessagePayload;
   createdAt: string;
 };
 
@@ -302,9 +308,12 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
           <CardDescription>{messages.length ? "Live messages between guest and staff." : "No messages yet."}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ul className="space-y-3">
+          <ul className="max-h-[60vh] space-y-3 overflow-y-auto">
             {messages.map((message) => {
               const isStaff = message.senderType === "staff";
+              const payload = (message.payload && typeof message.payload === "object" ? message.payload : {}) as MessagePayload;
+              const hasTicketLink = payload.type === "restaurant_booking" && payload.ticketId;
+
               return (
                 <li key={message.id} className={cn("flex", isStaff ? "justify-end" : "justify-start")}>
                   <div
@@ -320,6 +329,21 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
                     <p className={cn("whitespace-pre-wrap leading-relaxed", isStaff ? "text-background" : "text-foreground")}>
                       {message.bodyText}
                     </p>
+                    {hasTicketLink && (
+                      <div className="mt-2 pt-2 border-t border-border/30">
+                        <Link
+                          href={`/requests/${encodeURIComponent(payload.ticketId!)}`}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2.5 py-1 transition-colors",
+                            isStaff
+                              ? "bg-background/20 text-background hover:bg-background/30"
+                              : "bg-primary/10 text-primary hover:bg-primary/20"
+                          )}
+                        >
+                          📋 View request {payload.ticketId}
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 </li>
               );
