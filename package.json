@@ -27,6 +27,7 @@
     "test:e2e:guest": "npx playwright test e2e/guest-restaurant-flow.spec.ts",
     "test:e2e:admin": "npx playwright test e2e/admin-restaurant-config.spec.ts",
     "test:e2e:flow": "npx playwright test e2e/full-reservation-flow.spec.ts",
+    "test:e2e:regression": "npx playwright test e2e/regression-bugs.spec.ts",
     "test:e2e:show": "npx playwright test --headed --retries=0",
     "test:e2e:debug": "npx playwright test --headed --retries=0 --timeout=0",
     "dev:frontend": "npm -w frontend run dev",
