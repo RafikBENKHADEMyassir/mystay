@@ -130,8 +130,8 @@ function ExperienceSectionRow({ locale, section, onRestaurantClick }: Experience
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
   return (
-    <section className="mt-6">
-      <p className="mb-3 px-0.5 text-[13px] font-semibold text-foreground">
+    <section className="mt-6 ml-5">
+      <p className="mb-3 px-0.5 text-[20px] font-semibold text-foreground">
         {locale === "fr" ? section.titleFr : section.titleEn}
       </p>
       <div className="-mx-4 flex gap-2 overflow-x-auto scroll-px-4 px-4 pb-1 no-scrollbar snap-x snap-mandatory">
@@ -159,7 +159,7 @@ function ExperienceSectionRow({ locale, section, onRestaurantClick }: Experience
                 }}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-[9px] font-semibold uppercase leading-tight tracking-[0.14em] text-white">
+                <p className="absolute text-[20px] bottom-2 left-2 right-2 line-clamp-2 text-[9px] font-semibold uppercase leading-tight tracking-[0.14em] text-white">
                   {item.label}
                 </p>
               </button>
@@ -188,7 +188,7 @@ function ExperienceSectionRow({ locale, section, onRestaurantClick }: Experience
                   </div>
                 </div>
               ) : null}
-              <p className="absolute bottom-2 left-2 right-2 line-clamp-2 text-[9px] font-semibold uppercase leading-tight tracking-[0.14em] text-white">
+              <p className="absolute text-[20px] bottom-2 left-2 right-2 line-clamp-2 text-[9px] font-semibold uppercase leading-tight tracking-[0.14em] text-white">
                 {item.label}
               </p>
             </AppLink>
