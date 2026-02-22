@@ -2860,7 +2860,8 @@ async function handleRequest(req, res) {
     segments[3] &&
     segments[4] !== "room-images" &&
     segments[4] !== "experiences" &&
-    segments[4] !== "guest-content"
+    segments[4] !== "guest-content" &&
+    segments[4] !== "useful-informations"
   ) {
     const hotelId = decodeURIComponent(segments[3]);
     const principal = requirePrincipal(req, res, url, ["staff"]);
@@ -10203,6 +10204,333 @@ async function handleRequest(req, res) {
       return;
     } catch (error) {
       console.error("experience_item_delete_failed", error);
+      sendJson(res, 500, { error: "delete_failed" });
+      return;
+    }
+  }
+
+  // =========================================================================
+  // USEFUL INFORMATIONS
+  // =========================================================================
+
+  // GET /api/v1/hotels/:hotelId/useful-informations - Public endpoint for guests
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "hotels" &&
+    segments[3] &&
+    segments[4] === "useful-informations" &&
+    !segments[5] &&
+    req.method === "GET"
+  ) {
+    const hotelId = decodeURIComponent(segments[3]);
+    try {
+      const categories = await query(
+        `SELECT id, title, icon, sort_order AS "sortOrder"
+         FROM useful_info_categories
+         WHERE hotel_id = $1 AND is_active = true
+         ORDER BY sort_order ASC`,
+        [hotelId]
+      );
+      const categoryIds = categories.map((c) => c.id);
+      let items = [];
+      if (categoryIds.length > 0) {
+        items = await query(
+          `SELECT id, category_id AS "categoryId", title, content, sort_order AS "sortOrder"
+           FROM useful_info_items
+           WHERE category_id = ANY($1) AND is_active = true
+           ORDER BY sort_order ASC`,
+          [categoryIds]
+        );
+      }
+      const result = categories.map((cat) => ({
+        ...cat,
+        items: items.filter((item) => item.categoryId === cat.id)
+      }));
+      sendJson(res, 200, { categories: result });
+      return;
+    } catch (error) {
+      console.error("useful_info_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // GET /api/v1/staff/useful-informations - List all categories with items for staff
+  if (url.pathname === "/api/v1/staff/useful-informations" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    try {
+      const categories = await query(
+        `SELECT id, hotel_id AS "hotelId", title, icon,
+                sort_order AS "sortOrder", is_active AS "isActive",
+                created_at AS "createdAt", updated_at AS "updatedAt"
+         FROM useful_info_categories
+         WHERE hotel_id = $1
+         ORDER BY sort_order ASC`,
+        [principal.hotelId]
+      );
+      const categoryIds = categories.map((c) => c.id);
+      let items = [];
+      if (categoryIds.length > 0) {
+        items = await query(
+          `SELECT id, category_id AS "categoryId", hotel_id AS "hotelId",
+                  title, content, sort_order AS "sortOrder",
+                  is_active AS "isActive",
+                  created_at AS "createdAt", updated_at AS "updatedAt"
+           FROM useful_info_items
+           WHERE category_id = ANY($1)
+           ORDER BY sort_order ASC`,
+          [categoryIds]
+        );
+      }
+      const result = categories.map((cat) => ({
+        ...cat,
+        items: items.filter((item) => item.categoryId === cat.id)
+      }));
+      sendJson(res, 200, { categories: result, total: categories.length });
+      return;
+    } catch (error) {
+      console.error("useful_info_staff_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // POST /api/v1/staff/useful-informations/categories - Create a category
+  if (url.pathname === "/api/v1/staff/useful-informations/categories" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    if (!title) { sendJson(res, 400, { error: "title_required" }); return; }
+
+    const id = `uic-${randomUUID()}`;
+    const icon = typeof body.icon === "string" ? body.icon.trim() : null;
+    const sortOrder = typeof body.sortOrder === "number" ? body.sortOrder : 0;
+    const isActive = body.isActive !== false;
+
+    try {
+      const rows = await query(
+        `INSERT INTO useful_info_categories (id, hotel_id, title, icon, sort_order, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, hotel_id AS "hotelId", title, icon,
+                   sort_order AS "sortOrder", is_active AS "isActive",
+                   created_at AS "createdAt", updated_at AS "updatedAt"`,
+        [id, principal.hotelId, title, icon, sortOrder, isActive]
+      );
+      sendJson(res, 201, { category: { ...rows[0], items: [] } });
+      return;
+    } catch (error) {
+      console.error("useful_info_category_create_failed", error);
+      sendJson(res, 500, { error: "create_failed" });
+      return;
+    }
+  }
+
+  // PATCH /api/v1/staff/useful-informations/categories/:id
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "useful-informations" &&
+    segments[4] === "categories" &&
+    segments[5] &&
+    !segments[6] &&
+    req.method === "PATCH"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const categoryId = decodeURIComponent(segments[5]);
+    const body = await readJson(req);
+
+    const sets = [];
+    const params = [];
+    let paramIdx = 1;
+
+    if (typeof body.title === "string") { sets.push(`title = $${paramIdx++}`); params.push(body.title.trim()); }
+    if (typeof body.icon === "string" || body.icon === null) { sets.push(`icon = $${paramIdx++}`); params.push(body.icon); }
+    if (typeof body.sortOrder === "number") { sets.push(`sort_order = $${paramIdx++}`); params.push(body.sortOrder); }
+    if (typeof body.isActive === "boolean") { sets.push(`is_active = $${paramIdx++}`); params.push(body.isActive); }
+
+    if (sets.length === 0) { sendJson(res, 400, { error: "no_fields" }); return; }
+
+    sets.push(`updated_at = now()`);
+    params.push(categoryId, principal.hotelId);
+
+    try {
+      const rows = await query(
+        `UPDATE useful_info_categories SET ${sets.join(", ")}
+         WHERE id = $${paramIdx++} AND hotel_id = $${paramIdx}
+         RETURNING id, hotel_id AS "hotelId", title, icon,
+                   sort_order AS "sortOrder", is_active AS "isActive",
+                   created_at AS "createdAt", updated_at AS "updatedAt"`,
+        params
+      );
+      if (rows.length === 0) { sendJson(res, 404, { error: "not_found" }); return; }
+      sendJson(res, 200, { category: rows[0] });
+      return;
+    } catch (error) {
+      console.error("useful_info_category_update_failed", error);
+      sendJson(res, 500, { error: "update_failed" });
+      return;
+    }
+  }
+
+  // DELETE /api/v1/staff/useful-informations/categories/:id
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "useful-informations" &&
+    segments[4] === "categories" &&
+    segments[5] &&
+    !segments[6] &&
+    req.method === "DELETE"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const categoryId = decodeURIComponent(segments[5]);
+
+    try {
+      const rows = await query(
+        `DELETE FROM useful_info_categories WHERE id = $1 AND hotel_id = $2 RETURNING id`,
+        [categoryId, principal.hotelId]
+      );
+      if (rows.length === 0) { sendJson(res, 404, { error: "not_found" }); return; }
+      sendJson(res, 200, { deleted: true, id: categoryId });
+      return;
+    } catch (error) {
+      console.error("useful_info_category_delete_failed", error);
+      sendJson(res, 500, { error: "delete_failed" });
+      return;
+    }
+  }
+
+  // POST /api/v1/staff/useful-informations/items - Create an item
+  if (url.pathname === "/api/v1/staff/useful-informations/items" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : "";
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    const content = typeof body.content === "string" ? body.content.trim() : "";
+    if (!categoryId || !title || !content) {
+      sendJson(res, 400, { error: "category_id_title_content_required" });
+      return;
+    }
+
+    const id = `uii-${randomUUID()}`;
+    const sortOrder = typeof body.sortOrder === "number" ? body.sortOrder : 0;
+    const isActive = body.isActive !== false;
+
+    try {
+      const rows = await query(
+        `INSERT INTO useful_info_items (id, category_id, hotel_id, title, content, sort_order, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, category_id AS "categoryId", hotel_id AS "hotelId",
+                   title, content, sort_order AS "sortOrder",
+                   is_active AS "isActive",
+                   created_at AS "createdAt", updated_at AS "updatedAt"`,
+        [id, categoryId, principal.hotelId, title, content, sortOrder, isActive]
+      );
+      sendJson(res, 201, { item: rows[0] });
+      return;
+    } catch (error) {
+      console.error("useful_info_item_create_failed", error);
+      sendJson(res, 500, { error: "create_failed" });
+      return;
+    }
+  }
+
+  // PATCH /api/v1/staff/useful-informations/items/:id
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "useful-informations" &&
+    segments[4] === "items" &&
+    segments[5] &&
+    !segments[6] &&
+    req.method === "PATCH"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const itemId = decodeURIComponent(segments[5]);
+    const body = await readJson(req);
+
+    const sets = [];
+    const params = [];
+    let paramIdx = 1;
+
+    if (typeof body.title === "string") { sets.push(`title = $${paramIdx++}`); params.push(body.title.trim()); }
+    if (typeof body.content === "string") { sets.push(`content = $${paramIdx++}`); params.push(body.content.trim()); }
+    if (typeof body.sortOrder === "number") { sets.push(`sort_order = $${paramIdx++}`); params.push(body.sortOrder); }
+    if (typeof body.isActive === "boolean") { sets.push(`is_active = $${paramIdx++}`); params.push(body.isActive); }
+
+    if (sets.length === 0) { sendJson(res, 400, { error: "no_fields" }); return; }
+
+    sets.push(`updated_at = now()`);
+    params.push(itemId, principal.hotelId);
+
+    try {
+      const rows = await query(
+        `UPDATE useful_info_items SET ${sets.join(", ")}
+         WHERE id = $${paramIdx++} AND hotel_id = $${paramIdx}
+         RETURNING id, category_id AS "categoryId", hotel_id AS "hotelId",
+                   title, content, sort_order AS "sortOrder",
+                   is_active AS "isActive",
+                   created_at AS "createdAt", updated_at AS "updatedAt"`,
+        params
+      );
+      if (rows.length === 0) { sendJson(res, 404, { error: "not_found" }); return; }
+      sendJson(res, 200, { item: rows[0] });
+      return;
+    } catch (error) {
+      console.error("useful_info_item_update_failed", error);
+      sendJson(res, 500, { error: "update_failed" });
+      return;
+    }
+  }
+
+  // DELETE /api/v1/staff/useful-informations/items/:id
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "useful-informations" &&
+    segments[4] === "items" &&
+    segments[5] &&
+    !segments[6] &&
+    req.method === "DELETE"
+  ) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const itemId = decodeURIComponent(segments[5]);
+
+    try {
+      const rows = await query(
+        `DELETE FROM useful_info_items WHERE id = $1 AND hotel_id = $2 RETURNING id`,
+        [itemId, principal.hotelId]
+      );
+      if (rows.length === 0) { sendJson(res, 404, { error: "not_found" }); return; }
+      sendJson(res, 200, { deleted: true, id: itemId });
+      return;
+    } catch (error) {
+      console.error("useful_info_item_delete_failed", error);
       sendJson(res, 500, { error: "delete_failed" });
       return;
     }

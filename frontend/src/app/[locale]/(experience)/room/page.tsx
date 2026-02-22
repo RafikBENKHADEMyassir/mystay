@@ -7,6 +7,7 @@ import { ArrowLeft, ChevronRight, Copy, Leaf, Loader2 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
+import { UsefulInfoBottomSheet } from "@/components/useful-info/useful-info-bottom-sheet";
 import { interpolateTemplate } from "@/lib/guest-content";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { useGuestOverview } from "@/lib/hooks/use-guest-overview";
@@ -48,7 +49,7 @@ function formatTime(locale: Locale, value: Date) {
   }
 }
 
-/* ─── Quick Action Icon Card ─── */
+/* ─── Quick Action Icon Card (link) ─── */
 function QuickActionCard({
   href,
   label,
@@ -74,6 +75,36 @@ function QuickActionCard({
       )}
       <span className="text-center text-xs font-medium leading-tight text-foreground">{label}</span>
     </AppLink>
+  );
+}
+
+/* ─── Quick Action Button Card (onClick) ─── */
+function QuickActionButton({
+  onClick,
+  label,
+  icon
+}: {
+  onClick: () => void;
+  label: string;
+  icon?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      data-testid="useful-info-trigger"
+      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/30"
+    >
+      {icon ? (
+        <div className="flex h-14 w-14 items-center justify-center">
+          <Image src={icon} alt={label} width={56} height={56} className="h-14 w-14 object-contain" unoptimized />
+        </div>
+      ) : (
+        <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-muted/40">
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </div>
+      )}
+      <span className="text-center text-xs font-medium leading-tight text-foreground">{label}</span>
+    </button>
   );
 }
 
@@ -119,6 +150,7 @@ export default function RoomDetailPage() {
 
   const [copied, setCopied] = useState(false);
   const [roomImages, setRoomImages] = useState<string[]>([]);
+  const [showUsefulInfo, setShowUsefulInfo] = useState(false);
 
   /* Fallback images from CMS content */
   useEffect(() => {
@@ -282,14 +314,23 @@ export default function RoomDetailPage() {
 
         {/* ─── Quick Actions Grid ─── */}
         <div className="mt-8 grid grid-cols-2 gap-3">
-          {page.quickActions.map((action) => (
-            <QuickActionCard
-              key={action.id}
-              href={withLocale(locale, action.href)}
-              label={action.label}
-              icon={action.icon ? resolveImage(action.icon) : undefined}
-            />
-          ))}
+          {page.quickActions.map((action) =>
+            action.id === "hotel-info" ? (
+              <QuickActionButton
+                key={action.id}
+                onClick={() => setShowUsefulInfo(true)}
+                label={action.label}
+                icon={action.icon ? resolveImage(action.icon) : undefined}
+              />
+            ) : (
+              <QuickActionCard
+                key={action.id}
+                href={withLocale(locale, action.href)}
+                label={action.label}
+                icon={action.icon ? resolveImage(action.icon) : undefined}
+              />
+            )
+          )}
         </div>
 
         <div className="my-8 h-px w-full bg-border/50" />
@@ -393,6 +434,14 @@ export default function RoomDetailPage() {
           </AppLink>
         </div>
       </div>
+
+      {/* ─── Useful Informations Bottom Sheet ─── */}
+      {showUsefulInfo && overview?.hotel?.id && (
+        <UsefulInfoBottomSheet
+          hotelId={overview.hotel.id}
+          onClose={() => setShowUsefulInfo(false)}
+        />
+      )}
     </div>
   );
 }

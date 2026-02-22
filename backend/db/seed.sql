@@ -2250,6 +2250,68 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = EXCLUDED.updated_at;
 
 -- =============================================================================
+-- USEFUL INFORMATIONS
+-- =============================================================================
+
+INSERT INTO useful_info_categories (id, hotel_id, title, icon, sort_order, is_active, created_at, updated_at)
+VALUES
+  ('UIC-WIFI',       'H-FOURSEASONS', 'Connexion Wi-Fi',       'wifi',     1, TRUE, NOW(), NOW()),
+  ('UIC-BREAKFAST',  'H-FOURSEASONS', 'Petit-déjeuner',        'coffee',   2, TRUE, NOW(), NOW()),
+  ('UIC-GYM',        'H-FOURSEASONS', 'Salle de sport',        'dumbbell', 3, TRUE, NOW(), NOW()),
+  ('UIC-POOL',       'H-FOURSEASONS', 'Piscine',               'waves',    4, TRUE, NOW(), NOW()),
+  ('UIC-NOSMOKING',  'H-FOURSEASONS', 'Politique non-fumeur',  NULL,       5, TRUE, NOW(), NOW()),
+  ('UIC-OTHER',      'H-FOURSEASONS', 'Autres informations',   NULL,       6, TRUE, NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  icon = EXCLUDED.icon,
+  sort_order = EXCLUDED.sort_order,
+  is_active = EXCLUDED.is_active,
+  updated_at = EXCLUDED.updated_at;
+
+-- Delete old items that no longer exist
+DELETE FROM useful_info_items WHERE id IN (
+  'UII-WIFI-03', 'UII-WIFI-04',
+  'UII-BRK-02', 'UII-BRK-03', 'UII-BRK-04',
+  'UII-GYM-03', 'UII-GYM-04', 'UII-GYM-05',
+  'UII-POOL-03', 'UII-POOL-04',
+  'UII-PARK-01', 'UII-PARK-02', 'UII-PARK-03', 'UII-PARK-04'
+);
+DELETE FROM useful_info_categories WHERE id = 'UIC-PARKING';
+
+INSERT INTO useful_info_items (id, category_id, hotel_id, title, content, sort_order, is_active, created_at, updated_at)
+VALUES
+  -- Connexion Wi-Fi
+  ('UII-WIFI-01', 'UIC-WIFI', 'H-FOURSEASONS', 'Réseau',     '**Réseau : FourSeasons_Guest**', 1, TRUE, NOW(), NOW()),
+  ('UII-WIFI-02', 'UIC-WIFI', 'H-FOURSEASONS', 'Mot de passe', '**Mot de passe : Welcome2025!**', 2, TRUE, NOW(), NOW()),
+  ('UII-WIFI-05', 'UIC-WIFI', 'H-FOURSEASONS', 'Note',       'Connexion gratuite et illimitée dans tout l''établissement.', 3, TRUE, NOW(), NOW()),
+
+  -- Petit-déjeuner
+  ('UII-BRK-01', 'UIC-BREAKFAST', 'H-FOURSEASONS', 'Horaires',  'Servi tous les jours de **6 h 30** à **10 h 00**.', 1, TRUE, NOW(), NOW()),
+  ('UII-BRK-05', 'UIC-BREAKFAST', 'H-FOURSEASONS', 'Formule',   'Petit-déjeuner continental et buffet chaud disponibles.', 2, TRUE, NOW(), NOW()),
+
+  -- Salle de sport
+  ('UII-GYM-01', 'UIC-GYM', 'H-FOURSEASONS', 'Horaires',       'Ouverte tous les jours **24 h / 24**.', 1, TRUE, NOW(), NOW()),
+  ('UII-GYM-02', 'UIC-GYM', 'H-FOURSEASONS', 'Localisation',   'Située au **Niveau -1**.', 2, TRUE, NOW(), NOW()),
+  ('UII-GYM-06', 'UIC-GYM', 'H-FOURSEASONS', 'Note',           'Chaussures de sport propres obligatoires.', 3, TRUE, NOW(), NOW()),
+
+  -- Piscine
+  ('UII-POOL-01', 'UIC-POOL', 'H-FOURSEASONS', 'Horaires',     'Ouverte tous les jours de **8 h 00** à **21 h 00**.', 1, TRUE, NOW(), NOW()),
+  ('UII-POOL-02', 'UIC-POOL', 'H-FOURSEASONS', 'Localisation', 'Située au **Niveau -1**.', 2, TRUE, NOW(), NOW()),
+  ('UII-POOL-05', 'UIC-POOL', 'H-FOURSEASONS', 'Note',         'Serviettes fournies sur place. Douche obligatoire avant l''accès.', 3, TRUE, NOW(), NOW()),
+
+  -- Politique non-fumeur
+  ('UII-NOSMK-01', 'UIC-NOSMOKING', 'H-FOURSEASONS', 'Règle',  'L''établissement est **100 % non-fumeur**, y compris les balcons et parties communes.', 1, TRUE, NOW(), NOW()),
+
+  -- Autres informations
+  ('UII-OTHER-01', 'UIC-OTHER', 'H-FOURSEASONS', 'Contact',    '**Pour toute question complémentaire ou besoin spécifique, la réception reste à votre disposition.**', 1, TRUE, NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  content = EXCLUDED.content,
+  sort_order = EXCLUDED.sort_order,
+  is_active = EXCLUDED.is_active,
+  updated_at = EXCLUDED.updated_at;
+
+-- =============================================================================
 -- DONE
 -- =============================================================================
 -- Seed data has been loaded successfully!

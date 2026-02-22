@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, CalendarDays, FileText, Image, Inbox, LayoutDashboard, LayoutGrid, Link2, Plug, PlugZap, Settings, Users, Zap } from "lucide-react";
+import { BookOpen, CalendarDays, FileText, Image, Inbox, Info, LayoutDashboard, LayoutGrid, Link2, Plug, PlugZap, Settings, Users, Zap } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const navItems: NavItem[] = [
   { title: "Hotel directory", href: "/hotel-directory", icon: BookOpen, roles: ["admin", "manager"] },
   { title: "Room Images", href: "/room-images", icon: Image, roles: ["admin", "manager"] },
   { title: "Upselling", href: "/home-carousels", icon: LayoutGrid, roles: ["admin", "manager"] },
+  { title: "Useful informations", href: "/useful-informations", icon: Info, roles: ["admin", "manager"] },
   { title: "Upsell services", href: "/upsell-services", icon: PlugZap, roles: ["admin", "manager"] },
   { title: "Requests", href: "/requests", icon: FileText },
   { title: "Request Templates", href: "/request-templates", icon: FileText, roles: ["admin", "manager"] },

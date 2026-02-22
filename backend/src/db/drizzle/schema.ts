@@ -755,6 +755,50 @@ export const experienceSections = pgTable(
   })
 );
 
+export const usefulInfoCategories = pgTable(
+  "useful_info_categories",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    icon: text("icon"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_useful_info_categories_hotel").on(table.hotelId),
+    activeIdx: index("idx_useful_info_categories_active").on(table.hotelId, table.isActive)
+  })
+);
+
+export const usefulInfoItems = pgTable(
+  "useful_info_items",
+  {
+    id: text("id").primaryKey(),
+    categoryId: text("category_id")
+      .notNull()
+      .references(() => usefulInfoCategories.id, { onDelete: "cascade" }),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    categoryIdx: index("idx_useful_info_items_category").on(table.categoryId),
+    hotelIdx: index("idx_useful_info_items_hotel").on(table.hotelId),
+    activeIdx: index("idx_useful_info_items_active").on(table.hotelId, table.isActive)
+  })
+);
+
 export const experienceItems = pgTable(
   "experience_items",
   {
