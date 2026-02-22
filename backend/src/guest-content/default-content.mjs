@@ -1195,11 +1195,11 @@ export const defaultGuestContent = {
         contactReception: text("Contact reception", "Contacter la reception", "Contactar recepcion")
       },
       quickActions: [
-        { id: "digital-key", label: text("Digital room key", "Cle digitale de chambre", "Llave digital de habitacion"), href: "/reception" },
-        { id: "hotel-info", label: text("Useful information", "Informations utiles", "Informacion util"), href: "/hotels" },
-        { id: "room-control", label: text("Room control", "Controle de chambre", "Control de habitacion"), href: "/room-service" },
-        { id: "directions", label: text("Directions to hotel", "Itineraire vers l'hotel", "Indicaciones al hotel"), href: "/hotels" },
-        { id: "extra-bed", label: text("Request an extra bed", "Demander un lit supplementaire", "Solicitar una cama extra"), href: "/room-service" }
+        { id: "digital-key", label: text("Digital room key", "Clé digitale de chambre", "Llave digital de habitación"), href: "/reception", icon: "/images/room/digital-key.png" },
+        { id: "hotel-info", label: text("Useful information", "Informations utiles", "Información útil"), href: "/hotels", icon: "/images/room/usefull-info.png" },
+        { id: "room-control", label: text("Room control", "Contrôle de chambre", "Control de habitación"), href: "/room-service", icon: "/images/room/room-control.png" },
+        { id: "directions", label: text("Directions to hotel", "Itinéraire vers l'hôtel", "Indicaciones al hotel"), href: "/hotels", icon: "/images/room/map2.png" },
+        { id: "extra-bed", label: text("Request an extra bed", "Demander un lit supplémentaire", "Solicitar una cama extra"), href: "/room-service", icon: "/images/room/bed.png" }
       ],
       promoCards: [
         {
@@ -1208,7 +1208,7 @@ export const defaultGuestContent = {
           subtitle: text("Based on your schedule.", "Selon votre agenda.", "Segun tu horario."),
           cta: text("Request cleaning", "Demander un nettoyage", "Solicitar limpieza"),
           href: "/housekeeping",
-          image: "https://images.unsplash.com/photo-1584622050111-993a426fbf0a?w=400&fit=crop"
+          image: "/images/room/cleaning.png"
         },
         {
           id: "services",
@@ -1220,7 +1220,7 @@ export const defaultGuestContent = {
           ),
           cta: text("Request a service", "Demander un service", "Solicitar un servicio"),
           href: "/services",
-          image: "https://images.unsplash.com/photo-1596178060671-7a80dc8059ea?w=400&fit=crop"
+          image: "/images/room/need-service.png"
         }
       ],
       upgrade: {
@@ -1228,40 +1228,40 @@ export const defaultGuestContent = {
         subtitle: text("Opt for maximum comfort.", "Optez pour un maximum de confort.", "Opta por maxima comodidad."),
         cta: text("See options", "Consulter les options", "Ver opciones"),
         href: "/services",
-        image: "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&fit=crop"
+        image: "/images/room/room-upgrade.png"
       },
       upsellsTitle: text("Tailored experiences", "Plaisirs sur mesure", "Experiencias a medida"),
       upsells: [
         {
           id: "flowers",
           title: text("FLOWERS", "FLEURS", "FLORES"),
-          image: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=400&fit=crop",
+          image: "/uploads/1770222745347-fleurs.png",
           href: "/services"
         },
         {
           id: "champagne",
           title: text("CHAMPAGNE", "CHAMPAGNE", "CHAMPAGNE"),
-          image: "https://images.unsplash.com/photo-1598414539665-279fd9026d3e?w=400&fit=crop",
+          image: "/uploads/1770222760416-champagne.png",
           href: "/services"
         },
         {
           id: "letter",
           title: text("LETTER", "LETTRE", "CARTA"),
-          image: "https://images.unsplash.com/photo-1579783483458-83d02161294e?w=400&fit=crop",
+          image: "/uploads/1770222762080-lettre.png",
           href: "/services"
         },
         {
           id: "magazine",
           title: text("MAGAZINE", "MAGAZINE", "REVISTA"),
-          image: "https://images.unsplash.com/photo-1550974868-b39418af8858?w=400&fit=crop",
+          image: "/uploads/1770222764066-magazine.png",
           href: "/services"
         }
       ],
       fallbackHeroImages: [
-        "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800&fit=crop",
-        "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&fit=crop",
-        "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=800&fit=crop",
-        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&fit=crop"
+        "/uploads/roomi1.png",
+        "/uploads/roomi2.png",
+        "/uploads/roomi3.png",
+        "/uploads/roomi4.png"
       ]
     },
     agenda: {

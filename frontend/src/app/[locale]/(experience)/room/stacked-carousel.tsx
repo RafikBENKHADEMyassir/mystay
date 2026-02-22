@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import Image from "next/image";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StackedCarouselProps {
@@ -9,9 +10,11 @@ interface StackedCarouselProps {
   alt: string;
   className?: string;
   children?: React.ReactNode; // For overlays that sit on top of the stack area
+  showArrows?: boolean;
+  showDots?: boolean;
 }
 
-export function StackedCarousel({ images, alt, className, children }: StackedCarouselProps) {
+export function StackedCarousel({ images, alt, className, children, showArrows = true, showDots = true }: StackedCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -292,19 +295,57 @@ export function StackedCarousel({ images, alt, className, children }: StackedCar
       <div className="absolute inset-0 pointer-events-none z-[60]">
         {children}
       </div>
-      
-      {/* Optional: Dots/Counter */}
-      <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-[70]">
-        {images.map((_, i) => (
-          <div 
-            key={i} 
-            className={cn(
-              "h-1.5 rounded-full transition-all duration-300 shadow", 
-              i === activeIndex ? "w-6 bg-white" : "w-1.5 bg-white/40"
-            )} 
-          />
-        ))}
-      </div>
+
+      {/* Navigation arrows (Figma: faint semi-transparent chevrons on edges) */}
+      {showArrows && images.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (activeIndex > 0) setActiveIndex((i) => i - 1);
+            }}
+            disabled={activeIndex === 0}
+            className="absolute left-2 top-1/2 z-[70] flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/30 text-white backdrop-blur-sm transition-opacity hover:bg-white/50 disabled:opacity-0"
+            aria-label="Previous image"
+          >
+            <ChevronLeft className="h-6 w-6" strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (activeIndex < images.length - 1) setActiveIndex((i) => i + 1);
+            }}
+            disabled={activeIndex === images.length - 1}
+            className="absolute right-2 top-1/2 z-[70] flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/30 text-white backdrop-blur-sm transition-opacity hover:bg-white/50 disabled:opacity-0"
+            aria-label="Next image"
+          >
+            <ChevronRight className="h-6 w-6" strokeWidth={2.5} />
+          </button>
+        </>
+      )}
+
+      {/* Dot indicators (Figma: bottom center, below suite name, white active, grey inactive) */}
+      {showDots && images.length > 1 && (
+        <div className="absolute bottom-14 left-0 right-0 z-[70] flex justify-center gap-1.5">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveIndex(i);
+              }}
+              className={cn(
+                "h-2 w-2 rounded-full transition-all",
+                i === activeIndex ? "bg-white scale-110" : "bg-white/50"
+              )}
+              aria-label={`Go to image ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

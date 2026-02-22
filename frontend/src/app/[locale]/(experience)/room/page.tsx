@@ -3,10 +3,9 @@
 import { AppLink } from "@/components/ui/app-link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Copy, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, ChevronRight, Copy, Leaf, Loader2 } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
 
-import { StackedCarousel } from "./stacked-carousel";
 import { useLocale } from "@/components/providers/locale-provider";
 import { interpolateTemplate } from "@/lib/guest-content";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
@@ -14,6 +13,16 @@ import { useGuestOverview } from "@/lib/hooks/use-guest-overview";
 import type { Locale } from "@/lib/i18n/locales";
 import { withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
+import { StackedCarousel } from "./stacked-carousel";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+
+/** Resolve image src – prefix API base for /uploads/ paths */
+function resolveImage(src: string): string {
+  if (src.startsWith("/uploads/")) return `${API_BASE}${src}`;
+  if (src.startsWith("http")) return src;
+  return src; // /images/... served by Next.js directly
+}
 
 function parseDateOrNull(value: string | null | undefined): Date | null {
   if (!value) return null;
@@ -30,6 +39,45 @@ function formatDate(locale: Locale, value: Date) {
   }
 }
 
+function formatTime(locale: Locale, value: Date) {
+  const languageTag = locale === "fr" ? "fr-FR" : locale === "es" ? "es-ES" : "en-US";
+  try {
+    return new Intl.DateTimeFormat(languageTag, { hour: "2-digit", minute: "2-digit" }).format(value);
+  } catch {
+    return value.toISOString().slice(11, 16);
+  }
+}
+
+/* ─── Quick Action Icon Card ─── */
+function QuickActionCard({
+  href,
+  label,
+  icon
+}: {
+  href: string;
+  label: string;
+  icon?: string;
+}) {
+  return (
+    <AppLink
+      href={href}
+      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/30"
+    >
+      {icon ? (
+        <div className="flex h-14 w-14 items-center justify-center">
+          <Image src={icon} alt={label} width={56} height={56} className="h-14 w-14 object-contain" unoptimized />
+        </div>
+      ) : (
+        <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-muted/40">
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </div>
+      )}
+      <span className="text-center text-xs font-medium leading-tight text-foreground">{label}</span>
+    </AppLink>
+  );
+}
+
+/* ─── Promo Service Card ─── */
 function PromoCard({
   href,
   title,
@@ -44,22 +92,20 @@ function PromoCard({
   image: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
-      <div className="flex gap-4">
-        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-muted/30">
-          <Image src={image} alt={title} width={80} height={80} className="h-full w-full object-cover" unoptimized />
-        </div>
-        <div className="flex flex-1 flex-col justify-center">
-          <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
-        </div>
+    <div className="flex gap-4 rounded-xl border border-border bg-card p-3 shadow-sm">
+      <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-muted/30">
+        <Image src={image} alt={title} width={96} height={96} className="h-full w-full object-cover" unoptimized />
       </div>
-      <AppLink
-        href={href}
-        className="mt-3 flex w-full items-center justify-center rounded-lg bg-muted/50 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-      >
-        {cta}
-      </AppLink>
+      <div className="flex flex-1 flex-col justify-center">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+        <AppLink
+          href={href}
+          className="mt-3 flex w-full items-center justify-center rounded-lg bg-muted/50 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+        >
+          {cta}
+        </AppLink>
+      </div>
     </div>
   );
 }
@@ -74,17 +120,20 @@ export default function RoomDetailPage() {
   const [copied, setCopied] = useState(false);
   const [roomImages, setRoomImages] = useState<string[]>([]);
 
+  /* Fallback images from CMS content */
   useEffect(() => {
     if (!page) return;
-    setRoomImages(page.fallbackHeroImages.slice(0, 6));
+    if (page.fallbackHeroImages.length > 0) {
+      setRoomImages(page.fallbackHeroImages.map(resolveImage));
+    }
   }, [page]);
 
+  /* Fetch room-specific images from API (overrides fallback) */
   useEffect(() => {
     async function loadRoomImages() {
       if (!overview?.hotel?.id) return;
       try {
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-        const url = new URL(`${apiBaseUrl}/api/v1/hotels/${overview.hotel.id}/room-images`);
+        const url = new URL(`${API_BASE}/api/v1/hotels/${overview.hotel.id}/room-images`);
         if (overview.stay?.roomNumber) {
           url.searchParams.set("roomNumber", overview.stay.roomNumber);
         }
@@ -94,13 +143,7 @@ export default function RoomDetailPage() {
 
         const data = (await res.json()) as { images: Array<{ imageUrl: string }> };
         if (data.images?.length > 0) {
-          const images = data.images.map((img) => {
-            if (img.imageUrl.startsWith("/")) {
-              return `${apiBaseUrl}${img.imageUrl}`;
-            }
-            return img.imageUrl;
-          });
-          setRoomImages(images.slice(0, 6));
+          setRoomImages(data.images.map((img) => resolveImage(img.imageUrl)));
         }
       } catch {
         // Keep fallback images
@@ -109,6 +152,8 @@ export default function RoomDetailPage() {
 
     void loadRoomImages();
   }, [overview?.hotel?.id, overview?.stay?.roomNumber]);
+
+  const carouselImages = useMemo(() => roomImages, [roomImages]);
 
   const handleCopyReservation = () => {
     if (!overview?.stay.confirmationNumber) return;
@@ -143,99 +188,113 @@ export default function RoomDetailPage() {
   const checkInComplete = Boolean(overview.guest.idDocumentVerified) && Boolean(overview.guest.hasPaymentMethod);
 
   const suiteName = interpolateTemplate(page.suiteNameTemplate, { roomNumber });
-  const carouselImages = roomImages.length > 0 ? roomImages : page.fallbackHeroImages;
 
   return (
     <div className="relative mx-auto max-w-md pb-24 lg:max-w-3xl">
-      <div className="pointer-events-none absolute left-0 top-0 z-[100] w-full p-4 pt-[calc(env(safe-area-inset-top)+12px)]">
-        <button
-          onClick={() => router.back()}
-          className="pointer-events-auto flex items-center gap-2 rounded-full bg-black/20 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-black/30"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>{page.title}</span>
-        </button>
-      </div>
+      {/* ─── Hero Carousel ─── */}
+      <section className="relative w-full overflow-hidden">
+        {carouselImages.length > 0 ? (
+          <StackedCarousel images={carouselImages} alt={suiteName} className="h-[480px]" showArrows={false} showDots={false}>
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60 pointer-events-none z-[1]" />
 
-      <section className="relative h-[480px] w-full">
-        <StackedCarousel images={carouselImages} alt={suiteName}>
-          <div className="absolute right-4 top-[calc(env(safe-area-inset-top)+80px)] z-10 rounded bg-black/60 px-3 py-2 text-xs font-medium text-white backdrop-blur-md">
-            {page.tailored}
-          </div>
+            {/* Back button with white-to-transparent gradient */}
+            <div className="absolute left-0 top-0 z-20 w-full pt-[calc(env(safe-area-inset-top)+4px)] pointer-events-none">
+              <div className="bg-gradient-to-b from-white/80 via-white/40 to-transparent px-4 pb-6 pt-3 pointer-events-auto">
+                <button
+                  onClick={() => router.back()}
+                  className="flex items-center gap-1.5 text-base font-semibold text-foreground"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                  <span>{page.title}</span>
+                </button>
+              </div>
+            </div>
 
-          <div className="pointer-events-none absolute bottom-10 left-4 right-4 z-10 flex flex-col justify-end">
-            <p className="mb-6 text-3xl font-light uppercase tracking-wide text-white drop-shadow-md">{suiteName}</p>
+            {/* Plaisirs sur mesure tag (Figma: on right, overlaying next slide peek) */}
+            <a
+              href="#plaisirs-sur-mesure"
+              className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex flex-col items-center justify-center rounded-lg bg-black/60 px-3 py-4 text-xs font-medium leading-tight text-white backdrop-blur-md transition-opacity hover:bg-black/70 pointer-events-auto max-w-[72px] text-center"
+            >
+              <span className="block">{page.tailored.split(" ")[0]}</span>
+              <span className="block">{page.tailored.split(" ").slice(1).join(" ")}</span>
+              <ChevronRight className="mt-1 h-3 w-3 rotate-[-90deg]" strokeWidth={2} />
+            </a>
 
-            {!checkInComplete && (
+            {/* Suite name & check-in CTA (Figma: lower-left text, white CTA with dark border) */}
+            <div className="absolute bottom-6 left-0 right-0 z-10 px-5 pointer-events-auto">
+              <div className="mb-3 flex items-center gap-2">
+                {/* <Leaf className="h-5 w-5 text-white drop-shadow-md" strokeWidth={1.5} /> */}
+                <p className="text-2xl font-semibold uppercase tracking-widest text-white drop-shadow-md">{suiteName}</p>
+              </div>
+
               <AppLink
                 href={withLocale(locale, "/reception/check-in")}
-                className="pointer-events-auto mb-6 flex w-full items-center justify-between rounded-xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                className="flex w-[80%] max-w-[340px] mx-auto items-center justify-between rounded-sm border border-gray-300 bg-white px-4 py-3 shadow-md transition-transform hover:scale-[1.01] active:scale-[0.99]"
               >
-                <span className="text-sm font-semibold text-foreground">{page.completeCheckIn}</span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-7 w-7 text-gray-700" />
+                  <span className="text-sm font-semibold text-gray-900">{page.completeCheckIn}</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-600" strokeWidth={2} />
               </AppLink>
-            )}
-          </div>
-        </StackedCarousel>
+              {/* )} */}
+            </div>
+          </StackedCarousel>
+        ) : (
+          <div className="h-[320px] bg-muted" />
+        )}
       </section>
 
+      {/* ─── Room Info Grid ─── */}
       <div className="px-5 pt-6">
-        <div className="grid grid-cols-2 gap-y-6">
+        <div className="grid grid-cols-2 gap-y-5">
           <div>
             <p className="text-xs text-muted-foreground">{page.labels.room}</p>
-            <p className="mt-0.5 text-lg font-medium text-foreground">№ {roomNumber}</p>
+            <p className="mt-0.5 text-lg font-semibold text-foreground">&#8470; {roomNumber}</p>
           </div>
 
           <div>
-            <span className="text-lg font-medium text-foreground">
-              {adults} <span className="text-base font-normal text-muted-foreground">{page.labels.adults}</span>
+            <span className="text-lg font-semibold text-foreground">
+              {adults}{" "}
+              <span className="text-sm font-normal text-muted-foreground">{page.labels.adults}</span>
             </span>
-            {children > 0 ? (
-              <span className="block text-lg font-medium text-foreground">
-                {children} <span className="text-base font-normal text-muted-foreground">{page.labels.child}</span>
+            {children > 0 && (
+              <span className="block text-lg font-semibold text-foreground">
+                {children}{" "}
+                <span className="text-sm font-normal text-muted-foreground">{page.labels.child}</span>
               </span>
-            ) : null}
+            )}
           </div>
 
           <div>
             <p className="text-xs text-muted-foreground">{page.labels.checkIn}</p>
-            <p className="mt-0.5 font-medium text-foreground text-base">{formatDate(locale, checkInDate)}</p>
+            <p className="mt-0.5 text-base font-semibold text-foreground">{formatDate(locale, checkInDate)}</p>
+            <p className="text-sm text-muted-foreground">{formatTime(locale, checkInDate)}</p>
           </div>
 
           <div>
             <p className="text-xs text-muted-foreground">{page.labels.checkOut}</p>
-            <p className="mt-0.5 font-medium text-foreground text-base">{formatDate(locale, checkOutDate)}</p>
+            <p className="mt-0.5 text-base font-semibold text-foreground">{formatDate(locale, checkOutDate)}</p>
+            <p className="text-sm text-muted-foreground">{formatTime(locale, checkOutDate)}</p>
           </div>
         </div>
 
-        <div className="my-6 h-px w-full bg-border/50" />
-
-        <div className="grid grid-cols-2 gap-3">
-          {page.quickActions.slice(0, 4).map((action) => (
-            <AppLink
+        {/* ─── Quick Actions Grid ─── */}
+        <div className="mt-8 grid grid-cols-2 gap-3">
+          {page.quickActions.map((action) => (
+            <QuickActionCard
               key={action.id}
               href={withLocale(locale, action.href)}
-              className="flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm hover:bg-muted/30"
-            >
-              <span className="text-xs font-semibold leading-tight text-foreground">{action.label}</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </AppLink>
+              label={action.label}
+              icon={action.icon ? resolveImage(action.icon) : undefined}
+            />
           ))}
         </div>
-        {page.quickActions[4] ? (
-          <div className="mt-3">
-            <AppLink
-              href={withLocale(locale, page.quickActions[4].href)}
-              className="flex items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm hover:bg-muted/30"
-            >
-              <span className="text-xs font-semibold leading-tight text-foreground">{page.quickActions[4].label}</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </AppLink>
-          </div>
-        ) : null}
 
-        <div className="my-6 h-px w-full bg-border/50" />
+        <div className="my-8 h-px w-full bg-border/50" />
 
+        {/* ─── Promo / Service Cards ─── */}
         <div className="space-y-4">
           {page.promoCards.map((card) => (
             <PromoCard
@@ -244,50 +303,55 @@ export default function RoomDetailPage() {
               title={card.title}
               subtitle={card.subtitle}
               cta={card.cta}
-              image={card.image}
+              image={resolveImage(card.image)}
             />
           ))}
         </div>
 
-        <div className="my-6 h-px w-full bg-border/50" />
+        <div className="my-8 h-px w-full bg-border/50" />
 
-        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <div className="relative h-40 w-full overflow-hidden rounded-xl">
-            <Image src={page.upgrade.image} alt={page.upgrade.title} fill className="object-cover" unoptimized />
+        {/* ─── Room Upgrade Banner ─── */}
+        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="relative h-44 w-full overflow-hidden">
+            <Image src={resolveImage(page.upgrade.image)} alt={page.upgrade.title} fill className="object-cover" unoptimized />
           </div>
-          <div className="mt-4">
-            <div className="mb-4">
-              <p className="text-base font-semibold text-foreground">{page.upgrade.title}</p>
-              <p className="text-xs text-muted-foreground">{page.upgrade.subtitle}</p>
-            </div>
+          <div className="p-4">
+            <p className="text-base font-semibold text-foreground">{page.upgrade.title}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{page.upgrade.subtitle}</p>
             <AppLink
               href={withLocale(locale, page.upgrade.href)}
-              className="block w-full rounded-lg bg-black py-3 text-center text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              className="mt-4 block w-full rounded-lg bg-black py-3 text-center text-xs font-semibold text-white transition-opacity hover:opacity-90"
             >
               {page.upgrade.cta}
             </AppLink>
           </div>
         </section>
 
-        {/* <section className="mt-8">
+        {/* ─── Upsells / Plaisirs sur mesure ─── */}
+        <section id="plaisirs-sur-mesure" className="mt-8 scroll-mt-4">
           <p className="mb-4 text-lg font-semibold text-foreground">{page.upsellsTitle}</p>
-          <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-4 no-scrollbar">
+          <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-4 no-scrollbar">
             {page.upsells.map((upsell) => (
               <AppLink
                 href={withLocale(locale, upsell.href)}
                 key={upsell.id}
-                className="relative h-40 w-32 flex-shrink-0 overflow-hidden rounded-xl bg-muted"
+                className="relative h-44 w-36 flex-shrink-0 overflow-hidden rounded-xl bg-muted shadow-md transition-shadow hover:shadow-lg"
               >
-                <Image src={upsell.image} alt={upsell.title} fill className="object-cover" unoptimized />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                <p className="absolute bottom-2 left-2 text-sm font-medium uppercase text-white">{upsell.title}</p>
+                <Image src={resolveImage(upsell.image)} alt={upsell.title} fill className="object-cover" unoptimized />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 px-3 py-3">
+                  <p className="text-sm font-semibold uppercase tracking-wider text-white drop-shadow-md">
+                    {upsell.title}
+                  </p>
+                </div>
               </AppLink>
             ))}
           </div>
-        </section> */}
+        </section>
 
+        {/* ─── Reservation Info & Links ─── */}
         <div className="mt-6 space-y-1">
-          <div className="flex items-center justify-between py-4">
+          <div className="flex items-center justify-center py-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>
                 {page.labels.reservation} {confirmationNumber}

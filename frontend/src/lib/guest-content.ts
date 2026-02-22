@@ -615,6 +615,7 @@ export type GuestContent = {
         id: string;
         label: string;
         href: string;
+        icon?: string;
       }>;
       promoCards: Array<{
         id: string;
