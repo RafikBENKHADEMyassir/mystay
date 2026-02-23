@@ -1774,6 +1774,43 @@ ON CONFLICT (id) DO UPDATE SET
   created_by_staff_user_id = EXCLUDED.created_by_staff_user_id,
   updated_at = EXCLUDED.updated_at;
 
+-- Nettoyage (cleaning) bookable upsell service
+INSERT INTO upsell_services (
+  id, hotel_id, category, name, touchpoint,
+  price_cents, currency, availability_weekdays, enabled, sort_order,
+  description, image_url, time_slots, bookable,
+  created_by_staff_user_id, created_at, updated_at
+)
+VALUES (
+  'UP-CLEANING-01',
+  'H-FOURSEASONS',
+  'Housekeeping',
+  'Nettoyage',
+  'during_stay',
+  5000,
+  'EUR',
+  ARRAY['mon','tue','wed','thu','fri','sat','sun'],
+  TRUE,
+  1,
+  'Description de la réservation de créneau pour un nettoyage.',
+  '/images/room/nettoyage.png',
+  ARRAY['10:00 - 11:00','12:00 - 13:00','15:00 - 16:00','17:00 - 18:00'],
+  TRUE,
+  'SU-0001',
+  NOW() - INTERVAL '10 days',
+  NOW()
+)
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  image_url = EXCLUDED.image_url,
+  time_slots = EXCLUDED.time_slots,
+  bookable = EXCLUDED.bookable,
+  price_cents = EXCLUDED.price_cents,
+  availability_weekdays = EXCLUDED.availability_weekdays,
+  enabled = EXCLUDED.enabled,
+  updated_at = EXCLUDED.updated_at;
+
 -- =============================================================================
 -- ROOM IMAGES (Room photo carousels)
 -- =============================================================================

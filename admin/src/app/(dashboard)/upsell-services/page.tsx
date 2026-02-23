@@ -23,6 +23,10 @@ type UpsellService = {
   availabilityWeekdays: string[];
   enabled: boolean;
   sortOrder: number;
+  description: string | null;
+  imageUrl: string | null;
+  timeSlots: string[];
+  bookable: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -174,10 +178,16 @@ export default async function UpsellServicesPage({ searchParams }: UpsellService
       .map((day) => day.value)
       .filter((day) => String(formData.get(`weekday_${day}`) ?? "") === "on");
 
+    const description = String(formData.get("description") ?? "").trim() || null;
+    const imageUrl = String(formData.get("imageUrl") ?? "").trim() || null;
+    const timeSlotsRaw = String(formData.get("timeSlots") ?? "").trim();
+    const timeSlots = timeSlotsRaw ? timeSlotsRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const bookable = String(formData.get("bookable") ?? "") === "on";
+
     const response = await fetch(`${backendUrl}/api/v1/staff/upsell-services`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ category, name, touchpoint, priceCents, currency, availabilityWeekdays, enabled }),
+      body: JSON.stringify({ category, name, touchpoint, priceCents, currency, availabilityWeekdays, enabled, description, imageUrl, timeSlots, bookable }),
       cache: "no-store"
     });
 
@@ -216,10 +226,16 @@ export default async function UpsellServicesPage({ searchParams }: UpsellService
       .map((day) => day.value)
       .filter((day) => String(formData.get(`weekday_${day}`) ?? "") === "on");
 
+    const description = String(formData.get("description") ?? "").trim() || null;
+    const imageUrl = String(formData.get("imageUrl") ?? "").trim() || null;
+    const timeSlotsRaw = String(formData.get("timeSlots") ?? "").trim();
+    const timeSlots = timeSlotsRaw ? timeSlotsRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const bookable = String(formData.get("bookable") ?? "") === "on";
+
     const response = await fetch(`${backendUrl}/api/v1/staff/upsell-services/${encodeURIComponent(serviceId)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ category, name, touchpoint, priceCents, currency, availabilityWeekdays, enabled }),
+      body: JSON.stringify({ category, name, touchpoint, priceCents, currency, availabilityWeekdays, enabled, description, imageUrl, timeSlots, bookable }),
       cache: "no-store"
     });
 
@@ -344,9 +360,16 @@ export default async function UpsellServicesPage({ searchParams }: UpsellService
                     return (
                       <div key={service.id} className="grid grid-cols-[1.4fr,160px,140px,1fr,140px] items-center gap-0 py-3">
                         <div className="px-4">
-                          <Link href={openDrawerHref(service.id)} className="truncate font-semibold hover:underline">
-                            {service.name}
-                          </Link>
+                          <div className="flex items-center gap-1.5">
+                            <Link href={openDrawerHref(service.id)} className="truncate font-semibold hover:underline">
+                              {service.name}
+                            </Link>
+                            {service.bookable ? (
+                              <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700 text-[10px]">
+                                Bookable
+                              </Badge>
+                            ) : null}
+                          </div>
                           <p className="truncate text-xs text-muted-foreground">{service.id}</p>
                         </div>
                         <div className="px-4 text-sm">{touchpointLabel}</div>
@@ -508,6 +531,27 @@ export default async function UpsellServicesPage({ searchParams }: UpsellService
                           <input type="checkbox" name="enabled" defaultChecked />
                           Enabled
                         </label>
+
+                        <div className="border-t pt-4 mt-4 space-y-4">
+                          <p className="text-sm font-semibold text-muted-foreground">Bookable service options</p>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="bookable" />
+                            Bookable (guests can pick date &amp; time)
+                          </label>
+                          <div className="space-y-2">
+                            <Label htmlFor="up-description">Description</Label>
+                            <Input id="up-description" name="description" placeholder="Service description..." />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="up-imageUrl">Image URL</Label>
+                            <Input id="up-imageUrl" name="imageUrl" placeholder="/images/room/nettoyage.png" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="up-timeSlots">Time slots (comma-separated)</Label>
+                            <Input id="up-timeSlots" name="timeSlots" placeholder="10:00 - 11:00, 12:00 - 13:00" />
+                          </div>
+                        </div>
+
                         <Button type="submit" className="w-full">
                           Create service
                         </Button>
@@ -604,6 +648,27 @@ export default async function UpsellServicesPage({ searchParams }: UpsellService
                           <input type="checkbox" name="enabled" defaultChecked={detail.enabled} disabled={!canManage} />
                           Enabled
                         </label>
+
+                        <div className="border-t pt-4 mt-4 space-y-4">
+                          <p className="text-sm font-semibold text-muted-foreground">Bookable service options</p>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="bookable" defaultChecked={detail.bookable} disabled={!canManage} />
+                            Bookable (guests can pick date &amp; time)
+                          </label>
+                          <div className="space-y-2">
+                            <Label htmlFor="up-description-edit">Description</Label>
+                            <Input id="up-description-edit" name="description" defaultValue={detail.description ?? ""} disabled={!canManage} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="up-imageUrl-edit">Image URL</Label>
+                            <Input id="up-imageUrl-edit" name="imageUrl" defaultValue={detail.imageUrl ?? ""} disabled={!canManage} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="up-timeSlots-edit">Time slots (comma-separated)</Label>
+                            <Input id="up-timeSlots-edit" name="timeSlots" defaultValue={(detail.timeSlots ?? []).join(", ")} disabled={!canManage} />
+                          </div>
+                        </div>
+
                         {canManage ? (
                           <Button type="submit" className="w-full">
                             Save changes

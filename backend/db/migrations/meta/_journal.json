@@ -141,6 +141,13 @@
       "when": 1770307200000,
       "tag": "0019_add_useful_informations",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1770393600000,
+      "tag": "0020_add_service_bookings",
+      "breakpoints": true
     }
   ]
 }

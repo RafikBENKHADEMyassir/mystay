@@ -250,6 +250,10 @@ export const upsellServices = pgTable(
     availabilityWeekdays: text("availability_weekdays").array().notNull().default(sql`ARRAY[]::text[]`),
     enabled: boolean("enabled").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
+    description: text("description"),
+    imageUrl: text("image_url"),
+    timeSlots: text("time_slots").array().notNull().default(sql`ARRAY[]::text[]`),
+    bookable: boolean("bookable").notNull().default(false),
     createdByStaffUserId: text("created_by_staff_user_id").references(() => staffUsers.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
@@ -259,6 +263,36 @@ export const upsellServices = pgTable(
     categoryIdx: index("idx_upsell_services_category").on(table.hotelId, table.category),
     enabledIdx: index("idx_upsell_services_enabled").on(table.hotelId, table.enabled),
     updatedAtIdx: index("idx_upsell_services_updated_at").on(table.hotelId, table.updatedAt)
+  })
+);
+
+export const serviceBookings = pgTable(
+  "service_bookings",
+  {
+    id: text("id").primaryKey(),
+    hotelId: text("hotel_id")
+      .notNull()
+      .references(() => hotels.id, { onDelete: "cascade" }),
+    stayId: text("stay_id").references(() => stays.id, { onDelete: "set null" }),
+    upsellServiceId: text("upsell_service_id")
+      .notNull()
+      .references(() => upsellServices.id, { onDelete: "cascade" }),
+    guestName: text("guest_name").notNull(),
+    bookingDate: text("booking_date").notNull(),
+    timeSlot: text("time_slot").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    currency: text("currency").notNull().default("EUR"),
+    status: text("status").notNull().default("confirmed"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    hotelIdx: index("idx_service_bookings_hotel").on(table.hotelId),
+    stayIdx: index("idx_service_bookings_stay").on(table.stayId),
+    serviceIdx: index("idx_service_bookings_service").on(table.upsellServiceId),
+    dateIdx: index("idx_service_bookings_date").on(table.hotelId, table.bookingDate),
+    statusIdx: index("idx_service_bookings_status").on(table.hotelId, table.status)
   })
 );
 

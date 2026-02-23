@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight, Copy, Leaf, Loader2 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 
+import { CleaningBookingSheet } from "@/components/cleaning/cleaning-booking-sheet";
 import { useLocale } from "@/components/providers/locale-provider";
 import { UsefulInfoBottomSheet } from "@/components/useful-info/useful-info-bottom-sheet";
 import { interpolateTemplate } from "@/lib/guest-content";
@@ -111,46 +112,58 @@ function QuickActionButton({
 /* ─── Promo Service Card ─── */
 function PromoCard({
   href,
+  onClick,
   title,
   subtitle,
   cta,
-  image
+  image,
+  testId,
 }: {
-  href: string;
+  href?: string;
+  onClick?: () => void;
   title: string;
   subtitle: string;
   cta: string;
   image: string;
+  testId?: string;
 }) {
-  return (
-    <div className="flex gap-4 rounded-xl border border-border bg-card p-3 shadow-sm">
+  const ctaContent = (
+    <div className="flex gap-4 rounded-xl border border-border bg-card p-3 shadow-sm" data-testid={testId}>
       <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-muted/30">
         <Image src={image} alt={title} width={96} height={96} className="h-full w-full object-cover" unoptimized />
       </div>
       <div className="flex flex-1 flex-col justify-center">
         <p className="text-sm font-semibold text-foreground">{title}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
-        <AppLink
-          href={href}
-          className="mt-3 flex w-full items-center justify-center rounded-lg bg-muted/50 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-        >
+        <span className="mt-3 flex w-full items-center justify-center rounded-lg bg-muted/50 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
           {cta}
-        </AppLink>
+        </span>
       </div>
     </div>
   );
+
+  if (onClick) {
+    return (
+      <button onClick={onClick} className="w-full text-left">
+        {ctaContent}
+      </button>
+    );
+  }
+
+  return href ? <AppLink href={href}>{ctaContent}</AppLink> : ctaContent;
 }
 
 export default function RoomDetailPage() {
   const locale = useLocale();
   const router = useRouter();
-  const { isLoading, overview, authenticated } = useGuestOverview();
+  const { isLoading, overview, authenticated, token } = useGuestOverview();
   const { content } = useGuestContent(locale, overview?.hotel.id ?? null);
   const page = content?.pages.room;
 
   const [copied, setCopied] = useState(false);
   const [roomImages, setRoomImages] = useState<string[]>([]);
   const [showUsefulInfo, setShowUsefulInfo] = useState(false);
+  const [showCleaning, setShowCleaning] = useState(false);
 
   /* Fallback images from CMS content */
   useEffect(() => {
@@ -337,16 +350,28 @@ export default function RoomDetailPage() {
 
         {/* ─── Promo / Service Cards ─── */}
         <div className="space-y-4">
-          {page.promoCards.map((card) => (
-            <PromoCard
-              key={card.id}
-              href={withLocale(locale, card.href)}
-              title={card.title}
-              subtitle={card.subtitle}
-              cta={card.cta}
-              image={resolveImage(card.image)}
-            />
-          ))}
+          {page.promoCards.map((card) =>
+            card.id === "housekeeping" ? (
+              <PromoCard
+                key={card.id}
+                onClick={() => setShowCleaning(true)}
+                title={card.title}
+                subtitle={card.subtitle}
+                cta={card.cta}
+                image={resolveImage(card.image)}
+                testId="cleaning-trigger"
+              />
+            ) : (
+              <PromoCard
+                key={card.id}
+                href={withLocale(locale, card.href)}
+                title={card.title}
+                subtitle={card.subtitle}
+                cta={card.cta}
+                image={resolveImage(card.image)}
+              />
+            )
+          )}
         </div>
 
         <div className="my-8 h-px w-full bg-border/50" />
@@ -440,6 +465,17 @@ export default function RoomDetailPage() {
         <UsefulInfoBottomSheet
           hotelId={overview.hotel.id}
           onClose={() => setShowUsefulInfo(false)}
+        />
+      )}
+
+      {/* ─── Cleaning Booking Bottom Sheet ─── */}
+      {showCleaning && overview?.hotel?.id && token && (
+        <CleaningBookingSheet
+          hotelId={overview.hotel.id}
+          stayId={overview.stay?.id}
+          guestName={`${overview.guest?.firstName ?? ""} ${overview.guest?.lastName ?? ""}`.trim() || "Guest"}
+          guestToken={token}
+          onClose={() => setShowCleaning(false)}
         />
       )}
     </div>

@@ -2861,7 +2861,8 @@ async function handleRequest(req, res) {
     segments[4] !== "room-images" &&
     segments[4] !== "experiences" &&
     segments[4] !== "guest-content" &&
-    segments[4] !== "useful-informations"
+    segments[4] !== "useful-informations" &&
+    segments[4] !== "cleaning"
   ) {
     const hotelId = decodeURIComponent(segments[3]);
     const principal = requirePrincipal(req, res, url, ["staff"]);
@@ -7269,6 +7270,10 @@ async function handleRequest(req, res) {
           availability_weekdays AS "availabilityWeekdays",
           enabled,
           sort_order AS "sortOrder",
+          description,
+          image_url AS "imageUrl",
+          time_slots AS "timeSlots",
+          bookable,
           created_by_staff_user_id AS "createdByStaffUserId",
           created_at AS "createdAt",
           updated_at AS "updatedAt"
@@ -7303,6 +7308,10 @@ async function handleRequest(req, res) {
           availability_weekdays AS "availabilityWeekdays",
           enabled,
           sort_order AS "sortOrder",
+          description,
+          image_url AS "imageUrl",
+          time_slots AS "timeSlots",
+          bookable,
           created_by_staff_user_id AS "createdByStaffUserId",
           created_at AS "createdAt",
           updated_at AS "updatedAt"
@@ -7369,6 +7378,11 @@ async function handleRequest(req, res) {
     const sortOrder = body.sortOrder === undefined ? 0 : Number(body.sortOrder);
     const safeSortOrder = Number.isFinite(sortOrder) ? Math.floor(sortOrder) : 0;
 
+    const description = typeof body.description === "string" ? body.description.trim() : null;
+    const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl.trim() : null;
+    const timeSlots = Array.isArray(body.timeSlots) ? body.timeSlots.filter((s) => typeof s === "string").map((s) => s.trim()) : [];
+    const bookable = Boolean(body.bookable);
+
     const id = `US-${randomUUID().slice(0, 8).toUpperCase()}`;
 
     const rows = await query(
@@ -7384,11 +7398,15 @@ async function handleRequest(req, res) {
           availability_weekdays,
           enabled,
           sort_order,
+          description,
+          image_url,
+          time_slots,
+          bookable,
           created_by_staff_user_id,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text[], $9, $10, $11, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text[], $9, $10, $11, $12, $13::text[], $14, $15, NOW(), NOW())
         RETURNING
           id,
           hotel_id AS "hotelId",
@@ -7400,11 +7418,15 @@ async function handleRequest(req, res) {
           availability_weekdays AS "availabilityWeekdays",
           enabled,
           sort_order AS "sortOrder",
+          description,
+          image_url AS "imageUrl",
+          time_slots AS "timeSlots",
+          bookable,
           created_by_staff_user_id AS "createdByStaffUserId",
           created_at AS "createdAt",
           updated_at AS "updatedAt"
       `,
-      [id, principal.hotelId, category, name, touchpoint, priceCents, currency, availabilityWeekdays, enabled, safeSortOrder, principal.staffUserId]
+      [id, principal.hotelId, category, name, touchpoint, priceCents, currency, availabilityWeekdays, enabled, safeSortOrder, description, imageUrl, timeSlots, bookable, principal.staffUserId]
     );
 
     sendJson(res, 201, { service: rows[0] });
@@ -7499,6 +7521,29 @@ async function handleRequest(req, res) {
       updates.push(`sort_order = $${params.length}`);
     }
 
+    if (body.description !== undefined) {
+      const desc = typeof body.description === "string" ? body.description.trim() : null;
+      params.push(desc || null);
+      updates.push(`description = $${params.length}`);
+    }
+
+    if (body.imageUrl !== undefined) {
+      const imgUrl = typeof body.imageUrl === "string" ? body.imageUrl.trim() : null;
+      params.push(imgUrl || null);
+      updates.push(`image_url = $${params.length}`);
+    }
+
+    if (body.timeSlots !== undefined) {
+      const ts = Array.isArray(body.timeSlots) ? body.timeSlots.filter((s) => typeof s === "string").map((s) => s.trim()) : [];
+      params.push(ts);
+      updates.push(`time_slots = $${params.length}::text[]`);
+    }
+
+    if (body.bookable !== undefined) {
+      params.push(Boolean(body.bookable));
+      updates.push(`bookable = $${params.length}`);
+    }
+
     if (updates.length === 0) {
       sendJson(res, 400, { error: "no_fields_to_update" });
       return;
@@ -7522,6 +7567,10 @@ async function handleRequest(req, res) {
           availability_weekdays AS "availabilityWeekdays",
           enabled,
           sort_order AS "sortOrder",
+          description,
+          image_url AS "imageUrl",
+          time_slots AS "timeSlots",
+          bookable,
           created_by_staff_user_id AS "createdByStaffUserId",
           created_at AS "createdAt",
           updated_at AS "updatedAt"
@@ -10532,6 +10581,342 @@ async function handleRequest(req, res) {
     } catch (error) {
       console.error("useful_info_item_delete_failed", error);
       sendJson(res, 500, { error: "delete_failed" });
+      return;
+    }
+  }
+
+  // =========================================================================
+  // CLEANING / BOOKABLE SERVICES
+  // =========================================================================
+
+  // GET /api/v1/hotels/:hotelId/cleaning/service - Public: get cleaning service config
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "hotels" &&
+    segments[3] &&
+    segments[4] === "cleaning" &&
+    segments[5] === "service" &&
+    !segments[6] &&
+    req.method === "GET"
+  ) {
+    const hotelId = decodeURIComponent(segments[3]);
+    try {
+      const rows = await query(
+        `SELECT id, name, description, image_url AS "imageUrl",
+                price_cents AS "priceCents", currency,
+                time_slots AS "timeSlots",
+                availability_weekdays AS "availabilityWeekdays"
+         FROM upsell_services
+         WHERE hotel_id = $1 AND bookable = true AND enabled = true
+           AND LOWER(category) = 'housekeeping'
+         ORDER BY sort_order ASC
+         LIMIT 1`,
+        [hotelId]
+      );
+      if (rows.length === 0) {
+        sendJson(res, 404, { error: "cleaning_service_not_found" });
+        return;
+      }
+      sendJson(res, 200, { service: rows[0] });
+      return;
+    } catch (error) {
+      console.error("cleaning_service_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // GET /api/v1/hotels/:hotelId/cleaning/bookings?date=YYYY-MM-DD - Public: get booked slots for a date
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "hotels" &&
+    segments[3] &&
+    segments[4] === "cleaning" &&
+    segments[5] === "bookings" &&
+    !segments[6] &&
+    req.method === "GET"
+  ) {
+    const hotelId = decodeURIComponent(segments[3]);
+    const date = url.searchParams.get("date");
+    if (!date) {
+      sendJson(res, 400, { error: "date_required" });
+      return;
+    }
+    try {
+      const rows = await query(
+        `SELECT time_slot AS "timeSlot", COUNT(*)::int AS "count"
+         FROM service_bookings
+         WHERE hotel_id = $1 AND booking_date = $2 AND status != 'cancelled'
+         GROUP BY time_slot`,
+        [hotelId, date]
+      );
+      sendJson(res, 200, { bookedSlots: rows });
+      return;
+    } catch (error) {
+      console.error("cleaning_bookings_fetch_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+      return;
+    }
+  }
+
+  // POST /api/v1/hotels/:hotelId/cleaning/bookings - Guest: create cleaning booking + ticket + thread + event
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "hotels" &&
+    segments[3] &&
+    segments[4] === "cleaning" &&
+    segments[5] === "bookings" &&
+    !segments[6] &&
+    req.method === "POST"
+  ) {
+    const hotelId = decodeURIComponent(segments[3]);
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    const body = await readJson(req);
+    if (!body) {
+      sendJson(res, 400, { error: "invalid_body" });
+      return;
+    }
+
+    const { serviceId, bookingDate, timeSlot } = body;
+    if (!serviceId || !bookingDate || !timeSlot) {
+      sendJson(res, 400, { error: "missing_fields", required: ["serviceId", "bookingDate", "timeSlot"] });
+      return;
+    }
+
+    const stayId = principal.stayId;
+    if (!stayId) {
+      sendJson(res, 400, { error: "missing_stay_context" });
+      return;
+    }
+
+    try {
+      const svcRows = await query(
+        `SELECT id, name, price_cents, currency FROM upsell_services
+         WHERE id = $1 AND hotel_id = $2 AND bookable = true AND enabled = true`,
+        [serviceId, hotelId]
+      );
+      if (svcRows.length === 0) {
+        sendJson(res, 404, { error: "service_not_found" });
+        return;
+      }
+      const svc = svcRows[0];
+
+      let roomNumber = "";
+      const stays = await query(
+        `SELECT room_number AS "roomNumber" FROM stays WHERE id = $1 AND hotel_id = $2 LIMIT 1`,
+        [stayId, hotelId]
+      );
+      roomNumber = stays[0]?.roomNumber ?? "";
+
+      const guestName = getGuestDisplayName(principal) || "Guest";
+
+      // 1. Create service booking
+      const bookingId = `SB-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const ticketId = `T-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const eventId = `EV-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+      const bookingRows = await query(
+        `INSERT INTO service_bookings (id, hotel_id, stay_id, upsell_service_id, guest_name, booking_date, time_slot, price_cents, currency, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'confirmed', NOW(), NOW())
+         RETURNING id, hotel_id AS "hotelId", stay_id AS "stayId",
+                   upsell_service_id AS "upsellServiceId",
+                   guest_name AS "guestName",
+                   booking_date AS "bookingDate",
+                   time_slot AS "timeSlot",
+                   price_cents AS "priceCents", currency, status,
+                   created_at AS "createdAt"`,
+        [bookingId, hotelId, stayId, serviceId, guestName, bookingDate, timeSlot, svc.price_cents, svc.currency]
+      );
+
+      // 2. Create ticket (request)
+      const ticketTitle = `${svc.name} - ${bookingDate} ${timeSlot} - Room ${roomNumber || "—"}`;
+      const ticketPayload = JSON.stringify({
+        type: "cleaning_booking",
+        serviceName: svc.name,
+        bookingDate,
+        timeSlot,
+        guestName,
+        priceCents: svc.price_cents,
+        currency: svc.currency,
+        bookingId,
+        eventId
+      });
+
+      await query(
+        `INSERT INTO tickets (id, hotel_id, stay_id, room_number, department, status, title, payload, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'housekeeping', 'pending', $5, $6::jsonb, NOW(), NOW())`,
+        [ticketId, hotelId, stayId, roomNumber, ticketTitle, ticketPayload]
+      );
+
+      try {
+        await emitRealtimeEvent({
+          type: "ticket_created",
+          hotelId,
+          ticketId,
+          stayId,
+          roomNumber,
+          department: "housekeeping",
+          status: "pending"
+        });
+      } catch (err) {
+        console.error("realtime_emit_failed", err);
+      }
+
+      // 3. Create or find thread + send initial message
+      const initialMessage = `Demande de nettoyage pour le ${bookingDate}, créneau ${timeSlot}.\nChambre : ${roomNumber || "—"}\nPrix : ${(svc.price_cents / 100).toFixed(2)} ${svc.currency}`;
+
+      const existingThreads = await query(
+        `SELECT id FROM threads
+         WHERE hotel_id = $1 AND stay_id = $2 AND department = 'housekeeping' AND status <> 'archived'
+         ORDER BY updated_at DESC LIMIT 1`,
+        [hotelId, stayId]
+      );
+
+      let threadId;
+      if (existingThreads[0]) {
+        threadId = existingThreads[0].id;
+      } else {
+        threadId = `TH-${randomUUID().slice(0, 8).toUpperCase()}`;
+        const threadTitle = `Housekeeping - Room ${roomNumber || "—"}`;
+
+        let assigneeId = null;
+        try {
+          assigneeId = await pickDefaultThreadAssignee({ hotelId, department: "housekeeping" });
+        } catch (err) {
+          console.error("thread_assign_default_failed", err);
+        }
+
+        await query(
+          `INSERT INTO threads (id, hotel_id, stay_id, department, status, title, assigned_staff_user_id, created_at, updated_at)
+           VALUES ($1, $2, $3, 'housekeeping', 'pending', $4, $5, NOW(), NOW())`,
+          [threadId, hotelId, stayId, threadTitle, assigneeId]
+        );
+      }
+
+      const messageId = `M-${randomUUID().slice(0, 8).toUpperCase()}`;
+      await query(
+        `INSERT INTO messages (id, thread_id, sender_type, sender_name, body_text, payload, created_at)
+         VALUES ($1, $2, 'guest', $3, $4, $5::jsonb, NOW())`,
+        [messageId, threadId, guestName, initialMessage, JSON.stringify({ type: "cleaning_booking", ticketId, bookingId })]
+      );
+      await query(`UPDATE threads SET updated_at = NOW() WHERE id = $1`, [threadId]);
+
+      try {
+        await emitRealtimeEvent({
+          type: "message_created",
+          hotelId,
+          stayId,
+          threadId,
+          messageId,
+          department: "housekeeping",
+          senderType: "guest"
+        });
+      } catch (err) {
+        console.error("realtime_emit_failed", err);
+      }
+
+      // 4. Create event (agenda item)
+      const slotStart = timeSlot.split(" - ")[0] || "10:00";
+      const slotEnd = timeSlot.split(" - ")[1] || "11:00";
+      const startAt = `${bookingDate}T${slotStart}:00`;
+      const endAt = `${bookingDate}T${slotEnd}:00`;
+
+      await query(
+        `INSERT INTO events (id, hotel_id, stay_id, type, title, start_at, end_at, status, metadata, created_at, updated_at)
+         VALUES ($1, $2, $3, 'housekeeping', $4, $5, $6, 'scheduled', $7::jsonb, NOW(), NOW())`,
+        [
+          eventId,
+          hotelId,
+          stayId,
+          `${svc.name} - Room ${roomNumber || "—"}`,
+          startAt,
+          endAt,
+          JSON.stringify({
+            department: "housekeeping",
+            serviceName: svc.name,
+            timeSlot,
+            ticketId,
+            threadId,
+            bookingId,
+            priceCents: svc.price_cents,
+            currency: svc.currency
+          })
+        ]
+      );
+
+      // 5. Notify staff via email
+      try {
+        const recipients = await listStaffNotificationTargets({ hotelId, department: "housekeeping" });
+        const subject = `Nettoyage • ${bookingDate} ${timeSlot} • Room ${roomNumber || "—"}`;
+        const bodyText = `New cleaning booking.\n\nService: ${svc.name}\nDate: ${bookingDate}\nTime slot: ${timeSlot}\nRoom: ${roomNumber || "—"}\nGuest: ${guestName}\nPrice: ${(svc.price_cents / 100).toFixed(2)} ${svc.currency}`;
+
+        for (const recipient of recipients) {
+          await enqueueEmailOutbox({
+            hotelId,
+            toAddress: recipient.email,
+            subject,
+            bodyText,
+            payload: { type: "cleaning_booking", ticketId, threadId, eventId, bookingId }
+          });
+        }
+      } catch (err) {
+        console.error("notification_enqueue_failed", err);
+      }
+
+      sendJson(res, 201, {
+        booking: bookingRows[0],
+        ticketId,
+        threadId,
+        eventId,
+        message: "Booking confirmed"
+      });
+      return;
+    } catch (error) {
+      console.error("cleaning_booking_create_failed", error);
+      sendJson(res, 500, { error: "create_failed" });
+      return;
+    }
+  }
+
+  // GET /api/v1/staff/service-bookings - Staff: list service bookings
+  if (url.pathname === "/api/v1/staff/service-bookings" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const dateFrom = url.searchParams.get("dateFrom");
+    const dateTo = url.searchParams.get("dateTo");
+    const status = url.searchParams.get("status");
+
+    try {
+      const where = ["sb.hotel_id = $1"];
+      const params = [principal.hotelId];
+      if (dateFrom) { params.push(dateFrom); where.push(`sb.booking_date >= $${params.length}`); }
+      if (dateTo) { params.push(dateTo); where.push(`sb.booking_date <= $${params.length}`); }
+      if (status) { params.push(status); where.push(`sb.status = $${params.length}`); }
+
+      const rows = await query(
+        `SELECT sb.id, sb.guest_name AS "guestName",
+                sb.booking_date AS "bookingDate", sb.time_slot AS "timeSlot",
+                sb.price_cents AS "priceCents", sb.currency, sb.status,
+                sb.created_at AS "createdAt",
+                us.name AS "serviceName"
+         FROM service_bookings sb
+         JOIN upsell_services us ON us.id = sb.upsell_service_id
+         WHERE ${where.join(" AND ")}
+         ORDER BY sb.booking_date DESC, sb.time_slot ASC
+         LIMIT 100`,
+        params
+      );
+      sendJson(res, 200, { bookings: rows });
+      return;
+    } catch (error) {
+      console.error("service_bookings_list_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
       return;
     }
   }
