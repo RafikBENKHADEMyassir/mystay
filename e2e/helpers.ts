@@ -56,6 +56,34 @@ export async function getStaffToken(
 }
 
 /**
+ * Get a fully authenticated guest token via login (includes guestId).
+ * Required for endpoints like check-in that need guestId in the principal.
+ */
+export async function getAuthenticatedGuestToken(
+  email = GUEST_EMAIL,
+  password = GUEST_PASSWORD
+): Promise<{
+  token: string;
+  stayId: string | null;
+  hotelId: string | null;
+  guestId: string;
+}> {
+  const res = await fetch(`${BACKEND_URL}/api/v1/auth/guest/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error(`guest login failed: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return {
+    token: data.token,
+    stayId: data.stay?.id ?? null,
+    hotelId: data.hotel?.id ?? null,
+    guestId: data.guest?.id ?? data.guestId ?? "",
+  };
+}
+
+/**
  * Fetch JSON helper with auth header.
  */
 export async function apiFetch(

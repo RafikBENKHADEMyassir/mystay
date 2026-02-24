@@ -398,7 +398,16 @@ export const defaultGuestContent = {
         { id: "baby_bed", label: text("Baby bed", "Lit bebe", "Cuna"), priceCents: 0 },
         { id: "extra_bed", label: text("Extra bed", "Lit supplementaire", "Cama extra"), priceCents: 20000 },
         { id: "flowers", label: text("Flowers", "Fleurs", "Flores"), priceCents: 20000 }
-      ]
+      ],
+      paymentSuccess: {
+        title: text("Your payment has been received!", "Votre paiement a bien ete recu !", "Su pago ha sido recibido!"),
+        description: text(
+          "We wish you a pleasant stay and are at your disposal from the platform.",
+          "Nous vous souhaitons un agreable sejour, et sommes a votre entiere disposition depuis la plateforme.",
+          "Le deseamos una estancia agradable y estamos a su disposicion desde la plataforma."
+        ),
+        cta: text("Let's go!", "C'est parti !", "Vamos!")
+      }
     },
     checkOut: {
       title: text("Check-out", "Check-out", "Check-out"),
@@ -484,42 +493,56 @@ export const defaultGuestContent = {
           title: text("Concierge", "Concierge", "Conserjeria"),
           href: "/concierge",
           chatHref: "/messages?department=concierge",
-          backgroundImage: "/images/services/concierge_background.png"
+          backgroundImage: "/images/services/concierge_background.png",
+          iconImage: "/images/services/icon-concierge.png"
         },
         {
           id: "housekeeping",
           title: text("Housekeeping", "Housekeeping", "Limpieza"),
           href: "/housekeeping",
           chatHref: "/messages?department=housekeeping",
-          backgroundImage: "/images/services/housekeeping_background.png"
-        },
-        {
-          id: "room-service",
-          title: text("Room Service", "Room Service", "Room Service"),
-          href: "/room-service",
-          chatHref: "/messages?department=room-service",
-          backgroundImage: "/images/services/roomservice_background.png"
-        },
-        {
-          id: "reception",
-          title: text("Reception", "Reception", "Recepcion"),
-          href: "/reception",
-          chatHref: "/messages?department=reception",
-          backgroundImage: "/images/services/reception_background.png"
+          backgroundImage: "/images/services/housekeeping_background.png",
+          iconImage: "/images/services/icon-housekeeping.png"
         },
         {
           id: "restaurants",
           title: text("Restaurant", "Restaurant", "Restaurante"),
           href: "/restaurants",
           chatHref: "/messages?department=restaurants",
-          backgroundImage: "/images/services/restaurant_background.png"
+          backgroundImage: "/images/services/restaurant_background.png",
+          iconImage: "/images/services/icon-restaurant.png"
         },
         {
-          id: "spa-gym",
-          title: text("Spa & Gym", "Spa & Gym", "Spa y Gym"),
-          href: "/spa-gym",
-          chatHref: "/messages?department=spa-gym",
-          backgroundImage: "/images/services/spa_gym_background.png"
+          id: "reception",
+          title: text("Reception", "Reception", "Recepcion"),
+          href: "/reception",
+          chatHref: "/messages?department=reception",
+          backgroundImage: "/images/services/reception_background.png",
+          iconImage: "/images/services/icon-reception.png"
+        },
+        {
+          id: "room-service",
+          title: text("Room Service", "Room Service", "Room Service"),
+          href: "/room-service",
+          chatHref: "/messages?department=room-service",
+          backgroundImage: "/images/services/roomservice_background.png",
+          iconImage: "/images/services/icon-roomservice.png"
+        },
+        {
+          id: "spa",
+          title: text("Spa", "Spa", "Spa"),
+          href: "/spa",
+          chatHref: "/messages?department=spa",
+          backgroundImage: "/images/services/spa_gym_background.png",
+          iconImage: "/images/services/icon-spa.png"
+        },
+        {
+          id: "gym",
+          title: text("Gym", "Gym", "Gym"),
+          href: "/gym",
+          chatHref: "/messages?department=gym",
+          backgroundImage: "/images/services/spa_gym_background.png",
+          iconImage: "/images/services/icon-gym.png"
         }
       ],
       catalog: {
@@ -1030,6 +1053,17 @@ export const defaultGuestContent = {
     },
     spaGym: {
       heroImage: "/images/services/spa_gym_background.png",
+      heroImages: {
+        spa: "/images/services/wellness/spa-hero-lounge.png",
+        gym: "/images/services/wellness/gym-hero-equipment.png"
+      },
+      galleryImages: {
+        gym: [
+          "/images/services/wellness/gym-gallery-cardio.png",
+          "/images/services/wellness/gym-gallery-strength.png",
+          "/images/services/wellness/gym-gallery-closeup.png"
+        ]
+      },
       title: text("Spa & Gym", "Spa & Gym", "Spa y Gym"),
       tabs: {
         spa: text("Spa", "Spa", "Spa"),
@@ -1045,6 +1079,142 @@ export const defaultGuestContent = {
         spa: text("Our treatments", "Nos soins", "Nuestros tratamientos"),
         gym: text("Our activities", "Nos activites", "Nuestras actividades")
       },
+      messaging: {
+        department: "spa-gym",
+        availabilityMessage: text(
+          "Currently available to chat.",
+          "Actuellement disponible pour echanger.",
+          "Actualmente disponible para conversar."
+        )
+      },
+      availability: {
+        title: text("Availability", "Disponibilites", "Disponibilidad"),
+        fromLabel: text("From", "De", "De"),
+        toLabel: text("to", "a", "a"),
+        allDayLabel: text("All day", "Toute la journee", "Todo el dia"),
+        unavailableLabel: text("Unavailable", "Indisponible", "No disponible"),
+        expandAriaLabel: text(
+          "Show weekly availability",
+          "Afficher la disponibilite hebdomadaire",
+          "Mostrar disponibilidad semanal"
+        ),
+        collapseAriaLabel: text(
+          "Hide weekly availability",
+          "Masquer la disponibilite hebdomadaire",
+          "Ocultar disponibilidad semanal"
+        ),
+        schedule: [
+          { day: text("Mon.", "Lun.", "Lun."), mode: "all-day" },
+          { day: text("Tue.", "Mar.", "Mar."), mode: "all-day" },
+          { day: text("Wed.", "Mer.", "Mie."), mode: "all-day" },
+          {
+            day: text("Thu.", "Jeu.", "Jue."),
+            mode: "range",
+            from: text("6h", "6h", "6h"),
+            to: text("23h", "23h", "23h")
+          },
+          {
+            day: text("Fri.", "Ven.", "Vie."),
+            mode: "range",
+            from: text("6h", "6h", "6h"),
+            to: text("23h", "23h", "23h"),
+            highlighted: true
+          },
+          {
+            day: text("Sat.", "Sam.", "Sab."),
+            mode: "range",
+            from: text("6h", "6h", "6h"),
+            to: text("23h", "23h", "23h")
+          },
+          { day: text("Sun.", "Dim.", "Dom."), mode: "unavailable" }
+        ]
+      },
+      durationLabels: {
+        hour: text("h", "h", "h"),
+        minute: text("min.", "min.", "min.")
+      },
+      bookSession: text("Book a session", "Reserver une session", "Reservar una sesion"),
+      quickActions: {
+        gym: [
+          {
+            id: "equipment_question",
+            label: text(
+              "Ask a question about equipment",
+              "Poser une question sur l'equipement",
+              "Hacer una pregunta sobre el equipo"
+            ),
+            href: "/messages?department=spa-gym"
+          },
+          {
+            id: "reschedule_booking",
+            label: text(
+              "Cancel or reschedule a booking",
+              "Annuler ou deplacer une reservation",
+              "Cancelar o cambiar una reserva"
+            ),
+            href: "/messages?department=spa-gym"
+          },
+          {
+            id: "prepare_towels",
+            label: text(
+              "Prepare towels and water bottles",
+              "Preparer des serviettes et bouteilles d'eau",
+              "Preparar toallas y botellas de agua"
+            ),
+            href: "/messages?department=spa-gym"
+          }
+        ]
+      },
+      bookingDialog: {
+        titleTemplate: text(
+          "Book {{serviceName}}",
+          "Reserver {{serviceName}}",
+          "Reservar {{serviceName}}"
+        ),
+        descriptionTemplate: text(
+          "Select a date and time for {{serviceName}}.",
+          "Selectionnez une date et une heure pour {{serviceName}}.",
+          "Selecciona una fecha y una hora para {{serviceName}}."
+        ),
+        dateLabel: text("Date", "Date", "Fecha"),
+        timeLabel: text("Time", "Heure", "Hora"),
+        notesLabel: text("Special request", "Demande speciale", "Solicitud especial"),
+        notesPlaceholder: text(
+          "Any details to share with the team?",
+          "Un detail a partager avec l'equipe ?",
+          "Alguna indicacion para el equipo?"
+        ),
+        cancel: text("Cancel", "Annuler", "Cancelar"),
+        submit: text("Confirm booking", "Confirmer la reservation", "Confirmar reserva"),
+        submitting: text("Submitting...", "Envoi en cours...", "Enviando..."),
+        done: text("Done", "Termine", "Listo"),
+        referenceLabel: text("Reference", "Reference", "Referencia"),
+        successTitle: text("Booking request sent", "Demande de reservation envoyee", "Solicitud enviada"),
+        successMessage: text(
+          "Our team will confirm your session shortly.",
+          "Notre equipe confirmera votre session sous peu.",
+          "Nuestro equipo confirmara tu sesion pronto."
+        ),
+        errorTitle: text("Could not submit.", "Envoi impossible.", "No se pudo enviar."),
+        ticketTitleTemplate: text(
+          "Spa/Gym booking - {{serviceName}} - {{date}} {{time}}",
+          "Reservation spa/gym - {{serviceName}} - {{date}} {{time}}",
+          "Reserva spa/gym - {{serviceName}} - {{date}} {{time}}"
+        ),
+        errors: {
+          missingDateTime: text(
+            "Please select date and time.",
+            "Veuillez selectionner une date et une heure.",
+            "Selecciona una fecha y una hora."
+          ),
+          submitFailed: text(
+            "Could not submit booking request.",
+            "Impossible d'envoyer la demande de reservation.",
+            "No se pudo enviar la solicitud."
+          ),
+          serviceUnavailable: text("Service unavailable.", "Service indisponible.", "Servicio no disponible.")
+        }
+      },
       chooseTimeSlot: text("Choose a time slot", "Choisir un creneau", "Elegir horario"),
       bookingLoading: text("Booking...", "Reservation...", "Reservando..."),
       bookingAction: text("Book - {{price}} EUR", "Reserver - {{price}} EUR", "Reservar - {{price}} EUR"),
@@ -1057,95 +1227,95 @@ export const defaultGuestContent = {
           id: "relaxing_massage",
           name: text("Relaxing Massage", "Massage relaxant", "Masaje relajante"),
           description: text(
-            "Full body massage to relieve tension and stress",
-            "Massage du corps entier pour soulager les tensions et le stress",
-            "Masaje corporal completo para aliviar tension y estres"
+            "A calming full-body treatment.",
+            "Une seance relaxante pour le corps.",
+            "Un tratamiento relajante de cuerpo completo."
           ),
-          duration: 50,
+          duration: 60,
           price: 120,
           category: "spa",
-          image: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400&q=80"
+          image: "/images/services/wellness/spa-service-relaxing-massage.png"
         },
         {
           id: "therapeutic_massage",
           name: text("Therapeutic Massage", "Massage therapeutique", "Masaje terapeutico"),
           description: text(
-            "Deep tissue massage for muscle recovery",
-            "Massage en profondeur pour la recuperation musculaire",
-            "Masaje profundo para recuperacion muscular"
+            "Targeted recovery massage for deep tension.",
+            "Massage cible pour detendre les tensions profondes.",
+            "Masaje especifico para aliviar tension profunda."
           ),
-          duration: 60,
+          duration: 90,
           price: 150,
           category: "spa",
-          image: "https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=400&q=80"
-        },
-        {
-          id: "facial_treatment",
-          name: text("Facial Treatment", "Soin du visage", "Tratamiento facial"),
-          description: text(
-            "Rejuvenating facial with premium products",
-            "Soin du visage rajeunissant avec des produits premium",
-            "Facial rejuvenecedor con productos premium"
-          ),
-          duration: 45,
-          price: 95,
-          category: "spa",
-          image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=400&q=80"
+          image: "/images/services/wellness/spa-service-therapeutic-massage.png"
         },
         {
           id: "couples_massage",
           name: text("Couples Massage", "Massage en duo", "Masaje en pareja"),
           description: text(
-            "Side-by-side relaxation for two",
-            "Relaxation cote a cote pour deux personnes",
-            "Relajacion lado a lado para dos"
+            "Side-by-side treatment for two guests.",
+            "Soin a deux dans une ambiance apaisante.",
+            "Tratamiento compartido para dos personas."
           ),
-          duration: 60,
+          duration: 30,
           price: 220,
           category: "spa",
-          image: "https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=400&q=80"
+          image: "/images/services/wellness/spa-service-couples-massage.png"
         },
         {
-          id: "personal_training",
-          name: text("Personal Training", "Coaching personnel", "Entrenamiento personal"),
+          id: "face_body_care",
+          name: text("Face and Body Care", "Soins visage et corps", "Cuidado de rostro y cuerpo"),
           description: text(
-            "One-on-one session with a certified trainer",
-            "Seance individuelle avec un coach certifie",
-            "Sesion individual con entrenador certificado"
+            "A rejuvenating ritual with premium products.",
+            "Un rituel revitalisant avec produits premium.",
+            "Un ritual rejuvenecedor con productos premium."
           ),
-          duration: 60,
-          price: 80,
+          duration: 30,
+          price: 95,
+          category: "spa",
+          image: "/images/services/wellness/spa-service-face-body-care.png"
+        },
+        {
+          id: "gym_access",
+          name: text("Gym Access", "Acces a la salle", "Acceso al gimnasio"),
+          description: text(
+            "Access to the gym floor and equipment.",
+            "Acces a la salle et aux equipements.",
+            "Acceso a la sala y al equipamiento."
+          ),
+          duration: 0,
+          price: 0,
           category: "gym",
-          image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80"
+          image: "/images/services/wellness/gym-gallery-strength.png"
         },
         {
           id: "yoga_class",
           name: text("Yoga Class", "Cours de yoga", "Clase de yoga"),
           description: text(
-            "Group yoga session for all levels",
-            "Cours de yoga en groupe pour tous niveaux",
-            "Sesion grupal de yoga para todos los niveles"
+            "Guided class for balance and mobility.",
+            "Cours guide pour l'equilibre et la mobilite.",
+            "Clase guiada para equilibrio y movilidad."
           ),
-          duration: 45,
+          duration: 60,
           price: 30,
           category: "gym",
-          image: "https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b?w=400&q=80"
+          image: "/images/services/wellness/gym-service-yoga.png"
         },
         {
-          id: "pilates_class",
-          name: text("Pilates Class", "Cours de Pilates", "Clase de pilates"),
+          id: "guided_workout",
+          name: text("Guided Workout", "Seance guidee", "Sesion guiada"),
           description: text(
-            "Core strengthening and flexibility",
-            "Renforcement du tronc et flexibilite",
-            "Fortalecimiento del core y flexibilidad"
+            "Coach-led circuit to boost endurance.",
+            "Circuit accompagne pour renforcer l'endurance.",
+            "Circuito guiado para mejorar la resistencia."
           ),
           duration: 45,
-          price: 35,
+          price: 40,
           category: "gym",
-          image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&q=80"
+          image: "/images/services/wellness/gym-gallery-cardio.png"
         }
       ],
-      timeSlots: ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"]
+      timeSlots: ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"]
     },
     hotels: {
       title: text("Explore Hotels", "Explorer les hotels", "Explorar hoteles"),
@@ -1182,6 +1352,7 @@ export const defaultGuestContent = {
       title: text("Your room", "Votre chambre", "Tu habitacion"),
       tailored: text("Tailored experiences", "Plaisirs sur mesure", "Experiencias a medida"),
       completeCheckIn: text("Complete your check-in", "Completez votre check-in", "Completa tu check-in"),
+      startCheckOut: text("Start your check-out", "Effectuer votre check-out", "Iniciar tu check-out"),
       suiteNameTemplate: text("Room {{roomNumber}}", "Chambre {{roomNumber}}", "Habitacion {{roomNumber}}"),
       labels: {
         room: text("Room", "Chambre", "Habitacion"),
@@ -1286,8 +1457,51 @@ export const defaultGuestContent = {
       loading: text("Loading...", "Chargement...", "Cargando..."),
       noItems: text("No agenda items yet.", "Aucun element d'agenda pour le moment.", "Aun no hay eventos en agenda."),
       roomLabel: text("Room {{roomNumber}}", "Chambre {{roomNumber}}", "Habitacion {{roomNumber}}"),
+      views: {
+        day: text("Day", "Jour", "Dia"),
+        week: text("Week", "Semaine", "Semana"),
+        month: text("Month", "Mois", "Mes")
+      },
+      today: text("Today", "Aujourd'hui", "Hoy"),
+      previousRangeAria: text("Previous day", "Jour precedent", "Dia anterior"),
+      nextRangeAria: text("Next day", "Jour suivant", "Dia siguiente"),
+      emptyTitle: text("No events in this period.", "Aucun evenement sur cette periode.", "No hay eventos en este periodo."),
+      emptyDescription: text(
+        "Book a service or wait for a staff invitation to populate your agenda.",
+        "Reservez un service ou attendez une invitation du staff pour remplir votre agenda.",
+        "Reserva un servicio o espera una invitacion del personal para completar tu agenda."
+      ),
+      invitationLabel: text("Invitation", "Invitation", "Invitacion"),
+      suggestionLabel: text("Suggestion", "Suggestion", "Sugerencia"),
+      milestones: {
+        checkIn: text("Check-in", "Check-in", "Check-in"),
+        checkOut: text("Check-out", "Check-out", "Check-out")
+      },
+      labels: {
+        location: text("Location", "Lieu", "Lugar"),
+        contact: text("Contact", "Contact", "Contacto"),
+        duration: text("Duration", "Duree", "Duracion")
+      },
+      actions: {
+        accept: text("Accept", "Accepter", "Aceptar"),
+        decline: text("Another time", "Une autre fois", "Otra vez"),
+        viewDetails: text("View", "Voir", "Ver"),
+        responding: text("Saving...", "Enregistrement...", "Guardando...")
+      },
+      statuses: {
+        scheduled: text("Scheduled", "Planifie", "Programado"),
+        confirmed: text("Confirmed", "Confirme", "Confirmado"),
+        pending: text("Pending", "En attente", "Pendiente"),
+        declined: text("Declined", "Refuse", "Rechazado"),
+        cancelled: text("Cancelled", "Annule", "Cancelado")
+      },
       errors: {
         loadAgenda: text("Could not load agenda.", "Impossible de charger l'agenda.", "No se pudo cargar la agenda."),
+        respondAction: text(
+          "Could not update invitation status.",
+          "Impossible de mettre a jour le statut de l'invitation.",
+          "No se pudo actualizar el estado de la invitacion."
+        ),
         backendUnreachable: text(
           "Backend unreachable. Start `npm run dev:backend` then refresh.",
           "Backend inaccessible. Lancez `npm run dev:backend` puis actualisez.",
@@ -1372,6 +1586,125 @@ export const defaultGuestContent = {
       changeReservation: text("Change reservation", "Changer de reservation", "Cambiar reserva"),
       startCheckIn: text("Start check-in", "Commencer le check-in", "Comenzar check-in"),
       roomLabel: text("Room {{roomNumber}}", "Chambre {{roomNumber}}", "Habitacion {{roomNumber}}"),
+      avatarHint: text(
+        "Add a photo so staff can identify you.",
+        "Pensez a ajouter une photo de vous pour permettre au personnel de vous identifier.",
+        "Anade una foto para que el personal pueda identificarte."
+      ),
+      hub: {
+        historyCard: text("Stay history and invoices", "Historique de sejours et factures", "Historial de estancias y facturas"),
+        preferencesCard: text("Account preferences", "Preferences de compte", "Preferencias de cuenta"),
+        loyaltyPointsTemplate: text("{{points}} points", "{{points}} points", "{{points}} puntos"),
+        loyaltyDiscover: text("Discover my loyalty benefits", "Decouvrir mes avantages fidelite", "Descubrir mis ventajas de fidelidad"),
+        reviewPrompt: text("Enjoying your stay?", "Vous profitez bien de votre sejour ?", "Disfrutas de tu estancia?"),
+        reviewCta: text("Leave us a review!", "Laissez nous un avis !", "Dejanos tu opinion!"),
+        reviewTitle: text("Your stay at {{hotelName}}", "Votre sejour a {{hotelName}}", "Tu estancia en {{hotelName}}"),
+        reviewSubtitle: text("Leave a comment (optional)", "Laissez un commentaire (facultatif)", "Deja un comentario (opcional)"),
+        reviewPlaceholder: text(
+          "Your feedback helps us improve our services and meet your needs.",
+          "Vos avis nous aide a ameliorer nos services et repondre a vos besoins.",
+          "Tu opinion nos ayuda a mejorar nuestros servicios y atender tus necesidades."
+        ),
+        reviewSubmit: text("Submit", "Envoyer", "Enviar"),
+        reviewThankYou: text("Thank you!", "Merci !", "Gracias!"),
+        reviewThankYouSub: text("Your feedback helps us improve.", "Votre avis nous aide a nous ameliorer.", "Tu opinion nos ayuda a mejorar."),
+        reviewConsentLabel: text(
+          "I agree to be contacted by email following my request to provide more information if necessary.",
+          "Je suis d'accord d'etre recontacte par email suite a ma demande pour donner plus d'informations si necessaire.",
+          "Acepto ser contactado por correo electronico para proporcionar mas informacion si es necesario."
+        ),
+        privacyPolicy: text("Privacy policy", "Politique de confidentialite", "Politica de privacidad"),
+        aboutApp: text("About StayOn", "A propos de StayOn", "Acerca de StayOn")
+      },
+      account: {
+        title: text("Account", "Compte", "Cuenta"),
+        description: text(
+          "Manage your personal details.",
+          "Gerez vos informations personnelles.",
+          "Gestiona tus datos personales."
+        ),
+        editAction: text("Edit profile", "Modifier le profil", "Editar perfil"),
+        saveAction: text("Save changes", "Enregistrer", "Guardar cambios"),
+        savingAction: text("Saving...", "Enregistrement...", "Guardando..."),
+        cancelAction: text("Cancel", "Annuler", "Cancelar"),
+        updatedSuccess: text(
+          "Profile updated successfully.",
+          "Profil mis a jour avec succes.",
+          "Perfil actualizado correctamente."
+        ),
+        updatedError: text(
+          "Could not update profile.",
+          "Impossible de mettre a jour le profil.",
+          "No se pudo actualizar el perfil."
+        ),
+        fields: {
+          firstName: text("First name", "Prenom", "Nombre"),
+          lastName: text("Last name", "Nom", "Apellido"),
+          email: text("Email address", "Adresse e-mail", "Correo electronico"),
+          phone: text("Phone number", "Numero de telephone", "Numero de telefono")
+        }
+      },
+      preferences: {
+        title: text("Preferences", "Preferences", "Preferencias"),
+        description: text(
+          "Language and communication context for your stay.",
+          "Langue et contexte de communication pour votre sejour.",
+          "Idioma y contexto de comunicacion para tu estancia."
+        ),
+        languageLabel: text("Interface language", "Langue de l'interface", "Idioma de la interfaz"),
+        currencyLabel: text("Billing currency", "Devise de facturation", "Moneda de facturacion"),
+        localeNames: {
+          en: text("English", "Anglais", "Ingles"),
+          fr: text("French", "Francais", "Frances"),
+          es: text("Spanish", "Espagnol", "Espanol")
+        },
+        menuItems: {
+          personalInfo: text("Personal information", "Informations personnelles", "Informacion personal"),
+          interfaceSettings: text("Interface settings", "Reglages de l'interface", "Ajustes de la interfaz"),
+          communications: text("Communications", "Communications", "Comunicaciones"),
+          paymentMethods: text("Saved payment methods", "Moyens de paiement enregistres", "Metodos de pago guardados")
+        }
+      },
+      status: {
+        title: text("Identity & payment status", "Statut identite et paiement", "Estado de identidad y pago"),
+        description: text(
+          "Verification and payment readiness from backend.",
+          "Verification et statut de paiement depuis le backend.",
+          "Verificacion y estado de pago desde backend."
+        ),
+        documentLabel: text("ID document", "Piece d'identite", "Documento de identidad"),
+        paymentLabel: text("Payment method", "Moyen de paiement", "Metodo de pago"),
+        verified: text("Verified", "Verifie", "Verificado"),
+        missing: text("Missing", "Manquant", "Faltante"),
+        onFile: text("On file", "Enregistre", "Registrado")
+      },
+      billing: {
+        title: text("Billing history", "Historique de facturation", "Historial de facturacion"),
+        description: text(
+          "Invoices generated during your stay.",
+          "Factures generees pendant votre sejour.",
+          "Facturas generadas durante tu estancia."
+        ),
+        empty: text("No invoices yet.", "Aucune facture pour le moment.", "Aun no hay facturas."),
+        pointsTemplate: text("+{{points}} pts", "+{{points}} pts", "+{{points}} pts")
+      },
+      loyalty: {
+        title: text("Loyalty", "Fidelite", "Fidelidad"),
+        pointsLabel: text("loyalty points", "points de fidelite", "puntos de fidelidad"),
+        silverTier: text("Silver", "Silver", "Silver"),
+        goldTier: text("Gold", "Gold", "Gold"),
+        progressTemplate: text("Only {{points}} more points.", "Plus que {{points}} points.", "Solo {{points}} puntos mas."),
+        discountsTitle: text("Discounts with your benefits", "En reduction avec a vos avantages", "Descuentos con tus beneficios")
+      },
+      security: {
+        title: text("Security", "Securite", "Seguridad"),
+        description: text(
+          "Session and reservation management.",
+          "Gestion de session et reservation.",
+          "Gestion de sesion y reserva."
+        ),
+        signOut: text("Sign out", "Se deconnecter", "Cerrar sesion")
+      },
       guestIdentityTitle: text("Guest identity", "Identite client", "Identidad del huesped"),
       guestIdentityBadge: text("Secure", "Securise", "Seguro"),
       guestIdentityDescription: text("Documents, signatures, and stay history.", "Documents, signatures et historique.", "Documentos, firmas e historial."),

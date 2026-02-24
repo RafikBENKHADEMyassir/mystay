@@ -251,52 +251,66 @@ export default function HousekeepingPage() {
         </div>
       </div>
 
+      {/* Cleaning Toggle */}
       <div className="px-4 py-6">
-        <h2 className="mb-4 text-sm font-medium text-gray-500">{page.quickRequestsTitle}</h2>
-
-        <div className="grid grid-cols-2 gap-3">
-          {page.quickItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => submitQuickRequest(item.id)}
-              disabled={isSending}
-              className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
-            >
-              <span className="text-2xl">{item.icon}</span>
-              <span className="text-sm text-gray-700">{item.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t border-gray-100 px-4 py-6">
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="rounded-[6px] border border-black/[0.06] bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
           <p className="text-sm text-gray-700">{page.cleaningPrompt}</p>
 
           <div className="mt-4 flex gap-3">
             <button
-              onClick={() => setCleaningEnabled(true)}
-              className={cn(
-                "flex-1 rounded-full border px-4 py-2 text-sm font-medium transition",
-                cleaningEnabled
-                  ? "border-gray-900 bg-white text-gray-900"
-                  : "border-gray-200 bg-gray-50 text-gray-500"
-              )}
-            >
-              {page.yesLabel}
-            </button>
-            <button
               onClick={() => setCleaningEnabled(false)}
               className={cn(
-                "flex-1 rounded-full border px-4 py-2 text-sm font-medium transition",
+                "flex-1 rounded-full border px-4 py-2.5 text-sm font-medium transition",
                 !cleaningEnabled
-                  ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-200 bg-gray-50 text-gray-500"
+                  ? "border-black bg-black text-white"
+                  : "border-gray-200 bg-white text-gray-500"
               )}
             >
               {page.noLabel}
             </button>
+            <button
+              onClick={() => setCleaningEnabled(true)}
+              className={cn(
+                "flex-1 rounded-full border px-4 py-2.5 text-sm font-medium transition",
+                cleaningEnabled
+                  ? "border-black bg-black text-white"
+                  : "border-gray-200 bg-white text-gray-500"
+              )}
+            >
+              {page.yesLabel}
+            </button>
           </div>
+        </div>
+      </div>
+
+      {/* Quick Requests */}
+      <div className="px-4 pb-6">
+        <h2 className="mb-4 text-lg font-medium text-black">{page.quickRequestsTitle}</h2>
+
+        <div className="grid grid-cols-2 gap-3">
+          {page.quickItems.map((item) => (
+            <div
+              key={item.id}
+              className="relative rounded-[6px] border border-black/[0.06] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
+            >
+              <button
+                onClick={() => submitQuickRequest(item.id)}
+                disabled={isSending}
+                className="flex w-full flex-col items-center gap-2 px-4 pb-4 pt-6 disabled:opacity-50"
+              >
+                <span className="text-3xl">{item.icon}</span>
+                <span className="text-[13px] font-light text-black">{item.label}</span>
+              </button>
+              <button
+                onClick={() => submitQuickRequest(item.id)}
+                disabled={isSending}
+                className="absolute -right-1.5 -top-1.5 flex h-[28px] w-[28px] items-center justify-center rounded-full border border-black/10 bg-white shadow-sm disabled:opacity-50"
+                aria-label={`Add ${item.label}`}
+              >
+                <span className="text-sm font-light text-black">+</span>
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 import { AppLink } from "@/components/ui/app-link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Copy, Leaf, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Copy, Leaf, Loader2, LogOut } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 
 import { CleaningBookingSheet } from "@/components/cleaning/cleaning-booking-sheet";
@@ -128,14 +128,16 @@ function PromoCard({
   testId?: string;
 }) {
   const ctaContent = (
-    <div className="flex gap-4 rounded-xl border border-border bg-card p-3 shadow-sm" data-testid={testId}>
-      <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-muted/30">
-        <Image src={image} alt={title} width={96} height={96} className="h-full w-full object-cover" unoptimized />
+    <div className="flex overflow-hidden rounded-[6px] border border-black/[0.06] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.06)]" data-testid={testId}>
+      <div className="relative w-[125px] flex-shrink-0 self-stretch">
+        <Image src={image} alt={title} fill className="object-cover" unoptimized />
       </div>
-      <div className="flex flex-1 flex-col justify-center">
-        <p className="text-sm font-semibold text-foreground">{title}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
-        <span className="mt-3 flex w-full items-center justify-center rounded-lg bg-muted/50 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
+      <div className="flex flex-1 flex-col gap-[18px] items-end p-4">
+        <div className="flex flex-col gap-3 w-full">
+          <p className="text-[16px] text-black">{title}</p>
+          <p className="text-[15px] leading-[1.15] text-black/50">{subtitle}</p>
+        </div>
+        <span className="flex h-[40px] w-full items-center justify-center rounded-[8px] bg-white/65 text-[14px] font-medium text-black shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-[6px]">
           {cta}
         </span>
       </div>
@@ -256,34 +258,37 @@ export default function RoomDetailPage() {
               </div>
             </div>
 
-            {/* Plaisirs sur mesure tag (Figma: on right, overlaying next slide peek) */}
+            {/* Plaisirs sur mesure tag */}
             <a
               href="#plaisirs-sur-mesure"
-              className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex flex-col items-center justify-center rounded-lg bg-black/60 px-3 py-4 text-xs font-medium leading-tight text-white backdrop-blur-md transition-opacity hover:bg-black/70 pointer-events-auto max-w-[72px] text-center"
+              className="absolute right-0 top-[86px] z-10 flex items-center rounded-l-[6px] bg-black/50 py-3 pl-3 pr-4 backdrop-blur-[6px] shadow-[0_4px_20px_rgba(0,0,0,0.15)] pointer-events-auto"
             >
-              <span className="block">{page.tailored.split(" ")[0]}</span>
-              <span className="block">{page.tailored.split(" ").slice(1).join(" ")}</span>
-              <ChevronRight className="mt-1 h-3 w-3 rotate-[-90deg]" strokeWidth={2} />
+              <span className="text-[15px] font-light leading-tight text-white whitespace-pre-line">{page.tailored.split(" ")[0]}{"\n"}{page.tailored.split(" ").slice(1).join(" ")}</span>
             </a>
 
-            {/* Suite name & check-in CTA (Figma: lower-left text, white CTA with dark border) */}
-            <div className="absolute bottom-6 left-0 right-0 z-10 px-5 pointer-events-auto">
-              <div className="mb-3 flex items-center gap-2">
-                {/* <Leaf className="h-5 w-5 text-white drop-shadow-md" strokeWidth={1.5} /> */}
-                <p className="text-2xl font-semibold uppercase tracking-widest text-white drop-shadow-md">{suiteName}</p>
-              </div>
+            {/* Suite name & check-in/check-out CTA */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col gap-4 items-start justify-end p-6 pointer-events-auto">
+              <p className="text-[32px] font-light uppercase leading-none text-white">{suiteName}</p>
 
-              <AppLink
-                href={withLocale(locale, "/reception/check-in")}
-                className="flex w-[80%] max-w-[340px] mx-auto items-center justify-between rounded-sm border border-gray-300 bg-white px-4 py-3 shadow-md transition-transform hover:scale-[1.01] active:scale-[0.99]"
-              >
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-7 w-7 text-gray-700" />
-                  <span className="text-sm font-semibold text-gray-900">{page.completeCheckIn}</span>
-                </div>
-                <ChevronRight className="h-4 w-4 text-gray-600" strokeWidth={2} />
-              </AppLink>
-              {/* )} */}
+              {checkInComplete ? (
+                <AppLink
+                  href={withLocale(locale, "/reception/check-out")}
+                  className="inline-flex items-center gap-2.5 rounded-[6px] bg-white p-3 shadow-[0_2px_10px_rgba(0,0,0,0.06)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <LogOut className="h-6 w-6 text-black/70" />
+                  <span className="text-sm text-black">{page.startCheckOut}</span>
+                  <ChevronRight className="h-[10px] w-[13px] text-black/50" strokeWidth={2} />
+                </AppLink>
+              ) : (
+                <AppLink
+                  href={withLocale(locale, "/reception/check-in")}
+                  className="inline-flex items-center gap-2.5 rounded-[6px] bg-white p-3 shadow-[0_2px_10px_rgba(0,0,0,0.06)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Loader2 className="h-6 w-6 text-black/70" />
+                  <span className="text-sm text-black">{page.completeCheckIn}</span>
+                  <ChevronRight className="h-[10px] w-[13px] text-black/50" strokeWidth={2} />
+                </AppLink>
+              )}
             </div>
           </StackedCarousel>
         ) : (
@@ -346,10 +351,12 @@ export default function RoomDetailPage() {
           )}
         </div>
 
-        <div className="my-8 h-px w-full bg-border/50" />
+        <div className="flex items-center justify-center px-12 py-8">
+          <div className="h-[2px] w-full rounded-[9px] bg-[rgba(204,204,204,0.25)]" />
+        </div>
 
         {/* ─── Promo / Service Cards ─── */}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4 px-4">
           {page.promoCards.map((card) =>
             card.id === "housekeeping" ? (
               <PromoCard
@@ -374,19 +381,21 @@ export default function RoomDetailPage() {
           )}
         </div>
 
-        <div className="my-8 h-px w-full bg-border/50" />
+        <div className="flex items-center justify-center px-12 py-8">
+          <div className="h-[2px] w-full rounded-[9px] bg-[rgba(204,204,204,0.25)]" />
+        </div>
 
         {/* ─── Room Upgrade Banner ─── */}
-        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <div className="relative h-44 w-full overflow-hidden">
+        <section className="mx-3 overflow-hidden rounded-[6px] border border-black/[0.06] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+          <div className="relative h-[130px] w-full overflow-hidden">
             <Image src={resolveImage(page.upgrade.image)} alt={page.upgrade.title} fill className="object-cover" unoptimized />
           </div>
-          <div className="p-4">
-            <p className="text-base font-semibold text-foreground">{page.upgrade.title}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{page.upgrade.subtitle}</p>
+          <div className="flex flex-col gap-3 p-4">
+            <p className="text-[16px] text-black/75">{page.upgrade.title}</p>
+            <p className="text-[15px] leading-[1.15] text-black/50">{page.upgrade.subtitle}</p>
             <AppLink
               href={withLocale(locale, page.upgrade.href)}
-              className="mt-4 block w-full rounded-lg bg-black py-3 text-center text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              className="flex h-[40px] w-full items-center justify-center rounded-[6px] bg-black text-[14px] font-medium text-white transition-opacity hover:opacity-90"
             >
               {page.upgrade.cta}
             </AppLink>
@@ -394,19 +403,19 @@ export default function RoomDetailPage() {
         </section>
 
         {/* ─── Upsells / Plaisirs sur mesure ─── */}
-        <section id="plaisirs-sur-mesure" className="mt-8 scroll-mt-4">
-          <p className="mb-4 text-lg font-semibold text-foreground">{page.upsellsTitle}</p>
-          <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-4 no-scrollbar">
+        <section id="plaisirs-sur-mesure" className="mt-10 scroll-mt-4">
+          <p className="mb-4 px-4 text-[22px] font-medium text-black">{page.upsellsTitle}</p>
+          <div className="flex gap-1 overflow-x-auto px-4 pr-4 pb-4 no-scrollbar">
             {page.upsells.map((upsell) => (
               <AppLink
                 href={withLocale(locale, upsell.href)}
                 key={upsell.id}
-                className="relative h-44 w-36 flex-shrink-0 overflow-hidden rounded-xl bg-muted shadow-md transition-shadow hover:shadow-lg"
+                className="relative h-[215px] w-[170px] flex-shrink-0 overflow-hidden rounded-[6px]"
               >
                 <Image src={resolveImage(upsell.image)} alt={upsell.title} fill className="object-cover" unoptimized />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 px-3 py-3">
-                  <p className="text-sm font-semibold uppercase tracking-wider text-white drop-shadow-md">
+                <div className="absolute inset-x-0 bottom-0 top-[32%]" style={{ backgroundImage: "linear-gradient(rgba(0,0,0,0) 0%, rgba(0,0,0,0.098) 20%, rgba(0,0,0,0.325) 50%, rgba(0,0,0,0.584) 100%)" }} />
+                <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 px-3 py-4">
+                  <p className="text-[23px] font-normal uppercase leading-[1.25] text-white">
                     {upsell.title}
                   </p>
                 </div>

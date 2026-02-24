@@ -44,7 +44,7 @@ export default function ServicesPage() {
 
         const response = await fetch(url.toString(), {
           method: "GET",
-          headers: { Authorization: `Bearer ${session!.guestToken}` }
+          headers: { Authorization: `Bearer ${session!.guestToken}` },
         });
         if (response.ok) {
           const data = (await response.json()) as { items?: Ticket[] };
@@ -58,71 +58,84 @@ export default function ServicesPage() {
     void loadTickets();
   }, [session?.stayId]);
 
-  // Find active transport/concierge ticket for notification
-  const activeNotification = useMemo(() => {
-    if (!page) return null;
+  const notificationSlides = useMemo(() => {
+    if (!page) return [];
+
+    const slides: Array<{ badge: string; message: string; href?: string }> = [];
 
     const conciergeTicket = tickets.find(
       (t) => t.department === "concierge" && t.status !== "resolved"
     );
     if (conciergeTicket) {
-      return {
+      slides.push({
         badge: page.transportBadge,
-        message: interpolateTemplate(page.transportBookedMessage, { time: "15:30" })
-      };
+        message: interpolateTemplate(page.transportBookedMessage, { time: "15:30" }),
+        href: withLocale(locale, "/concierge"),
+      });
     }
-    return null;
-  }, [tickets, page]);
+
+    if (slides.length === 0 && session) {
+      slides.push({
+        badge: page.welcomeBadge,
+        message: interpolateTemplate(page.welcomeMessage, { hotelName: session.hotelName }),
+      });
+    }
+
+    if (slides.length === 0) {
+      slides.push({
+        badge: page.checkInBadge,
+        message: page.checkInMessage,
+        href: withLocale(locale, "/reception/check-in"),
+      });
+    }
+
+    return slides;
+  }, [tickets, page, session, locale]);
 
   if (!page) {
-    return <div className="min-h-screen bg-gray-50" />;
+    return <div className="min-h-screen bg-white" />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="flex items-center justify-between bg-white px-4 py-4">
-        <h1 className="text-xl font-semibold text-gray-900">{page.title}</h1>
-        <Leaf className="h-6 w-6 text-gray-400" />
-      </header>
+    <div className="min-h-screen bg-white">
+      {/* Topbar */}
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2.5">
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-[90px]"
+          style={{
+            background:
+              "linear-gradient(white 0%, rgba(255,255,255,0.75) 25%, rgba(255,255,255,0.3) 55%, rgba(255,255,255,0.1) 80%, transparent 100%)",
+          }}
+        />
+        <h1 className="relative text-xl font-normal tracking-[-0.2px] text-black">
+          {page.title}
+        </h1>
+        <Leaf className="relative h-8 w-8 text-black/70" />
+      </div>
 
-      <main className="mx-auto max-w-md space-y-4 px-4 pb-24 pt-4">
+      {/* Content */}
+      <div className="mx-auto max-w-md space-y-0 px-3 pb-24 pt-8 lg:max-w-lg">
         {/* Notification Card */}
-        {activeNotification ? (
+        <div className="pb-8 px-0">
           <NotificationCard
-            badge={activeNotification.badge}
-            message={activeNotification.message}
-            href={withLocale(locale, "/concierge")}
+            slides={notificationSlides}
             historyAriaLabel={page.historyAriaLabel}
           />
-        ) : session ? (
-          <NotificationCard
-            badge={page.welcomeBadge}
-            message={interpolateTemplate(page.welcomeMessage, { hotelName: session.hotelName })}
-            historyAriaLabel={page.historyAriaLabel}
-          />
-        ) : (
-          <NotificationCard
-            badge={page.checkInBadge}
-            message={page.checkInMessage}
-            href={withLocale(locale, "/reception/check-in")}
-            historyAriaLabel={page.historyAriaLabel}
-          />
-        )}
+        </div>
 
-        {/* Service Cards */}
-        <div className="space-y-3">
+        {/* Service Cards Grid */}
+        <div className="grid grid-cols-2 gap-3 px-1">
           {page.cards.map((service) => (
             <ServiceCard
               key={service.id}
               title={service.title}
               href={withLocale(locale, service.href)}
               chatHref={withLocale(locale, service.chatHref)}
-              backgroundImage={service.backgroundImage}
+              iconImage={service.iconImage}
             />
           ))}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

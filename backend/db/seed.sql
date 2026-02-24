@@ -562,6 +562,8 @@ ON CONFLICT (id) DO UPDATE SET
   adults = EXCLUDED.adults,
   children = EXCLUDED.children;
 
+UPDATE stays SET pms_reservation_id = 'RES-DEMO', guest_id = 'G-0001' WHERE id = 'S-DEMO';
+
 -- =============================================================================
 -- TICKETS (Service Requests)
 -- =============================================================================

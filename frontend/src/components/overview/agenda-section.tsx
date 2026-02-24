@@ -145,7 +145,9 @@ function AgendaEventItem({ locale, hotelName, event, strings: t }: AgendaEventIt
   const href = (() => {
     const linkUrl = typeof event.metadata?.linkUrl === "string" ? event.metadata.linkUrl : null;
     if (linkUrl) return withLocale(locale, linkUrl);
-    if (event.type === "spa") return withLocale(locale, "/spa-gym");
+    if (event.type === "spa") return withLocale(locale, "/spa");
+    if (event.type === "gym") return withLocale(locale, "/gym");
+    if (event.type === "spa-gym") return withLocale(locale, "/spa");
     if (event.type === "restaurant") return withLocale(locale, "/restaurants");
     if (event.type === "transfer") return withLocale(locale, "/concierge");
     return withLocale(locale, "/agenda");

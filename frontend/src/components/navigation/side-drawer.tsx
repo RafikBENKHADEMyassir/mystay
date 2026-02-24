@@ -16,7 +16,9 @@ const serviceIcons = {
   housekeeping: Sparkles,
   "room-service": ShoppingBag,
   restaurants: UtensilsCrossed,
-  "spa-gym": Dumbbell
+  "spa-gym": Dumbbell,
+  spa: Sparkles,
+  gym: Dumbbell
 } as const;
 
 export function SideDrawer() {

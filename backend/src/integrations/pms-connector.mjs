@@ -197,7 +197,8 @@ class PMSConnector {
     }
 
     const data = await response.json();
-    return this.normalizeFolio(data, "opera");
+    const folio = data.folio ?? data;
+    return this.normalizeFolio(folio, "opera");
   }
 
   async updateOperaGuestProfile(guestId, profileData) {

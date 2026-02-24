@@ -1,15 +1,16 @@
 "use client";
 
-import { AppLink } from "@/components/ui/app-link";
-import { ChevronRight, MessageCircle } from "lucide-react";
+import Image from "next/image";
+import { MessageCircle } from "lucide-react";
 
+import { AppLink } from "@/components/ui/app-link";
 import { cn } from "@/lib/utils";
 
 type ServiceCardProps = {
   title: string;
   href: string;
   chatHref?: string;
-  backgroundImage: string;
+  iconImage?: string;
   className?: string;
 };
 
@@ -17,40 +18,50 @@ export function ServiceCard({
   title,
   href,
   chatHref,
-  backgroundImage,
-  className
+  iconImage,
+  className,
 }: ServiceCardProps) {
   return (
-    <div className={cn("relative overflow-hidden rounded-2xl", className)}>
-      {/* Background Image */}
-      <AppLink href={href} className="block">
-        <div
-          className="relative h-[88px] bg-cover bg-center"
-          style={{ backgroundImage: `url(${backgroundImage})` }}
-        >
-          {/* Gradient overlay for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
-
-          {/* Title with chevron */}
-          <div className="absolute inset-0 flex items-center px-4">
-            <div className="flex items-center gap-1">
-              <span className="text-lg font-medium text-white drop-shadow-md">
-                {title}
-              </span>
-              <ChevronRight className="h-5 w-5 text-white/80" />
-            </div>
+    <div
+      className={cn(
+        "relative rounded-[6px] border border-black/[0.06] bg-white pb-6 pt-4 shadow-[0_2px_10px_rgba(0,0,0,0.06)]",
+        className
+      )}
+    >
+      <AppLink
+        href={href}
+        className="flex flex-col items-center gap-3"
+      >
+        {iconImage ? (
+          <div className="relative h-[60px] w-[60px] overflow-hidden">
+            <Image
+              src={iconImage}
+              alt={title}
+              fill
+              className="object-cover"
+              sizes="120px"
+              unoptimized
+            />
           </div>
-        </div>
+        ) : (
+          <div className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-muted">
+            <span className="text-xl font-light text-muted-foreground">
+              {title.charAt(0)}
+            </span>
+          </div>
+        )}
+        <span className="text-center text-[16px] font-light leading-tight text-black">
+          {title}
+        </span>
       </AppLink>
 
-      {/* Chat button */}
       {chatHref && (
         <AppLink
           href={chatHref}
-          className="absolute right-3 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+          className="absolute -right-[7px] top-[calc(50%-42px)] flex h-[42px] w-[42px] items-center justify-center rounded-full bg-white/65 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-[6px] transition-transform hover:scale-105 active:scale-95"
           aria-label={`Chat with ${title}`}
         >
-          <MessageCircle className="h-5 w-5 text-gray-700" />
+          <MessageCircle className="h-6 w-6 text-black/80" />
         </AppLink>
       )}
     </div>

@@ -9,7 +9,8 @@ import {
   Plus,
   Minus,
   ShoppingCart,
-  MessageSquare
+  MessageSquare,
+  Send
 } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 
@@ -309,6 +310,18 @@ export default function RoomServicePage() {
         </div>
       </div>
 
+      {/* Room Number Card */}
+      {session.roomNumber && (
+        <div className="px-4 pt-4">
+          <div className="flex items-center justify-between rounded-[6px] border border-black/[0.06] bg-white px-4 py-3 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+            <span className="text-sm text-gray-500">
+              {locale === "fr" ? "Chambre №" : "Room №"}
+            </span>
+            <span className="text-lg font-medium text-black">{session.roomNumber}</span>
+          </div>
+        </div>
+      )}
+
       {/* Active Orders */}
       {roomServiceTickets.length > 0 && (
         <div className="border-b border-gray-100 px-4 py-4">
@@ -437,8 +450,8 @@ export default function RoomServicePage() {
         {error && <p className="mt-4 text-center text-sm text-red-500">{error}</p>}
       </div>
 
-      {/* Cart Summary (Fixed bottom) */}
-      {cartCount > 0 && (
+      {/* Cart Summary or Message Bar (Fixed bottom) */}
+      {cartCount > 0 ? (
         <div className="fixed bottom-0 left-0 right-0 border-t bg-white p-4 shadow-lg">
           <div className="mx-auto max-w-md">
             <div className="mb-3 flex items-center justify-between text-sm">
@@ -455,6 +468,18 @@ export default function RoomServicePage() {
               {isOrdering ? page.placingOrder : page.placeOrder}
             </button>
           </div>
+        </div>
+      ) : (
+        <div className="sticky bottom-0 border-t bg-white/90 backdrop-blur">
+          <AppLink
+            href={withLocale(locale, "/messages?department=room-service")}
+            className="mx-auto flex max-w-md items-center gap-3 px-4 py-3"
+          >
+            <span className="flex-1 text-sm text-gray-400">
+              {locale === "fr" ? "Écrire un message" : "Write a message"}
+            </span>
+            <Send className="h-5 w-5 text-black/60" />
+          </AppLink>
         </div>
       )}
     </div>

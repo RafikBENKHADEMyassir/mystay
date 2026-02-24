@@ -31,6 +31,15 @@ type Thread = {
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+const departmentAliases: Record<string, string> = {
+  spa: "spa-gym",
+  gym: "spa-gym",
+};
+
+function normalizeDepartmentId(departmentId: string) {
+  const normalized = departmentId.trim().replace(/_/g, "-").toLowerCase();
+  return departmentAliases[normalized] ?? normalized;
+}
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -84,7 +93,7 @@ export default function MessagesPage() {
   }, [session?.stayId, page?.title]);
 
   function departmentTitle(departmentId: string) {
-    const normalized = departmentId.trim().replace(/_/g, "-");
+    const normalized = normalizeDepartmentId(departmentId);
     const matched = page?.departments.find((item) => item.id === normalized);
     if (matched) return matched.label;
     return normalized.replace(/[-_]/g, " ").trim() || normalized;
@@ -97,7 +106,7 @@ export default function MessagesPage() {
     setError(null);
 
     try {
-      const normalizedDepartment = departmentId.trim().replace(/_/g, "-");
+      const normalizedDepartment = normalizeDepartmentId(departmentId);
       const response = await fetch(new URL("/api/v1/threads", apiBaseUrl).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.guestToken}` },
@@ -134,7 +143,7 @@ export default function MessagesPage() {
     if (!session || !page) return;
     if (!requestedDepartment) return;
 
-    const normalized = requestedDepartment.replace(/_/g, "-");
+    const normalized = normalizeDepartmentId(requestedDepartment);
     if (handledDepartment.current === normalized) return;
     handledDepartment.current = normalized;
     void openDepartmentThread(normalized);

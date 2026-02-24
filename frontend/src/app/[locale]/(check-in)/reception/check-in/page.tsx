@@ -22,7 +22,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { stripLocaleFromPathname, withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
 
-type CheckInStep = "personal" | "identity" | "finalize" | "payment";
+type CheckInStep = "personal" | "identity" | "finalize" | "payment" | "success";
 type StayReason = "personal" | "business";
 type GenderIdentity = "male" | "female" | "non_binary";
 type ExtraId = "baby_bed" | "extra_bed" | "flowers";
@@ -374,7 +374,7 @@ export default function CheckInPage() {
         return;
       }
 
-      router.push(withLocale(locale, "/"));
+      setStep("success");
     } catch {
       setSubmitError(pageStrings.submitErrors.serviceUnavailable);
     } finally {
@@ -751,6 +751,32 @@ export default function CheckInPage() {
               {strings.paymentFields.submit}
             </button>
           </>
+        ) : null}
+
+        {step === "success" ? (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white px-8 text-center">
+            <div className="relative">
+              <svg className="h-20 w-20 text-black/10" fill="none" viewBox="0 0 80 80" stroke="currentColor" strokeWidth="1.5">
+                <rect x="10" y="20" width="60" height="40" rx="4" />
+                <line x1="10" y1="32" x2="70" y2="32" />
+                <rect x="16" y="40" width="20" height="4" rx="1" />
+              </svg>
+              <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500">
+                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <h2 className="mt-6 text-xl font-semibold text-foreground">{strings.paymentSuccess.title}</h2>
+            <p className="mt-2 max-w-xs text-sm text-muted-foreground">{strings.paymentSuccess.description}</p>
+            <button
+              type="button"
+              onClick={() => router.push(withLocale(locale, "/room"))}
+              className="mt-8 w-full max-w-xs rounded-[6px] bg-black py-3 text-sm font-medium text-white shadow-sm"
+            >
+              {strings.paymentSuccess.cta}
+            </button>
+          </div>
         ) : null}
       </main>
     </div>

@@ -1,11 +1,5 @@
-import { redirect } from "next/navigation";
+import { WellnessPage } from "@/components/wellness/wellness-page";
 
-type GymPageProps = {
-  params: {
-    locale: string;
-  };
-};
-
-export default function GymPage({ params }: GymPageProps) {
-  redirect(`/${params.locale}/spa-gym?tab=gym`);
+export default function GymPage() {
+  return <WellnessPage category="gym" />;
 }

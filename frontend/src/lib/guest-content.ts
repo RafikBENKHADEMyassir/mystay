@@ -260,6 +260,11 @@ export type GuestContent = {
         label: string;
         priceCents: number;
       }>;
+      paymentSuccess: {
+        title: string;
+        description: string;
+        cta: string;
+      };
     };
     checkOut: {
       title: string;
@@ -325,6 +330,7 @@ export type GuestContent = {
         href: string;
         chatHref: string;
         backgroundImage: string;
+        iconImage?: string;
       }>;
       catalog: {
         couldNotLoadCategories: string;
@@ -543,6 +549,13 @@ export type GuestContent = {
     };
     spaGym: {
       heroImage: string;
+      heroImages: {
+        spa?: string;
+        gym?: string;
+      };
+      galleryImages?: {
+        gym?: string[];
+      };
       title: string;
       tabs: {
         spa: string;
@@ -557,6 +570,60 @@ export type GuestContent = {
       sectionTitles: {
         spa: string;
         gym: string;
+      };
+      messaging: {
+        department: string;
+        availabilityMessage: string;
+      };
+      availability: {
+        title: string;
+        fromLabel: string;
+        toLabel: string;
+        allDayLabel: string;
+        unavailableLabel: string;
+        expandAriaLabel: string;
+        collapseAriaLabel: string;
+        schedule: Array<{
+          day: string;
+          mode: "all-day" | "range" | "unavailable";
+          from?: string;
+          to?: string;
+          highlighted?: boolean;
+        }>;
+      };
+      durationLabels: {
+        hour: string;
+        minute: string;
+      };
+      bookSession: string;
+      quickActions: {
+        gym: Array<{
+          id: string;
+          label: string;
+          href: string;
+        }>;
+      };
+      bookingDialog: {
+        titleTemplate: string;
+        descriptionTemplate: string;
+        dateLabel: string;
+        timeLabel: string;
+        notesLabel: string;
+        notesPlaceholder: string;
+        cancel: string;
+        submit: string;
+        submitting: string;
+        done: string;
+        referenceLabel: string;
+        successTitle: string;
+        successMessage: string;
+        errorTitle: string;
+        ticketTitleTemplate: string;
+        errors: {
+          missingDateTime: string;
+          submitFailed: string;
+          serviceUnavailable: string;
+        };
       };
       chooseTimeSlot: string;
       bookingLoading: string;
@@ -599,6 +666,7 @@ export type GuestContent = {
       title: string;
       tailored: string;
       completeCheckIn: string;
+      startCheckOut: string;
       suiteNameTemplate: string;
       labels: {
         room: string;
@@ -655,8 +723,43 @@ export type GuestContent = {
       loading: string;
       noItems: string;
       roomLabel: string;
+      views: {
+        day: string;
+        week: string;
+        month: string;
+      };
+      today: string;
+      previousRangeAria: string;
+      nextRangeAria: string;
+      emptyTitle: string;
+      emptyDescription: string;
+      invitationLabel: string;
+      suggestionLabel: string;
+      milestones: {
+        checkIn: string;
+        checkOut: string;
+      };
+      labels: {
+        location: string;
+        contact: string;
+        duration: string;
+      };
+      actions: {
+        accept: string;
+        decline: string;
+        viewDetails: string;
+        responding: string;
+      };
+      statuses: {
+        scheduled: string;
+        confirmed: string;
+        pending: string;
+        declined: string;
+        cancelled: string;
+      };
       errors: {
         loadAgenda: string;
+        respondAction: string;
         backendUnreachable: string;
       };
       notifications: {
@@ -709,6 +812,85 @@ export type GuestContent = {
       changeReservation: string;
       startCheckIn: string;
       roomLabel: string;
+      avatarHint: string;
+      hub: {
+        historyCard: string;
+        preferencesCard: string;
+        loyaltyPointsTemplate: string;
+        loyaltyDiscover: string;
+        reviewPrompt: string;
+        reviewCta: string;
+        reviewTitle: string;
+        reviewSubtitle: string;
+        reviewPlaceholder: string;
+        reviewSubmit: string;
+        reviewThankYou: string;
+        reviewThankYouSub: string;
+        reviewConsentLabel: string;
+        privacyPolicy: string;
+        aboutApp: string;
+      };
+      account: {
+        title: string;
+        description: string;
+        editAction: string;
+        saveAction: string;
+        savingAction: string;
+        cancelAction: string;
+        updatedSuccess: string;
+        updatedError: string;
+        fields: {
+          firstName: string;
+          lastName: string;
+          email: string;
+          phone: string;
+        };
+      };
+      preferences: {
+        title: string;
+        description: string;
+        languageLabel: string;
+        currencyLabel: string;
+        localeNames: {
+          en: string;
+          fr: string;
+          es: string;
+        };
+        menuItems: {
+          personalInfo: string;
+          interfaceSettings: string;
+          communications: string;
+          paymentMethods: string;
+        };
+      };
+      status: {
+        title: string;
+        description: string;
+        documentLabel: string;
+        paymentLabel: string;
+        verified: string;
+        missing: string;
+        onFile: string;
+      };
+      billing: {
+        title: string;
+        description: string;
+        empty: string;
+        pointsTemplate: string;
+      };
+      loyalty: {
+        title: string;
+        pointsLabel: string;
+        silverTier: string;
+        goldTier: string;
+        progressTemplate: string;
+        discountsTitle: string;
+      };
+      security: {
+        title: string;
+        description: string;
+        signOut: string;
+      };
       guestIdentityTitle: string;
       guestIdentityBadge: string;
       guestIdentityDescription: string;

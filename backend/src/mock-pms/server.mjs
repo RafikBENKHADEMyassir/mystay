@@ -447,7 +447,7 @@ async function handleRequest(req, res) {
       reservation,
       digitalKey: {
         code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        expiresAt: reservation.checkOutDate + "T12:00:00Z"
+        expiresAt: (reservation.departureDate ?? reservation.checkOutDate ?? "") + "T12:00:00Z"
       }
     });
     return;

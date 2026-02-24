@@ -4,10 +4,9 @@
 import { AppLink } from "@/components/ui/app-link";
 import {
   ChevronLeft,
-  Clock,
   Leaf,
   MessageSquare,
-  Users,
+  Send,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -225,13 +224,11 @@ export default function RestaurantsPage() {
           </p>
         )}
 
-        {/* Restaurant Cards */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/* Restaurant Cards (horizontal scroll like Figma) */}
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {restaurants.map((item) => {
             const config = getConfig(item);
             const coverImage = (config.coverImage as string) || item.imageUrl;
-            const description = (config.description as string) || "";
-            const hours = (config.hours as string) || "";
             const imageUrl = coverImage?.startsWith("/uploads/")
               ? `${apiBaseUrl}${coverImage}`
               : coverImage;
@@ -240,45 +237,17 @@ export default function RestaurantsPage() {
               <button
                 key={item.id}
                 onClick={() => handleRestaurantClick(item)}
-                className="group overflow-hidden rounded-2xl border border-gray-100 bg-white text-left shadow-sm transition hover:shadow-md"
+                className="group relative w-[170px] flex-shrink-0 overflow-hidden rounded-[6px]"
               >
-                {/* Image */}
-                <div className="relative h-40 w-full overflow-hidden">
+                <div className="relative h-[200px] w-full overflow-hidden">
                   <img
                     src={imageUrl}
                     alt={item.label}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <h3 className="text-xl font-semibold text-white">{item.label}</h3>
-                  </div>
-                </div>
-
-                {/* Details */}
-                <div className="p-4">
-                  {description && (
-                    <p className="line-clamp-2 text-sm text-gray-600">{description}</p>
-                  )}
-
-                  <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-                    {hours && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>{hours}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      <span>
-                        {locale === "fr" ? "Reservation requise" : "Reservation required"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-sm font-medium text-amber-600">{page.bookTable}</span>
-                    <span className="text-gray-300">→</span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <h3 className="text-lg font-semibold text-white">{item.label}</h3>
                   </div>
                 </div>
               </button>
@@ -326,6 +295,19 @@ export default function RestaurantsPage() {
           </div>
         </div>
       )}
+
+      {/* Sticky Message Bar */}
+      <div className="sticky bottom-0 border-t bg-white/90 backdrop-blur">
+        <AppLink
+          href={withLocale(locale, "/messages?department=restaurants")}
+          className="mx-auto flex max-w-md items-center gap-3 px-4 py-3"
+        >
+          <span className="flex-1 text-sm text-gray-400">
+            {locale === "fr" ? "Écrire un message" : "Write a message"}
+          </span>
+          <Send className="h-5 w-5 text-black/60" />
+        </AppLink>
+      </div>
     </div>
   );
 }

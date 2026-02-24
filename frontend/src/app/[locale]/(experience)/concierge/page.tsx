@@ -414,18 +414,20 @@ export default function ConciergePage() {
         </div>
       )}
 
-      {/* Quick Actions */}
+      {/* Quick Actions (2-col grid of icon cards) */}
       <div className="flex-1 px-4 py-6">
-        <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-3">
           {page.quickActions.map((action) => (
             <button
               key={action.id}
               onClick={() => handleQuickAction(action.id)}
               disabled={isSending}
-              className="flex w-full items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 text-left shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+              className="flex flex-col items-center gap-3 rounded-[6px] border border-black/[0.06] bg-white px-3 pb-5 pt-4 text-center shadow-[0_2px_10px_rgba(0,0,0,0.06)] transition hover:bg-gray-50 disabled:opacity-50"
             >
-              <span className="text-sm text-gray-700">{action.label}</span>
-              <ChevronRight className="h-4 w-4 text-gray-300" />
+              <span className="text-2xl">
+                {action.id === "restaurant" ? "🍽️" : action.id === "transport" ? "🚗" : action.id === "ticket" ? "🎟️" : action.id === "airport" ? "✈️" : action.id === "activities" ? "🗺️" : "💬"}
+              </span>
+              <span className="text-[13px] font-light leading-tight text-black">{action.label}</span>
             </button>
           ))}
         </div>

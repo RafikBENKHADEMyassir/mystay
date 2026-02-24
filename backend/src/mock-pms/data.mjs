@@ -15,6 +15,7 @@ function getDate(daysFromNow) {
 const TODAY = getDate(0);
 const TOMORROW = getDate(1);
 const YESTERDAY = getDate(-1);
+const NEXT_WEEK = getDate(7);
 
 // =====================================================
 // HOTELS/PROPERTIES
@@ -429,6 +430,34 @@ export const mockData = {
       specialRequests: "Family vacation, private pool required, halal meals, Arabic-speaking staff",
       packages: ["all-inclusive", "airport-transfer", "private-guide"],
       createdAt: "2025-01-02T10:00:00Z"
+    },
+    "RES-DEMO": {
+      id: "RES-DEMO",
+      propertyId: "FS-PARIS",
+      confirmationNumber: "DEMO123456",
+      status: "checked_in",
+      source: "direct",
+      guestId: "GUEST-DEMO",
+      guest: {
+        firstName: "Jean",
+        lastName: "Dupont",
+        email: "jean.dupont@demo.com",
+        phone: "+33 1 23 45 67 89",
+        vipLevel: "silver"
+      },
+      arrivalDate: YESTERDAY,
+      departureDate: NEXT_WEEK,
+      roomNumber: "227",
+      roomType: "Sea View Suite",
+      adults: 2,
+      children: 1,
+      ratePlan: "best-available",
+      ratePerNight: 1200,
+      checkedInAt: YESTERDAY + "T15:00:00Z",
+      checkedOutAt: null,
+      specialRequests: ["Late check-out preferred"],
+      packages: [],
+      createdAt: "2025-01-15T10:00:00Z"
     }
   },
 
@@ -580,6 +609,22 @@ export const mockData = {
         { id: "PAY-010", date: "2025-01-05", description: "Advance payment", amount: 15000, method: "wire_transfer" }
       ],
       balance: 5530
+    },
+    "RES-DEMO": {
+      reservationId: "RES-DEMO",
+      currency: "EUR",
+      charges: [
+        { id: "CHG-D01", date: YESTERDAY, description: "Sea View Suite", amount: 1200, category: "room" },
+        { id: "CHG-D02", date: TODAY, description: "Sea View Suite", amount: 1200, category: "room" },
+        { id: "CHG-D03", date: YESTERDAY, description: "Lit supplementaire", amount: 200, category: "extras" },
+        { id: "CHG-D04", date: YESTERDAY, description: "Fleurs", amount: 60, category: "extras" },
+        { id: "CHG-D05", date: TODAY, description: "Spa - Relaxation massage", amount: 180, category: "spa" },
+        { id: "CHG-D06", date: TODAY, description: "Room Service - Breakfast", amount: 85, category: "restaurant" }
+      ],
+      payments: [
+        { id: "PAY-D01", date: YESTERDAY, description: "Deposit", amount: 2400, method: "credit_card" }
+      ],
+      balance: 525
     }
   },
 

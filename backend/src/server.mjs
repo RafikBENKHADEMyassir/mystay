@@ -3317,6 +3317,200 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // GET/PATCH /api/v1/guest/profile - Fetch/update guest profile settings
+  if (url.pathname === "/api/v1/guest/profile") {
+    const principal = requirePrincipal(req, res, url, ["guest"]);
+    if (!principal) return;
+
+    const guestIdFromToken =
+      typeof principal.guestId === "string" && principal.guestId.trim() ? principal.guestId.trim() : null;
+
+    let resolvedGuestId = guestIdFromToken;
+    if (!resolvedGuestId && principal.hotelId && principal.stayId) {
+      const stayRows = await query(
+        `
+          SELECT guest_id AS "guestId"
+          FROM stays
+          WHERE id = $1 AND hotel_id = $2
+          LIMIT 1
+        `,
+        [principal.stayId, principal.hotelId]
+      );
+      resolvedGuestId =
+        typeof stayRows[0]?.guestId === "string" && stayRows[0].guestId.trim()
+          ? stayRows[0].guestId.trim()
+          : null;
+    }
+
+    if (!resolvedGuestId) {
+      sendJson(res, 401, { error: "unauthorized" });
+      return;
+    }
+
+    if (req.method === "GET") {
+      const profileRows = await query(
+        `
+          SELECT
+            g.id,
+            g.first_name AS "firstName",
+            g.last_name AS "lastName",
+            g.email,
+            g.phone,
+            g.email_verified AS "emailVerified",
+            g.id_document_verified AS "idDocumentVerified",
+            g.payment_method_id AS "paymentMethodId",
+            g.updated_at AS "updatedAt",
+            s.room_number AS "roomNumber",
+            s.confirmation_number AS "confirmationNumber",
+            h.currency AS currency
+          FROM guests g
+          LEFT JOIN stays s
+            ON s.id = $2
+            AND ($3::text IS NULL OR s.hotel_id = $3)
+          LEFT JOIN hotels h
+            ON h.id = COALESCE($3, s.hotel_id)
+          WHERE g.id = $1
+          LIMIT 1
+        `,
+        [resolvedGuestId, principal.stayId ?? null, principal.hotelId ?? null]
+      );
+
+      const row = profileRows[0] ?? null;
+      if (!row) {
+        sendJson(res, 404, { error: "guest_not_found" });
+        return;
+      }
+
+      sendJson(res, 200, {
+        guest: {
+          id: row.id,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          email: row.email,
+          phone: row.phone,
+          emailVerified: Boolean(row.emailVerified),
+          idDocumentVerified: Boolean(row.idDocumentVerified),
+          hasPaymentMethod: Boolean(row.paymentMethodId),
+          updatedAt: row.updatedAt
+        },
+        stay: {
+          roomNumber: row.roomNumber ?? null,
+          confirmationNumber: row.confirmationNumber ?? null
+        },
+        hotel: {
+          currency: row.currency ?? "EUR"
+        }
+      });
+      return;
+    }
+
+    if (req.method === "PATCH") {
+      const body = await readJson(req);
+      if (!body || typeof body !== "object") {
+        sendJson(res, 400, { error: "invalid_json" });
+        return;
+      }
+
+      const updates = [];
+      const params = [];
+
+      if (Object.prototype.hasOwnProperty.call(body, "firstName")) {
+        const firstName = normalizeText(body.firstName);
+        if (!firstName) {
+          sendJson(res, 400, { error: "invalid_first_name" });
+          return;
+        }
+        params.push(firstName);
+        updates.push(`first_name = $${params.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, "lastName")) {
+        const lastName = normalizeText(body.lastName);
+        if (!lastName) {
+          sendJson(res, 400, { error: "invalid_last_name" });
+          return;
+        }
+        params.push(lastName);
+        updates.push(`last_name = $${params.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, "email")) {
+        const email = normalizeEmail(body.email);
+        const validEmail = typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        if (!validEmail) {
+          sendJson(res, 400, { error: "invalid_email" });
+          return;
+        }
+        params.push(email);
+        updates.push(`email = $${params.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, "phone")) {
+        const phone = normalizeText(body.phone);
+        params.push(phone);
+        updates.push(`phone = $${params.length}`);
+      }
+
+      if (!updates.length) {
+        sendJson(res, 400, { error: "no_changes" });
+        return;
+      }
+
+      params.push(resolvedGuestId);
+      const guestIdParam = params.length;
+
+      try {
+        const rows = await query(
+          `
+            UPDATE guests
+            SET
+              ${updates.join(",\n              ")},
+              updated_at = NOW()
+            WHERE id = $${guestIdParam}
+            RETURNING
+              id,
+              first_name AS "firstName",
+              last_name AS "lastName",
+              email,
+              phone,
+              email_verified AS "emailVerified",
+              id_document_verified AS "idDocumentVerified",
+              payment_method_id AS "paymentMethodId",
+              updated_at AS "updatedAt"
+          `,
+          params
+        );
+
+        const row = rows[0] ?? null;
+        if (!row) {
+          sendJson(res, 404, { error: "guest_not_found" });
+          return;
+        }
+
+        sendJson(res, 200, {
+          guest: {
+            id: row.id,
+            firstName: row.firstName,
+            lastName: row.lastName,
+            email: row.email,
+            phone: row.phone,
+            emailVerified: Boolean(row.emailVerified),
+            idDocumentVerified: Boolean(row.idDocumentVerified),
+            hasPaymentMethod: Boolean(row.paymentMethodId),
+            updatedAt: row.updatedAt
+          }
+        });
+      } catch (error) {
+        if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+          sendJson(res, 409, { error: "email_already_exists" });
+          return;
+        }
+        throw error;
+      }
+      return;
+    }
+  }
+
   // GET /api/v1/guest/unread - Unread counters for guest messaging
   if (req.method === "GET" && url.pathname === "/api/v1/guest/unread") {
     const principal = requirePrincipal(req, res, url, ["guest"]);
@@ -3355,7 +3549,7 @@ async function handleRequest(req, res) {
     const principal = requirePrincipal(req, res, url, ["guest"]);
     if (!principal) return;
 
-    if (!principal.hotelId || !principal.stayId || !principal.guestId) {
+    if (!principal.hotelId || !principal.stayId) {
       sendJson(res, 401, { error: "unauthorized" });
       return;
     }
@@ -3390,12 +3584,13 @@ async function handleRequest(req, res) {
         SELECT
           id AS "stayId",
           confirmation_number AS "confirmationNumber",
-          pms_reservation_id AS "pmsReservationId"
+          pms_reservation_id AS "pmsReservationId",
+          guest_id AS "guestId"
         FROM stays
-        WHERE id = $1 AND hotel_id = $2 AND guest_id = $3
+        WHERE id = $1 AND hotel_id = $2
         LIMIT 1
       `,
-      [principal.stayId, principal.hotelId, principal.guestId]
+      [principal.stayId, principal.hotelId]
     );
 
     const stay = stayRows[0] ?? null;
@@ -3442,23 +3637,26 @@ async function handleRequest(req, res) {
     }
 
     const paymentMethodId = paymentMethodProvided ? `pm_demo_${randomUUID().replace(/-/g, "").slice(0, 12)}` : null;
+    const resolvedGuestId = principal.guestId || stay.guestId;
 
-    await query(
-      `
-        UPDATE guests
-        SET
-          first_name = CASE WHEN $1 <> '' THEN $1 ELSE first_name END,
-          last_name = CASE WHEN $2 <> '' THEN $2 ELSE last_name END,
-          phone = COALESCE($3, phone),
-          id_document_url = CASE WHEN $4::boolean THEN COALESCE(id_document_url, 'demo://id-document') ELSE id_document_url END,
-          id_document_verified = CASE WHEN $4::boolean THEN true ELSE id_document_verified END,
-          payment_method_id = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE payment_method_id END,
-          payment_provider = CASE WHEN $5::text IS NOT NULL THEN 'demo' ELSE payment_provider END,
-          updated_at = NOW()
-        WHERE id = $6
-      `,
-      [firstName, lastName, phone, idDocumentUploaded, paymentMethodId, principal.guestId]
-    );
+    if (resolvedGuestId) {
+      await query(
+        `
+          UPDATE guests
+          SET
+            first_name = CASE WHEN $1 <> '' THEN $1 ELSE first_name END,
+            last_name = CASE WHEN $2 <> '' THEN $2 ELSE last_name END,
+            phone = COALESCE($3, phone),
+            id_document_url = CASE WHEN $4::boolean THEN COALESCE(id_document_url, 'demo://id-document') ELSE id_document_url END,
+            id_document_verified = CASE WHEN $4::boolean THEN true ELSE id_document_verified END,
+            payment_method_id = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE payment_method_id END,
+            payment_provider = CASE WHEN $5::text IS NOT NULL THEN 'demo' ELSE payment_provider END,
+            updated_at = NOW()
+          WHERE id = $6
+        `,
+        [firstName, lastName, phone, idDocumentUploaded, paymentMethodId, resolvedGuestId]
+      );
+    }
 
     sendJson(res, 200, {
       ok: true,
@@ -9139,6 +9337,108 @@ async function handleRequest(req, res) {
     }
   }
 
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "events" &&
+    segments[3] &&
+    segments[4] === "respond" &&
+    segments.length === 5 &&
+    req.method === "PATCH"
+  ) {
+    const eventId = decodeURIComponent(segments[3]);
+    const principal = requirePrincipal(req, res, url, ["guest", "staff"]);
+    if (!principal) return;
+
+    const body = await readJson(req);
+    const action =
+      body && typeof body === "object" && typeof body.action === "string" ? body.action.trim().toLowerCase() : "";
+
+    if (action !== "accept" && action !== "decline") {
+      sendJson(res, 400, { error: "missing_fields", required: ["action"] });
+      return;
+    }
+
+    const rows = await query(
+      `
+        SELECT
+          id,
+          hotel_id AS "hotelId",
+          stay_id AS "stayId",
+          type,
+          status,
+          metadata
+        FROM events
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [eventId]
+    );
+    const event = rows[0];
+    if (!event) {
+      sendJson(res, 404, { error: "event_not_found" });
+      return;
+    }
+
+    if (event.hotelId !== principal.hotelId) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    if (principal.typ === "guest" && event.stayId !== principal.stayId) {
+      sendJson(res, 403, { error: "forbidden" });
+      return;
+    }
+
+    const metadata = event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+      ? event.metadata
+      : {};
+    const variant = typeof metadata.variant === "string" ? metadata.variant.trim().toLowerCase() : "";
+    const kind = typeof metadata.kind === "string" ? metadata.kind.trim().toLowerCase() : "";
+    const isInvite = event.type === "invite" || variant === "invite" || kind === "suggestion";
+
+    if (!isInvite) {
+      sendJson(res, 400, { error: "event_not_actionable" });
+      return;
+    }
+
+    const responseBy = principal.typ === "guest" ? "guest" : "staff";
+    const nextStatus = action === "accept" ? "confirmed" : "declined";
+    const nextMetadata = {
+      ...metadata,
+      responseAction: action,
+      responseBy,
+      responseAt: new Date().toISOString()
+    };
+
+    const updatedRows = await query(
+      `
+        UPDATE events
+        SET
+          status = $2,
+          metadata = $3::jsonb,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          id,
+          hotel_id AS "hotelId",
+          stay_id AS "stayId",
+          type,
+          title,
+          start_at AS "startAt",
+          end_at AS "endAt",
+          status,
+          metadata AS metadata,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [eventId, nextStatus, JSON.stringify(nextMetadata)]
+    );
+
+    sendJson(res, 200, { item: updatedRows[0] ?? null });
+    return;
+  }
+
   if (url.pathname === "/api/v1/events" && req.method === "GET") {
     const where = [];
     const params = [];
@@ -9155,8 +9455,39 @@ async function handleRequest(req, res) {
     addEqualsFilter(where, params, "hotel_id", principal.hotelId);
     if (principal.typ === "guest") addEqualsFilter(where, params, "stay_id", principal.stayId);
     else addEqualsFilter(where, params, "stay_id", url.searchParams.get("stayId"));
-    addEqualsFilter(where, params, "status", url.searchParams.get("status"));
+    const requestedStatus = url.searchParams.get("status");
+    addEqualsFilter(where, params, "status", requestedStatus);
     addEqualsFilter(where, params, "type", url.searchParams.get("type"));
+    const includeDeclined = (url.searchParams.get("includeDeclined") ?? "").trim().toLowerCase() === "true";
+    if (principal.typ === "guest" && !requestedStatus && !includeDeclined) {
+      where.push(`status <> 'declined'`);
+    }
+
+    const fromDateInput = url.searchParams.get("from");
+    const toDateInput = url.searchParams.get("to");
+    const fromDate = parseIsoDate(fromDateInput);
+    const toDate = parseIsoDate(toDateInput);
+    if (fromDateInput && !fromDate) {
+      sendJson(res, 400, { error: "invalid_from_date", expected: "YYYY-MM-DD" });
+      return;
+    }
+    if (toDateInput && !toDate) {
+      sendJson(res, 400, { error: "invalid_to_date", expected: "YYYY-MM-DD" });
+      return;
+    }
+    if (fromDate && toDate && fromDate > toDate) {
+      sendJson(res, 400, { error: "invalid_date_range" });
+      return;
+    }
+    if (fromDate) {
+      params.push(fromDate);
+      where.push(`start_at >= ($${params.length}::date)`);
+    }
+    if (toDate) {
+      params.push(toDate);
+      where.push(`start_at < ($${params.length}::date + INTERVAL '1 day')`);
+    }
+    const limit = Math.min(parsePositiveInt(url.searchParams.get("limit"), 200), 500);
 
     const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -9177,7 +9508,7 @@ async function handleRequest(req, res) {
         FROM events
         ${whereClause}
         ORDER BY start_at ASC
-        LIMIT 200
+        LIMIT ${limit}
       `,
       params
     );

@@ -322,35 +322,35 @@ const data = {
       checkedInAt: new Date(Date.now() - 86400000).toISOString(),
       createdAt: "2025-01-05T11:00:00Z"
     },
-    // Demo stay - anonymous guest
+    // Demo stay - linked to S-DEMO in seed.sql
     "RES-DEMO": {
       id: "RES-DEMO",
       propertyId: "FS-PARIS",
-      confirmationNumber: "0123456789",
-      status: "CHECKED_IN",
+      confirmationNumber: "DEMO123456",
+      status: "RESERVED",
       source: "DIRECT",
-      guestId: null,
+      guestId: "GUEST-DEMO",
       guest: {
-        firstName: "Demo",
-        lastName: "Guest",
-        email: "demo@mystay.demo",
-        phone: "+33 1 00 00 00 00"
+        firstName: "Jean",
+        lastName: "Dupont",
+        email: "jean.dupont@demo.com",
+        phone: "+33 1 23 45 67 89",
+        vipLevel: "silver"
       },
-      arrival: "2025-11-03",
-      departure: "2025-11-12",
-      nights: 9,
+      arrival: YESTERDAY,
+      departure: getDate(7),
+      nights: 8,
       roomType: "DELUXE",
-      roomTypeDescription: "Deluxe Room",
+      roomTypeDescription: "Sea View Suite",
       roomNumber: "227",
-      rateCode: "RACK",
-      rateAmount: 850,
+      rateCode: "BEST-AVAIL",
+      rateAmount: 1200,
       currency: "EUR",
       adults: 2,
       children: 1,
-      specialRequests: "",
-      packages: ["BFST"],
-      checkedInAt: "2025-11-03T15:00:00Z",
-      createdAt: "2025-10-01T10:00:00Z"
+      specialRequests: "Late check-out preferred",
+      packages: [],
+      createdAt: "2025-01-15T10:00:00Z"
     }
   },
 
@@ -408,12 +408,14 @@ const data = {
       reservationId: "RES-DEMO",
       currency: "EUR",
       charges: [
-        { id: "CHG-D01", date: "2025-11-06", description: "Forfait 1h spa privé", amount: 55, category: "SPA" },
-        { id: "CHG-D02", date: "2025-11-07", description: "Forfait 2h massage relaxation", amount: 135, category: "SPA" },
-        { id: "CHG-D03", date: "2025-11-08", description: "Brasserie dinner", amount: 120, category: "FB" }
+        { id: "CHG-D01", date: YESTERDAY, description: "Forfait 1h spa privé", amount: 55, category: "SPA" },
+        { id: "CHG-D02", date: YESTERDAY, description: "Forfait 2h massage relaxation", amount: 135, category: "SPA" },
+        { id: "CHG-D03", date: TODAY, description: "Brasserie dinner", amount: 120, category: "FB" },
+        { id: "CHG-D04", date: TODAY, description: "Room Service - Breakfast", amount: 65, category: "FB" },
+        { id: "CHG-D05", date: TODAY, description: "Minibar", amount: 35, category: "FB" }
       ],
       payments: [],
-      balance: 310
+      balance: 410
     }
   },
 

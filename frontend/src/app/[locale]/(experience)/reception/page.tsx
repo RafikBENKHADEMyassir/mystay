@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { AppLink } from "@/components/ui/app-link";
 import {
   ChevronLeft,
@@ -9,7 +10,9 @@ import {
   ClipboardCheck,
   Clock,
   HelpCircle,
-  RefreshCw
+  RefreshCw,
+  Send,
+  Plus
 } from "lucide-react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 
@@ -297,6 +300,37 @@ export default function ReceptionPage() {
         {error && <p className="mt-4 text-center text-sm text-red-500">{error}</p>}
       </div>
 
+      {/* Plaisirs sur mesure */}
+      {content?.pages.room?.upsells && content.pages.room.upsells.length > 0 && (
+        <div className="px-4 py-4">
+          <h2 className="mb-4 text-lg font-medium text-black">
+            {content.pages.room.tailored}
+          </h2>
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+            {content.pages.room.upsells.map((upsell) => (
+              <div
+                key={upsell.id}
+                className="relative w-[140px] flex-shrink-0 rounded-[6px] border border-black/[0.06] bg-white pb-3 pt-2 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
+              >
+                <div className="flex flex-col items-center gap-2 px-3">
+                  <div className="h-[70px] w-[70px] overflow-hidden">
+                    <img
+                      src={upsell.image}
+                      alt={upsell.title}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <span className="text-center text-[13px] font-light text-black">{upsell.title}</span>
+                </div>
+                <button className="absolute -right-1.5 -top-1.5 flex h-[26px] w-[26px] items-center justify-center rounded-full border border-black/10 bg-white shadow-sm">
+                  <Plus className="h-3 w-3 text-black" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {receptionTickets.length > 0 && (
         <div className="border-t border-gray-100 px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
@@ -337,6 +371,19 @@ export default function ReceptionPage() {
           </div>
         </div>
       )}
+
+      {/* Sticky Message Bar */}
+      <div className="sticky bottom-0 border-t bg-white/90 backdrop-blur">
+        <AppLink
+          href={withLocale(locale, "/messages?department=reception")}
+          className="mx-auto flex max-w-md items-center gap-3 px-4 py-3"
+        >
+          <span className="flex-1 text-sm text-gray-400">
+            {locale === "fr" ? "Écrire un message" : "Write a message"}
+          </span>
+          <Send className="h-5 w-5 text-black/60" />
+        </AppLink>
+      </div>
     </div>
   );
 }
