@@ -33,7 +33,7 @@ export function NotificationCard({
   const content = (
     <div
       className={cn(
-        "rounded-md border border-black/[0.06] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.06)]",
+        "rounded-[6px] border border-black/[0.06] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.06)]",
         className
       )}
     >

@@ -63,18 +63,18 @@ function QuickActionCard({
   return (
     <AppLink
       href={href}
-      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/30"
+      className="relative flex flex-col items-center justify-center gap-3 rounded-[6px] border border-black/[0.06] bg-white px-2 pb-6 pt-4 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
     >
       {icon ? (
-        <div className="flex h-14 w-14 items-center justify-center">
-          <Image src={icon} alt={label} width={56} height={56} className="h-14 w-14 object-contain" unoptimized />
+        <div className="relative h-[60px] w-[60px] overflow-hidden bg-white">
+          <Image src={icon} alt={label} fill className="object-contain" sizes="120px" unoptimized />
         </div>
       ) : (
-        <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-muted/40">
-          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        <div className="flex h-[60px] w-[60px] items-center justify-center bg-white">
+          <ChevronRight className="h-5 w-5 text-black/40" />
         </div>
       )}
-      <span className="text-center text-xs font-medium leading-tight text-foreground">{label}</span>
+      <span className="text-center text-[16px] font-light leading-[1.15] text-black">{label}</span>
     </AppLink>
   );
 }
@@ -93,18 +93,18 @@ function QuickActionButton({
     <button
       onClick={onClick}
       data-testid="useful-info-trigger"
-      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/30"
+      className="relative flex flex-col items-center justify-center gap-3 rounded-[6px] border border-black/[0.06] bg-white px-2 pb-6 pt-4 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
     >
       {icon ? (
-        <div className="flex h-14 w-14 items-center justify-center">
-          <Image src={icon} alt={label} width={56} height={56} className="h-14 w-14 object-contain" unoptimized />
+        <div className="relative h-[60px] w-[60px] overflow-hidden bg-white">
+          <Image src={icon} alt={label} fill className="object-contain" sizes="120px" unoptimized />
         </div>
       ) : (
-        <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-muted/40">
-          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        <div className="flex h-[60px] w-[60px] items-center justify-center bg-white">
+          <ChevronRight className="h-5 w-5 text-black/40" />
         </div>
       )}
-      <span className="text-center text-xs font-medium leading-tight text-foreground">{label}</span>
+      <span className="text-center text-[16px] font-light leading-[1.15] text-black">{label}</span>
     </button>
   );
 }
@@ -297,41 +297,43 @@ export default function RoomDetailPage() {
       </section>
 
       {/* ─── Room Info Grid ─── */}
-      <div className="px-5 pt-6">
-        <div className="grid grid-cols-2 gap-y-5">
-          <div>
-            <p className="text-xs text-muted-foreground">{page.labels.room}</p>
-            <p className="mt-0.5 text-lg font-semibold text-foreground">&#8470; {roomNumber}</p>
+      <div className="px-6 py-6">
+        <div className="flex gap-2">
+          <div className="flex flex-1 flex-col gap-2 pb-0.5">
+            <p className="text-[13px] leading-[1.15] text-black/50">{page.labels.room}</p>
+            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>No. {roomNumber}</p>
           </div>
 
-          <div>
-            <span className="text-lg font-semibold text-foreground">
-              {adults}{" "}
-              <span className="text-sm font-normal text-muted-foreground">{page.labels.adults}</span>
-            </span>
+          <div className="flex flex-1 flex-col gap-1 pb-0.5">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[18px] leading-none text-black">{adults}</span>
+              <span className="text-[15px] leading-[1.15] text-black/50">{page.labels.adults}</span>
+            </div>
             {children > 0 && (
-              <span className="block text-lg font-semibold text-foreground">
-                {children}{" "}
-                <span className="text-sm font-normal text-muted-foreground">{page.labels.child}</span>
-              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[18px] leading-none text-black">{children}</span>
+                <span className="text-[15px] leading-[1.15] text-black/50">{page.labels.child}</span>
+              </div>
             )}
           </div>
+        </div>
 
-          <div>
-            <p className="text-xs text-muted-foreground">{page.labels.checkIn}</p>
-            <p className="mt-0.5 text-base font-semibold text-foreground">{formatDate(locale, checkInDate)}</p>
-            <p className="text-sm text-muted-foreground">{formatTime(locale, checkInDate)}</p>
+        <div className="mt-6 flex gap-2">
+          <div className="flex flex-1 flex-col gap-1 pb-0.5">
+            <p className="text-[15px] leading-[1.15] text-black/50">{page.labels.checkIn}</p>
+            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>{formatDate(locale, checkInDate)}</p>
+            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>{formatTime(locale, checkInDate)}</p>
           </div>
 
-          <div>
-            <p className="text-xs text-muted-foreground">{page.labels.checkOut}</p>
-            <p className="mt-0.5 text-base font-semibold text-foreground">{formatDate(locale, checkOutDate)}</p>
-            <p className="text-sm text-muted-foreground">{formatTime(locale, checkOutDate)}</p>
+          <div className="flex flex-1 flex-col gap-1 pb-0.5">
+            <p className="text-[15px] leading-[1.15] text-black/50">{page.labels.checkOut}</p>
+            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>{formatDate(locale, checkOutDate)}</p>
+            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>{formatTime(locale, checkOutDate)}</p>
           </div>
         </div>
 
         {/* ─── Quick Actions Grid ─── */}
-        <div className="mt-8 grid grid-cols-2 gap-3">
+        <div className="mt-6 grid grid-cols-2 gap-2 px-4">
           {page.quickActions.map((action) =>
             action.id === "hotel-info" ? (
               <QuickActionButton
@@ -356,7 +358,7 @@ export default function RoomDetailPage() {
         </div>
 
         {/* ─── Promo / Service Cards ─── */}
-        <div className="flex flex-col gap-4 px-4">
+        <div className="flex flex-col gap-4">
           {page.promoCards.map((card) =>
             card.id === "housekeeping" ? (
               <PromoCard
@@ -386,7 +388,7 @@ export default function RoomDetailPage() {
         </div>
 
         {/* ─── Room Upgrade Banner ─── */}
-        <section className="mx-3 overflow-hidden rounded-[6px] border border-black/[0.06] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+        <section className="mx-4 overflow-hidden rounded-[6px] border border-black/[0.06] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
           <div className="relative h-[130px] w-full overflow-hidden">
             <Image src={resolveImage(page.upgrade.image)} alt={page.upgrade.title} fill className="object-cover" unoptimized />
           </div>
@@ -403,9 +405,11 @@ export default function RoomDetailPage() {
         </section>
 
         {/* ─── Upsells / Plaisirs sur mesure ─── */}
-        <section id="plaisirs-sur-mesure" className="mt-10 scroll-mt-4">
-          <p className="mb-4 px-4 text-[22px] font-medium text-black">{page.upsellsTitle}</p>
-          <div className="flex gap-1 overflow-x-auto px-4 pr-4 pb-4 no-scrollbar">
+        <section id="plaisirs-sur-mesure" className="scroll-mt-4">
+          <div className="pb-4 pt-[42px] px-4">
+            <p className="text-[22px] font-medium leading-[1.15] text-black">{page.upsellsTitle}</p>
+          </div>
+          <div className="flex gap-1 overflow-x-auto px-4 pb-4 no-scrollbar">
             {page.upsells.map((upsell) => (
               <AppLink
                 href={withLocale(locale, upsell.href)}
@@ -425,47 +429,51 @@ export default function RoomDetailPage() {
         </section>
 
         {/* ─── Reservation Info & Links ─── */}
-        <div className="mt-6 space-y-1">
-          <div className="flex items-center justify-center py-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>
-                {page.labels.reservation} {confirmationNumber}
-              </span>
-              <button onClick={handleCopyReservation}>
-                <Copy className={cn("h-3.5 w-3.5", copied ? "text-green-600" : "text-muted-foreground")} />
-              </button>
+        <div className="space-y-0">
+          <div className="flex items-center justify-center gap-1 pb-4">
+            <span className="text-[15px] leading-[1.15] text-black/50">
+              {page.labels.reservation} {confirmationNumber}
+            </span>
+            <button onClick={handleCopyReservation} className="flex items-center">
+              <Copy className={cn("h-5 w-5", copied ? "text-green-600" : "text-black/50")} />
+            </button>
+          </div>
+
+          <div className="rounded-[8px]">
+            <div className="flex items-center justify-between p-4">
+              <AppLink
+                href={withLocale(locale, "/profile")}
+                className="flex flex-1 items-center justify-between"
+              >
+                <span className="text-[15px] font-medium leading-[1.15] text-black">{page.labels.stayHistory}</span>
+                <ChevronRight className="h-[10px] w-[17px] text-black/50" strokeWidth={2} />
+              </AppLink>
             </div>
           </div>
 
-          <div className="h-px w-full bg-border/50" />
+          <div className="rounded-[8px]">
+            <div className="flex items-center justify-between p-4">
+              <AppLink
+                href={withLocale(locale, "/reception")}
+                className="flex flex-1 items-center justify-between"
+              >
+                <span className="text-[15px] font-medium leading-[1.15] text-black">{page.labels.lateCheckout}</span>
+                <ChevronRight className="h-[10px] w-[17px] text-black/50" strokeWidth={2} />
+              </AppLink>
+            </div>
+          </div>
 
-          <AppLink
-            href={withLocale(locale, "/profile")}
-            className="flex items-center justify-between py-4 text-sm font-semibold text-foreground transition-colors hover:text-primary"
-          >
-            <span>{page.labels.stayHistory}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </AppLink>
-
-          <div className="h-px w-full bg-border/50" />
-
-          <AppLink
-            href={withLocale(locale, "/reception")}
-            className="flex items-center justify-between py-4 text-sm font-semibold text-foreground transition-colors hover:text-primary"
-          >
-            <span>{page.labels.lateCheckout}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </AppLink>
-
-          <div className="h-px w-full bg-border/50" />
-
-          <AppLink
-            href={withLocale(locale, "/messages?department=reception")}
-            className="flex items-center justify-between py-4 text-sm font-semibold text-foreground transition-colors hover:text-primary"
-          >
-            <span>{page.labels.contactReception}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </AppLink>
+          <div className="rounded-[8px]">
+            <div className="flex items-center justify-between p-4">
+              <AppLink
+                href={withLocale(locale, "/messages?department=reception")}
+                className="flex flex-1 items-center justify-between"
+              >
+                <span className="text-[15px] font-medium leading-[1.15] text-black">{page.labels.contactReception}</span>
+                <ChevronRight className="h-[10px] w-[17px] text-black/50" strokeWidth={2} />
+              </AppLink>
+            </div>
+          </div>
         </div>
       </div>
 

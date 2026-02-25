@@ -15,6 +15,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { getDemoSession } from "@/lib/demo-session";
+import { useGuestOverview } from "@/lib/hooks/use-guest-overview";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { withLocale } from "@/lib/i18n/paths";
 import { useRealtimeMessages } from "@/lib/hooks/use-realtime-messages";
@@ -52,8 +53,10 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 export default function ConciergePage() {
   const router = useRouter();
   const locale = useLocale();
+  const { overview, token: overviewToken } = useGuestOverview();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
-  const { content } = useGuestContent(locale, session?.hotelId);
+  const hotelId = session?.hotelId ?? overview?.hotel.id ?? null;
+  const { content } = useGuestContent(locale, hotelId);
   const page = content?.pages.concierge;
   const common = content?.common;
   const threadStrings = content?.pages.messages.thread;
@@ -72,8 +75,20 @@ export default function ConciergePage() {
   );
 
   useEffect(() => {
-    setSession(getDemoSession());
-  }, []);
+    const demo = getDemoSession();
+    if (demo) {
+      setSession(demo);
+    } else if (overview && overviewToken) {
+      setSession({
+        hotelId: overview.hotel.id,
+        hotelName: overview.hotel.name,
+        stayId: overview.stay.id,
+        confirmationNumber: overview.stay.confirmationNumber,
+        guestToken: overviewToken,
+        roomNumber: overview.stay.roomNumber
+      });
+    }
+  }, [overview, overviewToken]);
 
   async function loadTickets(activeSession = session) {
     if (!activeSession) return;
@@ -227,6 +242,11 @@ export default function ConciergePage() {
     if (!page) return;
     const action = page.quickActions.find((entry) => entry.id === actionId);
     if (!action) return;
+
+    if (action.href) {
+      router.push(withLocale(locale, action.href));
+      return;
+    }
 
     void sendMessage(action.label);
   }

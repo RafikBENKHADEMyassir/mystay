@@ -501,7 +501,38 @@ export type GuestContent = {
       tipPrompt: string;
       leaveTip: string;
       composerPlaceholder: string;
-      quickActions: Array<{ id: string; label: string }>;
+      quickActions: Array<{ id: string; label: string; href?: string }>;
+    };
+    transport: {
+      title: string;
+      airportTitle: string;
+      cancelLabel: string;
+      saveLabel: string;
+      destinationTitle: string;
+      destinationHint: string;
+      addressLabel: string;
+      addressPlaceholder: string;
+      openMapLabel: string;
+      closeMapLabel: string;
+      whenTitle: string;
+      asapLabel: string;
+      anotherTimeLabel: string;
+      passengersTitle: string;
+      adultsLabel: string;
+      childrenLabel: string;
+      returnTitle: string;
+      yesLabel: string;
+      noLabel: string;
+      submitButton: string;
+      submitting: string;
+      successTitle: string;
+      successMessage: string;
+      goToMessages: string;
+      backToConcierge: string;
+      errors: {
+        submitFailed: string;
+        missingFields: string;
+      };
     };
     roomService: {
       heroImage: string;

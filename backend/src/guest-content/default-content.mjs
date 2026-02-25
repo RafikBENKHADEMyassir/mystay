@@ -851,7 +851,7 @@ export const defaultGuestContent = {
       composerPlaceholder: text("Write to concierge...", "Ecrire au concierge...", "Escribe al concierge..."),
       quickActions: [
         { id: "restaurant", label: text("Book a restaurant", "Reserver un restaurant", "Reservar un restaurante") },
-        { id: "transport", label: text("Arrange transport", "Organiser un transport", "Organizar transporte") },
+        { id: "transport", label: text("Arrange transport", "Organiser un transport", "Organizar transporte"), href: "/concierge/transport" },
         {
           id: "ticket",
           label: text(
@@ -862,7 +862,7 @@ export const defaultGuestContent = {
         },
         {
           id: "airport",
-          label: text("Arrange airport transfer", "Organiser un transfert aeroport", "Organizar traslado al aeropuerto")
+          label: text("Arrange airport transfer", "Organiser un transfert aeroport", "Organizar traslado al aeropuerto"), href: "/concierge/transport?type=airport"
         },
         {
           id: "activities",
@@ -873,6 +873,45 @@ export const defaultGuestContent = {
           )
         }
       ]
+    },
+    transport: {
+      title: text("Arrange transport", "Organiser un transport", "Organizar transporte"),
+      airportTitle: text("Airport transfer", "Transfert aeroport", "Traslado al aeropuerto"),
+      cancelLabel: text("Cancel", "Annuler", "Cancelar"),
+      saveLabel: text("Save", "Enregistrer", "Guardar"),
+      destinationTitle: text("Where would you like to go?", "Ou desirez-vous aller ?", "Adonde desea ir?"),
+      destinationHint: text(
+        "You can enter a place name or instructions for the concierge.",
+        "Vous pouvez inserer un nom de lieu ou une indication pour le concierge.",
+        "Puede insertar un nombre de lugar o una indicacion para el concierge."
+      ),
+      addressLabel: text("Address", "Adresse", "Direccion"),
+      addressPlaceholder: text("Enter destination...", "Saisir une destination...", "Ingrese un destino..."),
+      openMapLabel: text("Open map", "Ouvrir la carte", "Abrir mapa"),
+      closeMapLabel: text("Close map", "Refermer la carte", "Cerrar mapa"),
+      whenTitle: text("When would you like to leave?", "Quand souhaitez-vous partir ?", "Cuando desea salir?"),
+      asapLabel: text("As soon as possible", "Des que possible", "Lo antes posible"),
+      anotherTimeLabel: text("Another time", "Un autre moment", "Otro momento"),
+      passengersTitle: text("How many passengers total?", "Combien de passager au total ?", "Cuantos pasajeros en total?"),
+      adultsLabel: text("Adults", "Adultes", "Adultos"),
+      childrenLabel: text("Children", "Enfants", "Ninos"),
+      returnTitle: text("Also arrange the return?", "Preparer egalement le retour ?", "Preparar tambien el regreso?"),
+      yesLabel: text("Yes", "Oui", "Si"),
+      noLabel: text("No", "Non", "No"),
+      submitButton: text("Send request", "Envoyer la demande", "Enviar la solicitud"),
+      submitting: text("Sending...", "Envoi...", "Enviando..."),
+      successTitle: text("Request sent!", "Demande envoyee !", "Solicitud enviada!"),
+      successMessage: text(
+        "The concierge will confirm your transport shortly. Check your messages for updates.",
+        "Le concierge confirmera votre transport sous peu. Consultez vos messages pour le suivi.",
+        "El concierge confirmara tu transporte en breve. Consulta tus mensajes para actualizaciones."
+      ),
+      goToMessages: text("View messages", "Voir les messages", "Ver mensajes"),
+      backToConcierge: text("Back to concierge", "Retour au concierge", "Volver al concierge"),
+      errors: {
+        submitFailed: text("Could not submit your request. Please try again.", "La demande n'a pas pu etre envoyee. Veuillez reessayer.", "No se pudo enviar tu solicitud. Por favor, intentalo de nuevo."),
+        missingFields: text("Please fill in the destination.", "Veuillez remplir la destination.", "Por favor, complete el destino.")
+      }
     },
     roomService: {
       heroImage: "/images/services/roomservice_background.png",

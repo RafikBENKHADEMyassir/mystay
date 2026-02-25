@@ -58,10 +58,10 @@ export function ServiceCard({
       {chatHref && (
         <AppLink
           href={chatHref}
-          className="absolute -right-[7px] top-[calc(50%-42px)] flex h-[42px] w-[42px] items-center justify-center rounded-full bg-white/65 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-[6px] transition-transform hover:scale-105 active:scale-95"
+          className="absolute right-[-6px] top-1 flex h-[42px] w-[42px] items-center justify-center overflow-hidden rounded-[99px] bg-white/65 shadow-[0_4px_20px_rgba(0,0,0,0.15)] backdrop-blur-[6px] transition-transform hover:scale-105 active:scale-95"
           aria-label={`Chat with ${title}`}
         >
-          <MessageCircle className="h-6 w-6 text-black/80" />
+          <MessageCircle className="h-6 w-6 text-black" />
         </AppLink>
       )}
     </div>
