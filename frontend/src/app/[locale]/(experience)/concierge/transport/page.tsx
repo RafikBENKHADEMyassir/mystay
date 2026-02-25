@@ -425,10 +425,14 @@ function TransportMap({
   center: { lat: number; lng: number };
   onCenterChange: (c: { lat: number; lng: number }) => void;
 }) {
-  const mapRef = useRef<google.maps.Map | null>(null);
+  const mapRef = useRef<unknown>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
-  const [scriptReady, setScriptReady] = useState(typeof window !== "undefined" && !!window.google?.maps);
+  const getGoogleMaps = useCallback(
+    () => (window as Window & { google?: { maps?: any } }).google?.maps,
+    []
+  );
+  const [scriptReady, setScriptReady] = useState(typeof window !== "undefined" && !!getGoogleMaps());
 
   useEffect(() => {
     if (scriptReady || !apiKey) return;
@@ -436,7 +440,7 @@ function TransportMap({
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
       existingScript.addEventListener("load", () => setScriptReady(true));
-      if (window.google?.maps) setScriptReady(true);
+      if (getGoogleMaps()) setScriptReady(true);
       return;
     }
 
@@ -446,13 +450,14 @@ function TransportMap({
     script.defer = true;
     script.onload = () => setScriptReady(true);
     document.head.appendChild(script);
-  }, [apiKey, scriptReady]);
+  }, [apiKey, getGoogleMaps, scriptReady]);
 
   const initMap = useCallback(() => {
-    if (!containerRef.current || !window.google?.maps) return;
+    const maps = getGoogleMaps();
+    if (!containerRef.current || !maps) return;
     if (mapRef.current) return;
 
-    const map = new window.google.maps.Map(containerRef.current, {
+    const map = new maps.Map(containerRef.current, {
       center,
       zoom: 14,
       disableDefaultUI: true,
@@ -464,7 +469,7 @@ function TransportMap({
       ]
     });
 
-    const marker = new window.google.maps.Marker({
+    const marker = new maps.Marker({
       position: center,
       map,
       draggable: true
@@ -475,7 +480,7 @@ function TransportMap({
       if (pos) onCenterChange({ lat: pos.lat(), lng: pos.lng() });
     });
 
-    map.addListener("click", (e: google.maps.MapMouseEvent) => {
+    map.addListener("click", (e: { latLng?: { lat: () => number; lng: () => number } }) => {
       if (e.latLng) {
         marker.setPosition(e.latLng);
         onCenterChange({ lat: e.latLng.lat(), lng: e.latLng.lng() });
@@ -484,7 +489,7 @@ function TransportMap({
 
     mapRef.current = map;
     setLoaded(true);
-  }, [center, onCenterChange]);
+  }, [center, getGoogleMaps, onCenterChange]);
 
   useEffect(() => {
     if (scriptReady) initMap();

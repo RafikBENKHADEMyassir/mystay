@@ -53,6 +53,38 @@ fatal() {
   exit 1
 }
 
+run_root() {
+  if [[ -n "${SUDO}" ]]; then
+    ${SUDO} "$@"
+  else
+    "$@"
+  fi
+}
+
+run_root_env() {
+  if [[ -n "${SUDO}" ]]; then
+    ${SUDO} -E "$@"
+  else
+    "$@"
+  fi
+}
+
+run_user() {
+  local target_user="$1"
+  shift
+
+  if [[ "$(id -un)" == "${target_user}" ]]; then
+    "$@"
+  elif [[ "${EUID}" -eq 0 ]]; then
+    if ! command -v runuser >/dev/null 2>&1; then
+      fatal "runuser is required when running as root"
+    fi
+    runuser -u "${target_user}" -- "$@"
+  else
+    sudo -u "${target_user}" "$@"
+  fi
+}
+
 usage() {
   cat <<'EOF_USAGE'
 Usage: ./deploy.sh [options]
@@ -111,11 +143,11 @@ EOF_USAGE
 
 as_app_user() {
   local cmd="$1"
-  if [[ "$(id -un)" == "${APP_USER}" ]]; then
-    bash -lc "${cmd}"
-  else
-    ${SUDO} -u "${APP_USER}" bash -lc "${cmd}"
-  fi
+  run_user "${APP_USER}" bash -lc "${cmd}"
+}
+
+apt_install() {
+  run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
 }
 
 set_env_value() {
@@ -288,23 +320,13 @@ EOF_ASKPASS
   ${SUDO} chown "${APP_USER}:${APP_GROUP}" "${askpass}" >/dev/null 2>&1 || true
 
   set +e
-  if [[ "$(id -un)" == "${APP_USER}" ]]; then
-    env \
-      GIT_TERMINAL_PROMPT=0 \
-      GIT_ASKPASS="${askpass}" \
-      GIT_AUTH_USERNAME="${GIT_AUTH_USERNAME}" \
-      GIT_AUTH_TOKEN="${GIT_AUTH_TOKEN}" \
-      bash -lc "${cmd}"
-    status=$?
-  else
-    ${SUDO} -u "${APP_USER}" env \
-      GIT_TERMINAL_PROMPT=0 \
-      GIT_ASKPASS="${askpass}" \
-      GIT_AUTH_USERNAME="${GIT_AUTH_USERNAME}" \
-      GIT_AUTH_TOKEN="${GIT_AUTH_TOKEN}" \
-      bash -lc "${cmd}"
-    status=$?
-  fi
+  run_user "${APP_USER}" env \
+    GIT_TERMINAL_PROMPT=0 \
+    GIT_ASKPASS="${askpass}" \
+    GIT_AUTH_USERNAME="${GIT_AUTH_USERNAME}" \
+    GIT_AUTH_TOKEN="${GIT_AUTH_TOKEN}" \
+    bash -lc "${cmd}"
+  status=$?
   set -e
 
   rm -f "${askpass}"
@@ -448,7 +470,7 @@ EOF_GIT_AUTH
   if [[ "${INSTALL_POSTGRES}" == "true" ]]; then
     prompt_text PG_DB "Postgres database name" "${PG_DB}"
     prompt_text PG_USER "Postgres user" "${PG_USER}"
-    prompt_secret PG_PASSWORD "Postgres password"
+    prompt_text PG_PASSWORD "Postgres password" "${PG_PASSWORD}"
   fi
 
   prompt_yes_no RUN_DB_MIGRATIONS "Run database migrations during deploy?" "${RUN_DB_MIGRATIONS}"
@@ -705,26 +727,25 @@ if ! id -u "${APP_USER}" >/dev/null 2>&1; then
 fi
 
 log "Installing base packages"
-${SUDO} apt-get update
-${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  ca-certificates curl gnupg git build-essential nginx ufw openssh-client
+run_root apt-get update
+apt_install ca-certificates curl gnupg git build-essential nginx ufw openssh-client
 
 if [[ "${INSTALL_POSTGRES}" == "true" ]]; then
   log "Installing PostgreSQL"
-  ${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql postgresql-contrib
-  ${SUDO} systemctl enable --now postgresql
+  apt_install postgresql postgresql-contrib
+  run_root systemctl enable --now postgresql
 fi
 
 log "Ensuring Node.js ${NODE_MAJOR}.x and PM2"
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(".")[0])')" -lt "${NODE_MAJOR}" ]]; then
-  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | ${SUDO} -E bash -
-  ${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | run_root_env bash -
+  apt_install nodejs
 fi
-${SUDO} npm install -g pm2
+run_root npm install -g pm2
 
 if [[ "${INSTALL_POSTGRES}" == "true" ]]; then
   log "Provisioning PostgreSQL database and user"
-  ${SUDO} -u postgres psql -v ON_ERROR_STOP=1 <<SQL
+  run_user postgres psql -v ON_ERROR_STOP=1 <<SQL
 DO \$\$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${PG_USER}') THEN
@@ -735,16 +756,16 @@ BEGIN
 END
 \$\$;
 SQL
-  if ! ${SUDO} -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB}'" | grep -q 1; then
-    ${SUDO} -u postgres createdb -O "${PG_USER}" "${PG_DB}"
+  if ! run_user postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB}'" | grep -q 1; then
+    run_user postgres createdb -O "${PG_USER}" "${PG_DB}"
   fi
-  ${SUDO} -u postgres psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE \"${PG_DB}\" TO \"${PG_USER}\";"
+  run_user postgres psql -v ON_ERROR_STOP=1 -c "GRANT ALL PRIVILEGES ON DATABASE \"${PG_DB}\" TO \"${PG_USER}\";"
 fi
 
 log "Preparing application directory"
-${SUDO} mkdir -p "$(dirname "${APP_DIR}")"
-${SUDO} mkdir -p "${APP_DIR}"
-${SUDO} chown -R "${APP_USER}:${APP_GROUP}" "${APP_DIR}"
+run_root mkdir -p "$(dirname "${APP_DIR}")"
+run_root mkdir -p "${APP_DIR}"
+run_root chown -R "${APP_USER}:${APP_GROUP}" "${APP_DIR}"
 
 if [[ "${GIT_AUTH_METHOD}" == "ssh" && "${GENERATE_SSH_KEY}" == "true" ]]; then
   setup_ssh_for_git "${REPO_HOST}"
@@ -877,7 +898,7 @@ module.exports = {
   ]
 };
 EOF_PM2
-${SUDO} chown "${APP_USER}:${APP_GROUP}" "${APP_DIR}/ecosystem.config.cjs"
+run_root chown "${APP_USER}:${APP_GROUP}" "${APP_DIR}/ecosystem.config.cjs"
 
 log "Starting services with PM2"
 as_app_user "cd '${APP_DIR}' && pm2 startOrReload ecosystem.config.cjs --update-env"
@@ -941,7 +962,7 @@ fi
 
 if [[ "${ENABLE_SSL}" == "true" ]]; then
   log "Requesting Let's Encrypt certificates"
-  ${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx
+  apt_install certbot python3-certbot-nginx
   CERTBOT_ARGS=(--nginx --non-interactive --agree-tos --redirect -m "${LETSENCRYPT_EMAIL}")
   [[ -n "${FRONTEND_DOMAIN}" ]] && CERTBOT_ARGS+=(-d "${FRONTEND_DOMAIN}")
   [[ -n "${ADMIN_DOMAIN}" ]] && CERTBOT_ARGS+=(-d "${ADMIN_DOMAIN}")
