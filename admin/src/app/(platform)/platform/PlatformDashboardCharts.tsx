@@ -49,7 +49,7 @@ export function PlatformDashboardCharts({
               <Tooltip
                 contentStyle={{ fontSize: 12 }}
                 labelFormatter={(_, payload) => payload[0]?.payload?.label}
-                formatter={(value: number) => [value, "Requests"]}
+                formatter={(value) => [value ?? 0, "Requests"]}
               />
               <Bar dataKey="requests" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -67,7 +67,7 @@ export function PlatformDashboardCharts({
               <Tooltip
                 contentStyle={{ fontSize: 12 }}
                 labelFormatter={(_, payload) => payload[0]?.payload?.label}
-                formatter={(value: number) => [value, "Active stays"]}
+                formatter={(value) => [value ?? 0, "Active stays"]}
               />
               <Area
                 type="monotone"

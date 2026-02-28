@@ -295,6 +295,9 @@ export default function AgendaPage() {
     }
   }
 
+  const fetchFromMs = fetchFrom.getTime();
+  const fetchToMs = fetchTo.getTime();
+
   useEffect(() => {
     if (!session || !page) return;
     void loadEvents(session, fetchFrom, fetchTo);
@@ -302,8 +305,8 @@ export default function AgendaPage() {
   }, [
     session?.stayId,
     page?.title,
-    fetchFrom.getTime(),
-    fetchTo.getTime(),
+    fetchFromMs,
+    fetchToMs,
   ]);
 
   async function respondToInvite(

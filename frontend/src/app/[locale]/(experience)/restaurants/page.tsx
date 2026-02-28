@@ -70,6 +70,7 @@ export default function RestaurantsPage() {
 
     void loadRestaurants();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.hotelId]);
 
   const handleRestaurantClick = useCallback((item: ExperienceItem) => {

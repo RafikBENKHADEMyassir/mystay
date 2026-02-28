@@ -56,6 +56,7 @@ export default function ServicesPage() {
     }
 
     void loadTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.stayId]);
 
   const notificationSlides = useMemo(() => {

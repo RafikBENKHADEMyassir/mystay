@@ -76,7 +76,7 @@ export function StaysChart({ data }: { data: DayCount[] }) {
             <Tooltip
               contentStyle={{ fontSize: 12 }}
               labelFormatter={(_, payload) => payload[0]?.payload?.label}
-              formatter={(value: number) => [value, "Active stays"]}
+              formatter={(value) => [value ?? 0, "Active stays"]}
             />
             <Area
               type="monotone"

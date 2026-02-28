@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ExperienceItem } from "@/types/overview";
@@ -34,7 +34,7 @@ type Props = {
 
 export function RestaurantBottomSheet({ item, onBook, onClose }: Props) {
   const config = (item.restaurantConfig ?? {}) as RestaurantConfig;
-  const menuSections = config.menuSections ?? [];
+  const menuSections = useMemo(() => config.menuSections ?? [], [config.menuSections]);
   const [activeTab, setActiveTab] = useState(menuSections[0]?.id ?? "");
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -46,7 +46,6 @@ export function RestaurantBottomSheet({ item, onBook, onClose }: Props) {
 
   const tabTitles = menuSections.map((s) => ({ id: s.id, title: s.title }));
 
-  // Navigate to a specific tab by matching linkTarget id or title keyword
   const handleLinkClick = useCallback(
     (linkText: string, linkTarget?: string) => {
       if (linkTarget) {
@@ -56,7 +55,6 @@ export function RestaurantBottomSheet({ item, onBook, onClose }: Props) {
           return;
         }
       }
-      // Fuzzy match: "voir la carte des desserts" → find "Desserts" tab
       const lower = linkText.toLowerCase();
       const target = menuSections.find(
         (s) => lower.includes(s.title.toLowerCase()) || s.title.toLowerCase().includes(lower)

@@ -126,6 +126,7 @@ export default function RoomServicePage() {
   // Real-time updates
   const handleRealtimeUpdate = useCallback(() => {
     void loadTickets(session);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   useRealtimeMessages({

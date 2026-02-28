@@ -181,6 +181,7 @@ export default function ConciergePage() {
 
   const handleRealtimeMessage = useCallback(() => {
     void loadTickets(session);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   useRealtimeMessages({
