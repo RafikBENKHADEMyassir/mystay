@@ -1,11 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Building2, Settings, Users, LayoutDashboard } from "lucide-react";
+import { Building2, Settings, LayoutDashboard, Mail, Gauge, FileCheck, Database } from "lucide-react";
 
 import { getStaffToken } from "@/lib/staff-token";
 import { LogoutButton } from "@/components/logout-button";
-
-const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
 async function verifyPlatformAdmin(token: string) {
   // Decode JWT to check if it's a platform admin token
@@ -67,6 +65,40 @@ export default async function PlatformLayout({
           >
             <Settings className="h-4 w-4" />
             Settings
+          </Link>
+
+          <div className="pb-1 pt-4">
+            <span className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+              Configuration
+            </span>
+          </div>
+          <Link
+            href="/platform/settings/notifications"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Mail className="h-4 w-4" />
+            Notifications
+          </Link>
+          <Link
+            href="/platform/settings/rate-limits"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Gauge className="h-4 w-4" />
+            Rate Limits
+          </Link>
+          <Link
+            href="/platform/settings/audit-logs"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <FileCheck className="h-4 w-4" />
+            Audit Logs
+          </Link>
+          <Link
+            href="/platform/settings/backup"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Database className="h-4 w-4" />
+            Backup
           </Link>
         </nav>
         <div className="absolute bottom-0 w-64 border-t p-4">

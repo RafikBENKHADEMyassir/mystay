@@ -3,26 +3,60 @@ import { Building2, Users, Settings, TrendingUp, Hotel } from "lucide-react";
 
 import { getStaffToken } from "@/lib/staff-token";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlatformDashboardCharts } from "./PlatformDashboardCharts";
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
-async function getStats(token: string) {
+type DashboardStats = {
+  hotelCount: number;
+  activeStaysCount: number;
+  staffUsersCount: number;
+  requestsTodayCount: number;
+  requestsLast7Days: { day: string; requests: number }[];
+  activeStaysLast7Days: { day: string; stays: number }[];
+};
+
+async function getDashboardStats(token: string): Promise<DashboardStats> {
+  const fallback: DashboardStats = {
+    hotelCount: 0,
+    activeStaysCount: 0,
+    staffUsersCount: 0,
+    requestsTodayCount: 0,
+    requestsLast7Days: [],
+    activeStaysLast7Days: []
+  };
   try {
-    const response = await fetch(`${backendUrl}/api/v1/admin/hotels`, {
+    const response = await fetch(`${backendUrl}/api/v1/admin/dashboard-stats`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store"
     });
-    if (!response.ok) return { hotelCount: 0 };
+    if (!response.ok) return fallback;
     const data = await response.json();
-    return { hotelCount: data.items?.length ?? 0 };
+    return {
+      hotelCount: data.hotelCount ?? 0,
+      activeStaysCount: data.activeStaysCount ?? 0,
+      staffUsersCount: data.staffUsersCount ?? 0,
+      requestsTodayCount: data.requestsTodayCount ?? 0,
+      requestsLast7Days: Array.isArray(data.requestsLast7Days) ? data.requestsLast7Days : [],
+      activeStaysLast7Days: Array.isArray(data.activeStaysLast7Days) ? data.activeStaysLast7Days : []
+    };
   } catch {
-    return { hotelCount: 0 };
+    return fallback;
   }
 }
 
 export default async function PlatformDashboardPage() {
   const token = getStaffToken();
-  const stats = token ? await getStats(token) : { hotelCount: 0 };
+  const stats = token
+    ? await getDashboardStats(token)
+    : {
+        hotelCount: 0,
+        activeStaysCount: 0,
+        staffUsersCount: 0,
+        requestsTodayCount: 0,
+        requestsLast7Days: [],
+        activeStaysLast7Days: []
+      };
 
   return (
     <div className="space-y-8">
@@ -51,7 +85,7 @@ export default async function PlatformDashboardPage() {
             <Hotel className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
+            <div className="text-2xl font-bold">{stats.activeStaysCount}</div>
             <p className="text-xs text-muted-foreground">Guests currently staying</p>
           </CardContent>
         </Card>
@@ -61,7 +95,7 @@ export default async function PlatformDashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
+            <div className="text-2xl font-bold">{stats.staffUsersCount}</div>
             <p className="text-xs text-muted-foreground">Across all hotels</p>
           </CardContent>
         </Card>
@@ -71,11 +105,17 @@ export default async function PlatformDashboardPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
+            <div className="text-2xl font-bold">{stats.requestsTodayCount}</div>
             <p className="text-xs text-muted-foreground">Total guest requests</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Charts */}
+      <PlatformDashboardCharts
+        requestsLast7Days={stats.requestsLast7Days}
+        activeStaysLast7Days={stats.activeStaysLast7Days}
+      />
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -119,6 +159,7 @@ export default async function PlatformDashboardPage() {
           </Card>
         </Link>
       </div>
+
     </div>
   );
 }

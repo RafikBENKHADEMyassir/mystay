@@ -1,7 +1,47 @@
-import { Settings, Database, Shield, Bell } from "lucide-react";
+import Link from "next/link";
+import { Settings, Database, Shield, Bell, Mail, MessageSquare, Gauge, FileCheck, HardDrive } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+const settingsPages = [
+  {
+    title: "Email Provider",
+    description: "Configure SendGrid, Mailgun, SES for transactional emails.",
+    href: "/platform/settings/notifications?tab=email",
+    icon: Mail
+  },
+  {
+    title: "SMS Provider",
+    description: "Configure Twilio, MessageBird for SMS notifications.",
+    href: "/platform/settings/notifications?tab=sms",
+    icon: MessageSquare
+  },
+  {
+    title: "Push Notifications",
+    description: "Set up Firebase Cloud Messaging or OneSignal.",
+    href: "/platform/settings/notifications?tab=push",
+    icon: Bell
+  },
+  {
+    title: "Rate Limiting & Quotas",
+    description: "API rate limits, login throttling, and upload quotas.",
+    href: "/platform/settings/rate-limits",
+    icon: Gauge
+  },
+  {
+    title: "Audit Logs & Compliance",
+    description: "View admin actions, track changes, and ensure compliance.",
+    href: "/platform/settings/audit-logs",
+    icon: FileCheck
+  },
+  {
+    title: "Backup & Disaster Recovery",
+    description: "Database backups, retention policies, and recovery options.",
+    href: "/platform/settings/backup",
+    icon: HardDrive
+  }
+];
 
 export default function PlatformSettingsPage() {
   return (
@@ -33,7 +73,9 @@ export default function PlatformSettingsPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Environment</span>
-              <Badge variant="secondary">Development</Badge>
+              <Badge variant="secondary">
+                {process.env.NODE_ENV === "production" ? "Production" : "Development"}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -65,30 +107,6 @@ export default function PlatformSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Notifications
-            </CardTitle>
-            <CardDescription>Platform-wide notification settings</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Email Provider</span>
-              <Badge variant="outline">Not configured</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">SMS Provider</span>
-              <Badge variant="outline">Not configured</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Push Notifications</span>
-              <Badge variant="outline">Not configured</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
               API Configuration
             </CardTitle>
@@ -97,7 +115,9 @@ export default function PlatformSettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Backend URL</span>
-              <code className="text-xs text-muted-foreground">localhost:4000</code>
+              <code className="text-xs text-muted-foreground">
+                {process.env.BACKEND_URL ?? "localhost:4000"}
+              </code>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">API Version</span>
@@ -107,22 +127,24 @@ export default function PlatformSettingsPage() {
         </Card>
       </div>
 
-      <Card className="bg-muted/20">
-        <CardHeader>
-          <CardTitle className="text-base">Coming Soon</CardTitle>
-          <CardDescription>Future settings and configurations</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Email provider configuration (SendGrid, SES, etc.)</li>
-            <li>SMS provider configuration (Twilio, etc.)</li>
-            <li>Push notification setup (FCM, APNs)</li>
-            <li>Rate limiting and quotas</li>
-            <li>Audit logs and compliance</li>
-            <li>Backup and disaster recovery</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <div>
+        <h2 className="mb-4 text-lg font-semibold">Configuration</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {settingsPages.map((page) => (
+            <Link key={page.href} href={page.href}>
+              <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <page.icon className="h-5 w-5" />
+                    {page.title}
+                  </CardTitle>
+                  <CardDescription>{page.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1646,6 +1646,308 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // GET /api/v1/admin/dashboard-stats - Platform dashboard metrics (platform admin only)
+  if (req.method === "GET" && url.pathname === "/api/v1/admin/dashboard-stats") {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [hotelsRow, activeStaysRow, staffRow, requestsTodayRow, requestsByDayRows, staysByDayRows] = await Promise.all([
+        query(`SELECT COUNT(*)::int AS count FROM hotels`),
+        query(
+          `SELECT COUNT(*)::int AS count FROM stays WHERE check_in::date <= $1::date AND check_out::date >= $1::date`,
+          [today]
+        ),
+        query(`SELECT COUNT(*)::int AS count FROM staff_users`),
+        query(
+          `SELECT COUNT(*)::int AS count FROM threads WHERE (created_at AT TIME ZONE 'UTC')::date = $1::date`,
+          [today]
+        ),
+        query(
+          `
+            SELECT (created_at AT TIME ZONE 'UTC')::date AS day, COUNT(*)::int AS count
+            FROM threads
+            WHERE (created_at AT TIME ZONE 'UTC')::date >= $1::date - INTERVAL '6 days'
+              AND (created_at AT TIME ZONE 'UTC')::date <= $1::date
+            GROUP BY (created_at AT TIME ZONE 'UTC')::date
+            ORDER BY day ASC
+          `,
+          [today]
+        ),
+        query(
+          `
+            SELECT d::date AS day,
+                   (SELECT COUNT(*)::int FROM stays s WHERE s.check_in::date <= d::date AND s.check_out::date >= d::date) AS count
+            FROM generate_series($1::date - INTERVAL '6 days', $1::date, '1 day'::interval) d
+            ORDER BY d
+          `,
+          [today]
+        )
+      ]);
+
+      const hotelCount = hotelsRow[0]?.count ?? 0;
+      const activeStaysCount = activeStaysRow[0]?.count ?? 0;
+      const staffUsersCount = staffRow[0]?.count ?? 0;
+      const requestsTodayCount = requestsTodayRow[0]?.count ?? 0;
+
+      const requestsByDayMap = new Map(
+        (requestsByDayRows || []).map((r) => [r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day), r.count ?? 0])
+      );
+      const requestsLast7Days = [];
+      const staysByDayMap = new Map(
+        (staysByDayRows || []).map((r) => [r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day), r.count ?? 0])
+      );
+      const activeStaysLast7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setUTCDate(d.getUTCDate() - i);
+        const dayStr = d.toISOString().slice(0, 10);
+        requestsLast7Days.push({ day: dayStr, requests: requestsByDayMap.get(dayStr) ?? 0 });
+        activeStaysLast7Days.push({ day: dayStr, stays: staysByDayMap.get(dayStr) ?? 0 });
+      }
+
+      sendJson(res, 200, {
+        hotelCount,
+        activeStaysCount,
+        staffUsersCount,
+        requestsTodayCount,
+        requestsLast7Days,
+        activeStaysLast7Days
+      });
+    } catch (error) {
+      console.error("admin_dashboard_stats_failed", error);
+      sendJson(res, 500, { error: "dashboard_stats_failed" });
+    }
+    return;
+  }
+
+  // GET /api/v1/admin/notifications-overview - All hotels' notification config (platform admin)
+  if (req.method === "GET" && url.pathname === "/api/v1/admin/notifications-overview") {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    try {
+      const rows = await query(
+        `
+          SELECT
+            h.id AS "hotelId",
+            h.name AS "hotelName",
+            h.city,
+            h.is_active AS "isActive",
+            COALESCE(hn.email_provider, 'none') AS "emailProvider",
+            COALESCE(hn.email_config, '{}'::jsonb) AS "emailConfig",
+            COALESCE(hn.sms_provider, 'none') AS "smsProvider",
+            COALESCE(hn.sms_config, '{}'::jsonb) AS "smsConfig",
+            COALESCE(hn.push_provider, 'none') AS "pushProvider",
+            COALESCE(hn.push_config, '{}'::jsonb) AS "pushConfig",
+            hn.updated_at AS "updatedAt"
+          FROM hotels h
+          LEFT JOIN hotel_notifications hn ON hn.hotel_id = h.id
+          ORDER BY h.name ASC
+        `
+      );
+      sendJson(res, 200, { items: rows });
+    } catch (error) {
+      console.error("admin_notifications_overview_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+    }
+    return;
+  }
+
+  // PATCH /api/v1/admin/hotels/:hotelId/notifications/:channel - Update hotel notification (platform admin)
+  if (req.method === "PATCH" && url.pathname.match(/^\/api\/v1\/admin\/hotels\/[^/]+\/notifications\/(email|sms|push)$/)) {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    const segments = url.pathname.split("/");
+    const hotelId = decodeURIComponent(segments[5]);
+    const channel = segments[7];
+
+    const body = await readJson(req);
+    if (!body || typeof body !== "object") {
+      sendJson(res, 400, { error: "invalid_json" });
+      return;
+    }
+
+    try {
+      const updateFn = channel === "email"
+        ? updateHotelEmailNotifications
+        : channel === "sms"
+          ? updateHotelSmsNotifications
+          : updateHotelPushNotifications;
+
+      const result = await updateFn({
+        hotelId,
+        provider: body.provider,
+        config: body.config,
+        configPatch: body.configPatch
+      });
+
+      try {
+        await query(
+          `INSERT INTO audit_logs (id, actor_type, actor_id, actor_email, action, resource_type, resource_id, details)
+           VALUES ($1, 'platform_admin', $2, $3, $4, 'hotel_notifications', $5, $6::jsonb)`,
+          [randomUUID(), principal.sub, principal.email ?? null, `notification.${channel}.update`, hotelId, JSON.stringify({ provider: body.provider })]
+        );
+      } catch {}
+
+      sendJson(res, 200, result);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "update_failed";
+      sendJson(res, 400, { error: msg });
+    }
+    return;
+  }
+
+  // GET /api/v1/admin/platform-settings - Get all platform settings (platform admin)
+  if (req.method === "GET" && url.pathname === "/api/v1/admin/platform-settings") {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    try {
+      const rows = await query(`SELECT key, value, updated_at AS "updatedAt" FROM platform_settings ORDER BY key`);
+      const settings = {};
+      for (const row of rows) {
+        settings[row.key] = { value: row.value, updatedAt: row.updatedAt };
+      }
+      sendJson(res, 200, { settings });
+    } catch (error) {
+      if (isPgRelationMissing(error)) {
+        sendJson(res, 200, { settings: {} });
+        return;
+      }
+      console.error("admin_platform_settings_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+    }
+    return;
+  }
+
+  // PATCH /api/v1/admin/platform-settings/:key - Update a platform setting (platform admin)
+  if (req.method === "PATCH" && url.pathname.match(/^\/api\/v1\/admin\/platform-settings\/[^/]+$/)) {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    const settingKey = decodeURIComponent(url.pathname.split("/").pop());
+    const body = await readJson(req);
+    if (!body || typeof body !== "object" || body.value === undefined) {
+      sendJson(res, 400, { error: "invalid_json", required: ["value"] });
+      return;
+    }
+
+    try {
+      const rows = await query(
+        `
+          INSERT INTO platform_settings (key, value, updated_at)
+          VALUES ($1, $2::jsonb, NOW())
+          ON CONFLICT (key) DO UPDATE SET value = $2::jsonb, updated_at = NOW()
+          RETURNING key, value, updated_at AS "updatedAt"
+        `,
+        [settingKey, JSON.stringify(body.value)]
+      );
+
+      try {
+        await query(
+          `INSERT INTO audit_logs (id, actor_type, actor_id, actor_email, action, resource_type, resource_id, details)
+           VALUES ($1, 'platform_admin', $2, $3, 'platform_setting.update', 'platform_settings', $4, $5::jsonb)`,
+          [randomUUID(), principal.sub, principal.email ?? null, settingKey, JSON.stringify({ value: body.value })]
+        );
+      } catch {}
+
+      sendJson(res, 200, rows[0]);
+    } catch (error) {
+      console.error("admin_platform_settings_update_failed", error);
+      sendJson(res, 500, { error: "update_failed" });
+    }
+    return;
+  }
+
+  // GET /api/v1/admin/audit-logs - List audit logs (platform admin)
+  if (req.method === "GET" && url.pathname === "/api/v1/admin/audit-logs") {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    const page = parsePositiveInt(url.searchParams.get("page"), 1);
+    const pageSize = Math.min(parsePositiveInt(url.searchParams.get("pageSize"), 50), 100);
+    const action = url.searchParams.get("action");
+    const actorEmail = url.searchParams.get("actorEmail");
+    const resourceType = url.searchParams.get("resourceType");
+
+    try {
+      const where = [];
+      const params = [];
+
+      if (action) { params.push(action); where.push(`action = $${params.length}`); }
+      if (actorEmail) { params.push(actorEmail); where.push(`actor_email = $${params.length}`); }
+      if (resourceType) { params.push(resourceType); where.push(`resource_type = $${params.length}`); }
+
+      const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+      const offset = (page - 1) * pageSize;
+
+      const [items, totalRows] = await Promise.all([
+        query(
+          `SELECT id, actor_type AS "actorType", actor_id AS "actorId", actor_email AS "actorEmail",
+                  action, resource_type AS "resourceType", resource_id AS "resourceId",
+                  details, ip_address AS "ipAddress", created_at AS "createdAt"
+           FROM audit_logs ${whereClause}
+           ORDER BY created_at DESC
+           LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+          [...params, pageSize, offset]
+        ),
+        query(`SELECT COUNT(*)::int AS count FROM audit_logs ${whereClause}`, params)
+      ]);
+
+      const total = totalRows[0]?.count ?? 0;
+      sendJson(res, 200, { items, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
+    } catch (error) {
+      if (isPgRelationMissing(error)) {
+        sendJson(res, 200, { items: [], page: 1, pageSize, total: 0, totalPages: 1 });
+        return;
+      }
+      console.error("admin_audit_logs_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+    }
+    return;
+  }
+
+  // GET /api/v1/admin/backup-status - Database size and backup info (platform admin)
+  if (req.method === "GET" && url.pathname === "/api/v1/admin/backup-status") {
+    const principal = requirePrincipal(req, res, url, ["platform_admin"]);
+    if (!principal) return;
+
+    try {
+      const [dbSizeRows, tableCountRows, backupSettingRows] = await Promise.all([
+        query(`SELECT pg_size_pretty(pg_database_size(current_database())) AS size, pg_database_size(current_database()) AS "sizeBytes"`),
+        query(`SELECT
+                 (SELECT COUNT(*)::int FROM hotels) AS "hotelCount",
+                 (SELECT COUNT(*)::int FROM stays) AS "stayCount",
+                 (SELECT COUNT(*)::int FROM threads) AS "threadCount",
+                 (SELECT COUNT(*)::int FROM messages) AS "messageCount",
+                 (SELECT COUNT(*)::int FROM staff_users) AS "staffCount",
+                 (SELECT COUNT(*)::int FROM guests) AS "guestCount"`),
+        query(`SELECT value FROM platform_settings WHERE key = 'backup' LIMIT 1`).catch(() => [])
+      ]);
+
+      const dbSize = dbSizeRows[0] ?? { size: "unknown", sizeBytes: 0 };
+      const tableCounts = tableCountRows[0] ?? {};
+      const backupConfig = backupSettingRows[0]?.value ?? { enabled: false, frequency: "daily", retentionDays: 30, storageProvider: "none" };
+
+      sendJson(res, 200, {
+        database: {
+          size: dbSize.size,
+          sizeBytes: dbSize.sizeBytes
+        },
+        tables: tableCounts,
+        backupConfig
+      });
+    } catch (error) {
+      console.error("admin_backup_status_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+    }
+    return;
+  }
+
   // POST /api/v1/admin/hotels - Create a new hotel (platform admin only)
   if (req.method === "POST" && url.pathname === "/api/v1/admin/hotels") {
     const principal = requirePrincipal(req, res, url, ["platform_admin"]);
@@ -1711,6 +2013,14 @@ async function handleRequest(req, res) {
       `INSERT INTO hotel_notifications (hotel_id) VALUES ($1)`,
       [hotelId]
     );
+
+    try {
+      await query(
+        `INSERT INTO audit_logs (id, actor_type, actor_id, actor_email, action, resource_type, resource_id, details)
+         VALUES ($1, 'platform_admin', $2, $3, 'hotel.create', 'hotel', $4, $5::jsonb)`,
+        [randomUUID(), principal.sub, principal.email ?? null, hotelId, JSON.stringify({ name })]
+      );
+    } catch {}
 
     sendJson(res, 201, {
       hotel: {

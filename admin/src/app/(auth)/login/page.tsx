@@ -148,11 +148,11 @@ function LoginPageInner() {
         </CardContent>
       </Card>
 
-      <p className="text-sm text-muted-foreground">
+      {/* <p className="text-sm text-muted-foreground">
         <Button variant="link" className="h-auto p-0 text-primary" asChild>
           <Link href="/">Back to dashboard</Link>
         </Button>
-      </p>
+      </p> */}
     </main>
   );
 }
