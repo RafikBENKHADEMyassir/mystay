@@ -51,7 +51,7 @@ export function RequestsChart({ data }: { data: DayCount[] }) {
             <Tooltip
               contentStyle={{ fontSize: 12 }}
               labelFormatter={(_, payload) => payload[0]?.payload?.label}
-              formatter={(value: number) => [value, "Requests"]}
+              formatter={(value) => [value ?? 0, "Requests"]}
             />
             <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
           </BarChart>
