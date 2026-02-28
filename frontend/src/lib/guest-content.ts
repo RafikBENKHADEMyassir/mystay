@@ -260,6 +260,13 @@ export type GuestContent = {
         label: string;
         priceCents: number;
       }>;
+      signature: {
+        title: string;
+        subtitle: string;
+        clear: string;
+        continue: string;
+        required: string;
+      };
       paymentSuccess: {
         title: string;
         description: string;
@@ -294,6 +301,13 @@ export type GuestContent = {
       viewInvoices: string;
       loadingLabel: string;
       confirmingLabel: string;
+      signature: {
+        title: string;
+        subtitle: string;
+        clear: string;
+        continue: string;
+        required: string;
+      };
       errors: {
         couldNotLoad: string;
         couldNotConfirm: string;

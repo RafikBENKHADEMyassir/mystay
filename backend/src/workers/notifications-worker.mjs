@@ -5,6 +5,22 @@ const pollMs = Number(process.env.NOTIFICATION_WORKER_POLL_MS ?? 1500);
 const batchSize = Number(process.env.NOTIFICATION_WORKER_BATCH_SIZE ?? 10);
 const maxAttempts = Number(process.env.NOTIFICATION_WORKER_MAX_ATTEMPTS ?? 8);
 
+let platformDefaultsCache = null;
+let platformDefaultsCacheAt = 0;
+
+async function getPlatformDefaults() {
+  const now = Date.now();
+  if (platformDefaultsCache && now - platformDefaultsCacheAt < 30_000) return platformDefaultsCache;
+  try {
+    const rows = await query(`SELECT value FROM platform_settings WHERE key = 'default_notifications' LIMIT 1`);
+    platformDefaultsCache = rows[0]?.value ?? null;
+    platformDefaultsCacheAt = now;
+  } catch {
+    platformDefaultsCache = null;
+  }
+  return platformDefaultsCache;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -68,14 +84,15 @@ async function getHotelNotificationSettings(hotelId) {
   return rows[0] ?? null;
 }
 
-async function markSent({ id, provider, attempts }) {
+async function markSent({ id, provider, attempts, externalId }) {
   await query(
     `
       UPDATE notification_outbox
-      SET status = 'sent', provider = $2, attempts = $3, last_error = NULL, updated_at = NOW()
+      SET status = 'sent', provider = $2, attempts = $3, last_error = NULL, sent_at = NOW(),
+          external_id = $4, updated_at = NOW()
       WHERE id = $1
     `,
-    [id, provider, attempts]
+    [id, provider, attempts, externalId ?? null]
   );
 }
 
@@ -127,38 +144,50 @@ async function processItem(item) {
   const bodyText = item.bodyText ?? "";
   const data = item.payload ?? {};
 
+  let provider, config;
+
   if (channel === "email") {
-    const provider = settings.emailProvider;
-    const config = settings.emailConfig ?? {};
-    await sendEmail({ provider, config, toAddress: item.toAddress, subject, bodyText });
-    await markSent({ id: item.id, provider, attempts: attemptNumber });
-    return;
+    provider = settings.emailProvider;
+    config = settings.emailConfig ?? {};
+  } else if (channel === "sms") {
+    provider = settings.smsProvider;
+    config = settings.smsConfig ?? {};
+  } else if (channel === "push") {
+    provider = settings.pushProvider;
+    config = settings.pushConfig ?? {};
+  } else {
+    throw new Error(`unsupported_channel:${channel}`);
   }
 
-  if (channel === "sms") {
-    const provider = settings.smsProvider;
-    const config = settings.smsConfig ?? {};
-    await sendSms({ provider, config, toAddress: item.toAddress, bodyText });
-    await markSent({ id: item.id, provider, attempts: attemptNumber });
-    return;
+  if (!provider || provider === "none" || provider === "platform_default") {
+    const defaults = await getPlatformDefaults();
+    if (defaults) {
+      const channelKey = channel === "email" ? "email" : channel === "sms" ? "sms" : "push";
+      const fallbackProvider = defaults[`${channelKey}Provider`];
+      const fallbackConfig = defaults[`${channelKey}Config`] ?? {};
+      if (fallbackProvider && fallbackProvider !== "none") {
+        provider = fallbackProvider;
+        config = fallbackConfig;
+      } else {
+        throw new Error(`${channel}_disabled`);
+      }
+    } else {
+      throw new Error(`${channel}_disabled`);
+    }
   }
 
-  if (channel === "push") {
-    const provider = settings.pushProvider;
-    const config = settings.pushConfig ?? {};
-    await sendPush({
-      provider,
-      config,
-      toAddress: item.toAddress,
-      title: subject,
-      bodyText,
-      data
-    });
-    await markSent({ id: item.id, provider, attempts: attemptNumber });
-    return;
+  let result;
+  if (channel === "email") {
+    result = await sendEmail({ provider, config, toAddress: item.toAddress, subject, bodyText });
+  } else if (channel === "sms") {
+    result = await sendSms({ provider, config, toAddress: item.toAddress, bodyText });
+  } else {
+    result = await sendPush({ provider, config, toAddress: item.toAddress, title: subject, bodyText, data });
   }
 
-  throw new Error(`unsupported_channel:${channel}`);
+  const externalId = result?.externalId ?? null;
+  await markSent({ id: item.id, provider, attempts: attemptNumber, externalId });
+  return;
 }
 
 let stopping = false;

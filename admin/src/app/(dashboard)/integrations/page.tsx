@@ -445,9 +445,9 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
         </Card>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-[260px,1fr]">
-        <aside>
-          <Card>
+      <section className="grid gap-4">
+        {/* <aside>
+           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Hotels</CardTitle>
               <CardDescription>Select the hotel to configure.</CardDescription>
@@ -470,12 +470,12 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                 );
               })}
             </CardContent>
-          </Card>
-        </aside>
+          </Card> 
+        </aside> */}
 
         <div className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
                 <CardTitle className="text-base">PMS</CardTitle>
                 <CardDescription>Drives reservations, folios, and room lifecycle.</CardDescription>

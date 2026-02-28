@@ -5,7 +5,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4
 
 async function getStaffAuth() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("staff_token")?.value;
+  const token = cookieStore.get("mystay_staff_token")?.value;
   return token ?? null;
 }
 
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get staff's hotel ID from token
-    const meRes = await fetch(`${API_BASE_URL}/api/v1/staff/me`, {
+    const meRes = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -31,28 +31,12 @@ export async function GET(request: NextRequest) {
     }
 
     const me = await meRes.json();
-    const hotelId = me.staff?.hotelId;
+    const hotelId = me.principal?.hotelId;
 
     if (!hotelId) {
       return NextResponse.json({ error: "no_hotel" }, { status: 400 });
     }
 
-    // Query room images directly
-    const params: string[] = [hotelId];
-    let whereClause = "WHERE hotel_id = $1";
-    
-    if (category) {
-      params.push(category);
-      whereClause += ` AND category = $${params.length}`;
-    }
-    
-    if (isActive === "true" || isActive === "false") {
-      params.push(isActive);
-      whereClause += ` AND is_active = $${params.length}::boolean`;
-    }
-
-    // For now, proxy to backend if it has the endpoint, otherwise use direct DB
-    // Since we added room_images to DB, let's create a simple endpoint proxy
     const response = await fetch(`${API_BASE_URL}/api/v1/hotels/${hotelId}/room-images?${searchParams.toString()}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -80,8 +64,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Get staff's hotel ID from token
-    const meRes = await fetch(`${API_BASE_URL}/api/v1/staff/me`, {
+    const meRes = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
@@ -90,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     const me = await meRes.json();
-    const hotelId = me.staff?.hotelId;
+    const hotelId = me.principal?.hotelId;
 
     if (!hotelId) {
       return NextResponse.json({ error: "no_hotel" }, { status: 400 });

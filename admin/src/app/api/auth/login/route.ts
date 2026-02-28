@@ -55,9 +55,9 @@ export async function POST(request: Request) {
     loginType
   });
   res.cookies.set(staffTokenCookieName, token, {
-    httpOnly: false,
+    httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 12
   });

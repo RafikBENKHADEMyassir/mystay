@@ -31,7 +31,7 @@ export function AdminShell({ children }: AdminShellProps) {
         </div>
         <Separator />
         <div className="flex-1 px-3 py-4">
-          <AdminNav role={role} />
+          <AdminNav role={role} departments={departments} />
         </div>
         {departments.length > 0 && (
           <>

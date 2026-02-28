@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, CalendarDays, FileText, Image, Inbox, Info, LayoutDashboard, LayoutGrid, Link2, Plug, PlugZap, Settings, Users, Zap } from "lucide-react";
+import { CalendarDays, FileText, Image, Inbox, Info, LayoutDashboard, LayoutGrid, Link2, Plug, PlugZap, Settings, Sparkles, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -11,26 +11,23 @@ type NavItem = {
   title: string;
   href: string;
   icon: typeof LayoutDashboard;
-  roles?: string[]; // If undefined, visible to all roles
+  roles?: string[];
+  departments?: string[];
   indent?: boolean;
 };
 
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  { title: "Reservations", href: "/reservations", icon: CalendarDays },
+  { title: "Reservations", href: "/reservations", icon: CalendarDays, departments: ["reception"] },
   { title: "Inbox", href: "/inbox", icon: Inbox },
-  { title: "Pay by link", href: "/payment-links", icon: Link2 },
+  { title: "Housekeeping", href: "/housekeeping", icon: Sparkles, departments: ["housekeeping"] },
+  { title: "Pay by link", href: "/payment-links", icon: Link2, roles: ["admin", "manager"], departments: ["reception"] },
   { title: "Message templates", href: "/message-templates", icon: FileText, roles: ["admin", "manager"] },
-  { title: "Automations", href: "/automations", icon: Zap, roles: ["admin", "manager"] },
-  { title: "Audience", href: "/audience", icon: Users },
-  { title: "Sign-up forms", href: "/audience/signup-forms", icon: FileText, roles: ["admin", "manager"], indent: true },
-  { title: "Hotel directory", href: "/hotel-directory", icon: BookOpen, roles: ["admin", "manager"] },
   { title: "Room Images", href: "/room-images", icon: Image, roles: ["admin", "manager"] },
   { title: "Upselling", href: "/home-carousels", icon: LayoutGrid, roles: ["admin", "manager"] },
   { title: "Useful informations", href: "/useful-informations", icon: Info, roles: ["admin", "manager"] },
   { title: "Upsell services", href: "/upsell-services", icon: PlugZap, roles: ["admin", "manager"] },
   { title: "Requests", href: "/requests", icon: FileText },
-  { title: "Request Templates", href: "/request-templates", icon: FileText, roles: ["admin", "manager"] },
   { title: "Integrations", href: "/integrations", icon: Plug, roles: ["admin", "manager"] },
   { title: "Staff", href: "/settings/staff", icon: Users, roles: ["admin", "manager"] },
   { title: "Settings", href: "/settings", icon: Settings, roles: ["admin", "manager"] }
@@ -38,15 +35,18 @@ const navItems: NavItem[] = [
 
 type AdminNavProps = {
   role?: string;
+  departments?: string[];
 };
 
-export function AdminNav({ role }: AdminNavProps) {
+export function AdminNav({ role, departments = [] }: AdminNavProps) {
   const pathname = usePathname() ?? "/";
+  const isAdminOrManager = role === "admin" || role === "manager";
 
   const visibleItems = navItems.filter((item) => {
-    if (!item.roles) return true;
-    if (!role) return false;
-    return item.roles.includes(role);
+    if (item.roles && (!role || !item.roles.includes(role))) return false;
+    if (isAdminOrManager) return true;
+    if (!item.departments) return true;
+    return item.departments.some((d) => departments.includes(d));
   });
 
   const activeItem =

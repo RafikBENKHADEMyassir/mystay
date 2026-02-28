@@ -399,6 +399,13 @@ export const defaultGuestContent = {
         { id: "extra_bed", label: text("Extra bed", "Lit supplementaire", "Cama extra"), priceCents: 20000 },
         { id: "flowers", label: text("Flowers", "Fleurs", "Flores"), priceCents: 20000 }
       ],
+      signature: {
+        title: text("Sign registration form", "Signer le formulaire d'enregistrement", "Firmar el formulario de registro"),
+        subtitle: text("Draw your signature on the screen", "Dessinez votre signature sur l'ecran", "Dibuja tu firma en la pantalla"),
+        clear: text("Clear", "Effacer", "Borrar"),
+        continue: text("Continue", "Continuer", "Continuar"),
+        required: text("Please sign above to continue.", "Veuillez signer ci-dessus pour continuer.", "Firma arriba para continuar.")
+      },
       paymentSuccess: {
         title: text("Your payment has been received!", "Votre paiement a bien ete recu !", "Su pago ha sido recibido!"),
         description: text(
@@ -441,6 +448,13 @@ export const defaultGuestContent = {
       viewInvoices: text("View invoices", "Voir mes factures", "Ver facturas"),
       loadingLabel: text("Loading...", "Chargement...", "Cargando..."),
       confirmingLabel: text("...", "...", "..."),
+      signature: {
+        title: text("Sign registration form", "Signer le formulaire de depart", "Firmar el formulario de salida"),
+        subtitle: text("Draw your signature on the screen", "Dessinez votre signature sur l'ecran", "Dibuja tu firma en la pantalla"),
+        clear: text("Clear", "Effacer", "Borrar"),
+        continue: text("Continue", "Continuer", "Continuar"),
+        required: text("Please sign above to continue.", "Veuillez signer ci-dessus pour continuer.", "Firma arriba para continuar.")
+      },
       errors: {
         couldNotLoad: text("Could not load check-out details.", "Impossible de charger les details du check-out.", "No se pudieron cargar los detalles del check-out."),
         couldNotConfirm: text("Could not confirm check-out.", "Impossible de confirmer le check-out.", "No se pudo confirmar el check-out."),

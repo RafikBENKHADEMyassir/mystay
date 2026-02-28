@@ -469,7 +469,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                   <form action={sendMessage} className="space-y-3">
                     <input type="hidden" name="conversationId" value={selectedConversation.id} />
                     <Textarea
-                      key={`composer:${selectedConversation.id}:${selectedConversation.lastMessageAt ?? selectedConversation.updatedAt}`}
+                      key={`composer:${selectedConversation.id}:${selectedConversation.lastMessageAt ?? selectedConversation.updatedAt}:${searchParams?.sent ?? ""}`}
                       name="bodyText"
                       placeholder="Write a message"
                     />

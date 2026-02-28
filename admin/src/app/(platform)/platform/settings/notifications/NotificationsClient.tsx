@@ -220,6 +220,147 @@ function HotelConfigRow({
   );
 }
 
+type PlatformDefaults = {
+  emailProvider: string;
+  emailConfig: Record<string, string>;
+  smsProvider: string;
+  smsConfig: Record<string, string>;
+  pushProvider: string;
+  pushConfig: Record<string, string>;
+};
+
+function PlatformDefaultsCard({ tab, providers }: { tab: Tab; providers: { value: string; label: string }[] }) {
+  const [defaults, setDefaults] = useState<PlatformDefaults | null>(null);
+  const [provider, setProvider] = useState("none");
+  const [config, setConfig] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/platform/settings");
+        if (res.ok) {
+          const data = await res.json();
+          const d = data.settings?.default_notifications?.value;
+          if (d) {
+            setDefaults(d);
+            const channelProvider = tab === "email" ? d.emailProvider : tab === "sms" ? d.smsProvider : d.pushProvider;
+            const channelConfig = tab === "email" ? d.emailConfig : tab === "sms" ? d.smsConfig : d.pushConfig;
+            setProvider(channelProvider ?? "none");
+            setConfig(channelConfig ?? {});
+          }
+        }
+      } catch {}
+    })();
+  }, [tab]);
+
+  useEffect(() => {
+    const template = CONFIG_TEMPLATES[provider];
+    if (template) {
+      setConfig((prev) => {
+        const next = { ...template };
+        for (const key of Object.keys(template)) {
+          if (prev[key]) next[key] = prev[key];
+        }
+        return next;
+      });
+    } else {
+      setConfig({});
+    }
+  }, [provider]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    const updated: PlatformDefaults = {
+      emailProvider: defaults?.emailProvider ?? "none",
+      emailConfig: defaults?.emailConfig ?? {},
+      smsProvider: defaults?.smsProvider ?? "none",
+      smsConfig: defaults?.smsConfig ?? {},
+      pushProvider: defaults?.pushProvider ?? "none",
+      pushConfig: defaults?.pushConfig ?? {}
+    };
+    if (tab === "email") { updated.emailProvider = provider; updated.emailConfig = config; }
+    if (tab === "sms") { updated.smsProvider = provider; updated.smsConfig = config; }
+    if (tab === "push") { updated.pushProvider = provider; updated.pushConfig = config; }
+
+    try {
+      const res = await fetch("/api/platform/settings/default_notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: updated })
+      });
+      setMessage(res.ok ? "Saved" : "Save failed");
+      if (res.ok) setDefaults(updated);
+    } catch {
+      setMessage("Network error");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const configFields = CONFIG_TEMPLATES[provider] ? Object.keys(CONFIG_TEMPLATES[provider]) : [];
+
+  return (
+    <Card className="border-dashed border-primary/30 bg-primary/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Platform Defaults</CardTitle>
+        <CardDescription>
+          Fallback {tab} provider used when a hotel has no provider configured. Hotels can override this.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Default Provider</label>
+          <select
+            className="w-full max-w-xs rounded-md border bg-background px-3 py-2 text-sm"
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+          >
+            {providers.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+        {configFields.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {configFields.map((key) => (
+              <div key={key}>
+                <label className="mb-1 block text-sm font-medium">{CONFIG_LABELS[key] ?? key}</label>
+                <input
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  type={key.toLowerCase().includes("key") || key.toLowerCase().includes("secret") || key.toLowerCase().includes("token") ? "password" : "text"}
+                  value={config[key] ?? ""}
+                  onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+                  placeholder={`Enter ${CONFIG_LABELS[key] ?? key}...`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <button
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            <Save className="h-4 w-4" />
+            {saving ? "Saving..." : "Save Default"}
+          </button>
+          {message && (
+            <span className={`flex items-center gap-1 text-sm ${message === "Saved" ? "text-green-600" : "text-destructive"}`}>
+              {message === "Saved" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+              {message}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function NotificationsClient({ initialTab }: { initialTab?: string }) {
   const [tab, setTab] = useState<Tab>((initialTab as Tab) ?? "email");
   const [hotels, setHotels] = useState<HotelNotification[]>([]);
@@ -268,9 +409,11 @@ export function NotificationsClient({ initialTab }: { initialTab?: string }) {
         ))}
       </div>
 
+      <PlatformDefaultsCard tab={tab} providers={providers} />
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Overview</CardTitle>
+          <CardTitle className="text-base">Per-Hotel Configuration</CardTitle>
           <CardDescription>
             {configured} of {total} hotels have {tab} configured
           </CardDescription>

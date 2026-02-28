@@ -40,7 +40,15 @@ export function MessagePanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const didInitialScroll = useRef(false);
 
-  // Scroll to bottom on initial load
+  // Sync state when server sends new data (e.g. after sending a message and redirect)
+  useEffect(() => {
+    setMessages(initialMessages);
+    setHasMore(initialHasMore);
+    setTotal(initialTotal);
+    didInitialScroll.current = false;
+  }, [conversationId, initialMessages, initialHasMore, initialTotal]);
+
+  // Scroll to bottom on initial load or after new data
   useEffect(() => {
     if (didInitialScroll.current) return;
     if (scrollRef.current && messages.length > 0) {

@@ -35,7 +35,7 @@ function parseDateOrNull(value: string | null | undefined): Date | null {
 function formatDate(locale: Locale, value: Date) {
   const languageTag = locale === "fr" ? "fr-FR" : locale === "es" ? "es-ES" : "en-US";
   try {
-    return new Intl.DateTimeFormat(languageTag, { day: "numeric", month: "short", year: "numeric" }).format(value);
+    return new Intl.DateTimeFormat(languageTag, { day: "numeric", month: "short", year: "numeric" }).format(value).normalize("NFC");
   } catch {
     return value.toISOString().slice(0, 10);
   }
@@ -44,7 +44,7 @@ function formatDate(locale: Locale, value: Date) {
 function formatTime(locale: Locale, value: Date) {
   const languageTag = locale === "fr" ? "fr-FR" : locale === "es" ? "es-ES" : "en-US";
   try {
-    return new Intl.DateTimeFormat(languageTag, { hour: "2-digit", minute: "2-digit" }).format(value);
+    return new Intl.DateTimeFormat(languageTag, { hour: "2-digit", minute: "2-digit" }).format(value).normalize("NFC");
   } catch {
     return value.toISOString().slice(11, 16);
   }
@@ -321,14 +321,14 @@ export default function RoomDetailPage() {
         <div className="mt-6 flex gap-2">
           <div className="flex flex-1 flex-col gap-1 pb-0.5">
             <p className="text-[15px] leading-[1.15] text-black/50">{page.labels.checkIn}</p>
-            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>{formatDate(locale, checkInDate)}</p>
-            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>{formatTime(locale, checkInDate)}</p>
+            <p className="text-[18px] leading-[1.25] text-black">{formatDate(locale, checkInDate)}</p>
+            <p className="text-[18px] leading-[1.25] text-black">{formatTime(locale, checkInDate)}</p>
           </div>
 
           <div className="flex flex-1 flex-col gap-1 pb-0.5">
             <p className="text-[15px] leading-[1.15] text-black/50">{page.labels.checkOut}</p>
-            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>{formatDate(locale, checkOutDate)}</p>
-            <p className="text-[18px] leading-[1.25] text-black" style={{ fontFeatureSettings: "'ordn'" }}>{formatTime(locale, checkOutDate)}</p>
+            <p className="text-[18px] leading-[1.25] text-black">{formatDate(locale, checkOutDate)}</p>
+            <p className="text-[18px] leading-[1.25] text-black">{formatTime(locale, checkOutDate)}</p>
           </div>
         </div>
 

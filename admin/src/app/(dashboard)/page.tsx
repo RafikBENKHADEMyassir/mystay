@@ -2,13 +2,15 @@ import Link from "next/link";
 
 import { requireStaffToken } from "@/lib/staff-auth";
 import { getStaffPrincipal } from "@/lib/staff-token";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardStats } from "./DashboardStats";
 
 type Tile = {
   title: string;
   href: string;
   description: string;
   roles?: string[];
+  departments?: string[];
 };
 
 const tiles: Tile[] = [
@@ -20,12 +22,15 @@ const tiles: Tile[] = [
   {
     title: "Reservations",
     href: "/reservations",
-    description: "Arrivals, in-house stays, and check-outs."
+    description: "Arrivals, in-house stays, and check-outs.",
+    departments: ["reception"]
   },
   {
     title: "Pay by link",
     href: "/payment-links",
-    description: "Create payment links for deposits and extras."
+    description: "Create payment links for deposits and extras.",
+    roles: ["admin", "manager"],
+    departments: ["reception"]
   },
   {
     title: "Requests",
@@ -41,17 +46,20 @@ const tiles: Tile[] = [
   {
     title: "Reception",
     href: "/inbox?dept=reception",
-    description: "Arrivals/departures, check-in validation, check-out and keys."
+    description: "Arrivals/departures, check-in validation, check-out and keys.",
+    departments: ["reception"]
   },
   {
     title: "Housekeeping",
-    href: "/inbox?dept=housekeeping",
-    description: "Room status board and task assignments."
+    href: "/housekeeping",
+    description: "Room status board and task assignments.",
+    departments: ["housekeeping"]
   },
   {
     title: "Concierge",
     href: "/inbox?dept=concierge",
-    description: "Chats with quick actions (transfers, restaurants, activities)."
+    description: "Chats with quick actions (transfers, restaurants, activities).",
+    departments: ["concierge"]
   }
 ];
 
@@ -59,21 +67,27 @@ export default function AdminHomePage() {
   requireStaffToken();
   const principal = getStaffPrincipal();
   const role = principal?.role ?? "staff";
+  const departments = principal?.departments ?? [];
+  const isAdminOrManager = role === "admin" || role === "manager";
 
   const visibleTiles = tiles.filter((tile) => {
-    if (!tile.roles) return true;
-    return tile.roles.includes(role);
+    if (tile.roles && !tile.roles.includes(role)) return false;
+    if (isAdminOrManager) return true;
+    if (!tile.departments) return true;
+    return tile.departments.some((d) => departments.includes(d));
   });
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-2">
         <p className="text-sm text-muted-foreground">MyStay</p>
-        <h1 className="text-2xl font-semibold">Admin dashboard</h1>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Staff consoles and management views for triage, fulfillment, and service SLAs.
+          Hotel performance at a glance. Metrics update in real time.
         </p>
       </header>
+
+      <DashboardStats />
 
       <section className="grid gap-3 sm:grid-cols-2">
         {visibleTiles.map((tile) => (
@@ -87,20 +101,6 @@ export default function AdminHomePage() {
           </Link>
         ))}
       </section>
-
-      <Card className="bg-muted/20">
-        <CardHeader className="p-5 pb-0">
-          <CardTitle className="text-base">Next development slice</CardTitle>
-          <CardDescription>What to wire next for a working staff console.</CardDescription>
-        </CardHeader>
-        <CardContent className="p-5 pt-3 text-sm text-muted-foreground">
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Add auth hardening + RBAC (staff/admin) with hotel scoping everywhere.</li>
-            <li>Implement real notifications delivery (Sendgrid/Twilio/FCM) + receipts on top of the outbox.</li>
-            <li>Build the first real PMS connector (keep `mock` as fallback) and digital key issuance workflow.</li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 }

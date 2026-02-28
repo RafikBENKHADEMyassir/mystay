@@ -38,8 +38,7 @@ export function UpsellServicesFilters({ categories }: UpsellServicesFiltersProps
     const handle = setTimeout(() => {
       const next = new URLSearchParams(searchParams?.toString() ?? "");
       setParam(next, "search", search);
-      next.delete("serviceId");
-      next.delete("new");
+      // Preserve serviceId and new so opening a detail panel is not overwritten by this sync
       router.replace(next.toString() ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
     }, 250);
 

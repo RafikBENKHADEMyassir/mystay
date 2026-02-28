@@ -17,6 +17,8 @@ import {
   updateHotelSpaIntegration
 } from "./integrations/hotel-integrations.mjs";
 import { IntegrationManager } from "./integrations/integration-manager.mjs";
+import { createPMSConnectorForHotel } from "./integrations/pms-factory.mjs";
+import { createDigitalKeyConnectorForHotel } from "./integrations/digital-key-factory.mjs";
 import {
   digitalKeyProviderConfigTemplates,
   digitalKeyProviders,
@@ -399,6 +401,13 @@ function requireStaffRole(res, principal, allowedRoles) {
   return true;
 }
 
+function requireHotelScope(res, principal, hotelId) {
+  if (principal.typ === "platform_admin") return true;
+  if (principal.hotelId === hotelId) return true;
+  sendJson(res, 403, { error: "forbidden" });
+  return false;
+}
+
 function isDepartmentAllowed(principal, department) {
   if (!principal || principal.typ !== "staff") return false;
   if (principal.role === "admin" || principal.role === "manager") return true;
@@ -511,39 +520,79 @@ async function pickDefaultThreadAssignee({ hotelId, department }) {
 async function enqueueEmailOutbox({ hotelId, toAddress, subject, bodyText, payload }) {
   const settings = await getHotelNotifications(hotelId);
   const provider = settings.email.provider;
-  if (!provider || provider === "none") return null;
+  if (!provider || provider === "none") {
+    try {
+      const rows = await query(`SELECT value FROM platform_settings WHERE key = 'default_notifications' LIMIT 1`);
+      const defaults = rows[0]?.value;
+      if (!defaults || defaults.emailProvider === "none") return null;
+    } catch { return null; }
+  }
 
+  const resolvedProvider = (provider && provider !== "none") ? provider : "platform_default";
   const id = `N-${randomUUID().slice(0, 8).toUpperCase()}`;
   const payloadJson = payload ? JSON.stringify(payload) : "{}";
 
   const rows = await query(
     `
-      INSERT INTO notification_outbox (
-        id,
-        hotel_id,
-        channel,
-        provider,
-        to_address,
-        subject,
-        body_text,
-        payload,
-        status,
-        attempts,
-        next_attempt_at,
-        created_at,
-        updated_at
-      )
+      INSERT INTO notification_outbox (id, hotel_id, channel, provider, to_address, subject, body_text, payload, status, attempts, next_attempt_at, created_at, updated_at)
       VALUES ($1, $2, 'email', $3, $4, $5, $6, $7::jsonb, 'pending', 0, NOW(), NOW(), NOW())
-      RETURNING
-        id,
-        hotel_id AS "hotelId",
-        channel,
-        provider,
-        to_address AS "toAddress",
-        status,
-        created_at AS "createdAt"
+      RETURNING id, hotel_id AS "hotelId", channel, provider, to_address AS "toAddress", status, created_at AS "createdAt"
     `,
-    [id, hotelId, provider, toAddress, subject || null, bodyText || "", payloadJson]
+    [id, hotelId, resolvedProvider, toAddress, subject || null, bodyText || "", payloadJson]
+  );
+
+  return rows[0] ?? null;
+}
+
+async function enqueueSmsOutbox({ hotelId, toAddress, bodyText, payload }) {
+  const settings = await getHotelNotifications(hotelId);
+  const provider = settings.sms.provider;
+  if (!provider || provider === "none") {
+    try {
+      const rows = await query(`SELECT value FROM platform_settings WHERE key = 'default_notifications' LIMIT 1`);
+      const defaults = rows[0]?.value;
+      if (!defaults || defaults.smsProvider === "none") return null;
+    } catch { return null; }
+  }
+
+  const resolvedProvider = (provider && provider !== "none") ? provider : "platform_default";
+  const id = `N-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const payloadJson = payload ? JSON.stringify(payload) : "{}";
+
+  const rows = await query(
+    `
+      INSERT INTO notification_outbox (id, hotel_id, channel, provider, to_address, subject, body_text, payload, status, attempts, next_attempt_at, created_at, updated_at)
+      VALUES ($1, $2, 'sms', $3, $4, NULL, $5, $6::jsonb, 'pending', 0, NOW(), NOW(), NOW())
+      RETURNING id, hotel_id AS "hotelId", channel, provider, to_address AS "toAddress", status, created_at AS "createdAt"
+    `,
+    [id, hotelId, resolvedProvider, toAddress, bodyText || "", payloadJson]
+  );
+
+  return rows[0] ?? null;
+}
+
+async function enqueuePushOutbox({ hotelId, toAddress, subject, bodyText, payload }) {
+  const settings = await getHotelNotifications(hotelId);
+  const provider = settings.push.provider;
+  if (!provider || provider === "none") {
+    try {
+      const rows = await query(`SELECT value FROM platform_settings WHERE key = 'default_notifications' LIMIT 1`);
+      const defaults = rows[0]?.value;
+      if (!defaults || defaults.pushProvider === "none") return null;
+    } catch { return null; }
+  }
+
+  const resolvedProvider = (provider && provider !== "none") ? provider : "platform_default";
+  const id = `N-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const payloadJson = payload ? JSON.stringify(payload) : "{}";
+
+  const rows = await query(
+    `
+      INSERT INTO notification_outbox (id, hotel_id, channel, provider, to_address, subject, body_text, payload, status, attempts, next_attempt_at, created_at, updated_at)
+      VALUES ($1, $2, 'push', $3, $4, $5, $6, $7::jsonb, 'pending', 0, NOW(), NOW(), NOW())
+      RETURNING id, hotel_id AS "hotelId", channel, provider, to_address AS "toAddress", status, created_at AS "createdAt"
+    `,
+    [id, hotelId, resolvedProvider, toAddress, subject || "MyStay", bodyText || "", payloadJson]
   );
 
   return rows[0] ?? null;
@@ -2244,20 +2293,13 @@ async function handleRequest(req, res) {
     let summary = { triggeredAt: startedAtIso, triggeredBy: principal.sub };
 
     try {
-      const integrations = await getHotelIntegrations(hotelId);
-      const provider = integrations?.pms?.provider ?? null;
-      const config = integrations?.pms?.config ?? {};
+      const pms = await createPMSConnectorForHotel(hotelId);
+      const provider = pms.provider;
+      const config = pms.config ?? {};
 
-      if (!provider || provider === "none") {
+      if (provider === "mock" && !config?.baseUrl) {
         throw new Error("pms_not_configured");
       }
-
-      if (!config?.baseUrl || !config?.resortId) {
-        throw new Error("pms_missing_config");
-      }
-
-      const integrationManager = new IntegrationManager(integrations);
-      const pms = integrationManager.getPMS();
 
       const connection = await pms.testConnection();
       if (!connection?.connected) {
@@ -2335,11 +2377,7 @@ async function handleRequest(req, res) {
 
     const hotelId = url.pathname.split("/")[4];
 
-    // Staff can only see their own hotel's staff
-    if (principal.typ === "staff" && principal.hotelId !== hotelId) {
-      sendJson(res, 403, { error: "forbidden" });
-      return;
-    }
+    if (!requireHotelScope(res, principal, hotelId)) return;
 
     // Only admin/manager can see staff list
     if (principal.typ === "staff" && !["admin", "manager"].includes(principal.role)) {
@@ -2376,11 +2414,7 @@ async function handleRequest(req, res) {
 
     const hotelId = url.pathname.split("/")[4];
 
-    // Staff can only create for their own hotel
-    if (principal.typ === "staff" && principal.hotelId !== hotelId) {
-      sendJson(res, 403, { error: "forbidden" });
-      return;
-    }
+    if (!requireHotelScope(res, principal, hotelId)) return;
 
     // Only admin can create staff
     if (principal.typ === "staff" && principal.role !== "admin") {
@@ -2455,11 +2489,7 @@ async function handleRequest(req, res) {
     const hotelId = pathParts[4];
     const staffId = pathParts[6];
 
-    // Staff can only update their own hotel's staff
-    if (principal.typ === "staff" && principal.hotelId !== hotelId) {
-      sendJson(res, 403, { error: "forbidden" });
-      return;
-    }
+    if (!requireHotelScope(res, principal, hotelId)) return;
 
     // Only admin can update staff
     if (principal.typ === "staff" && principal.role !== "admin") {
@@ -2528,11 +2558,7 @@ async function handleRequest(req, res) {
     const hotelId = pathParts[4];
     const staffId = pathParts[6];
 
-    // Staff can only delete from their own hotel
-    if (principal.typ === "staff" && principal.hotelId !== hotelId) {
-      sendJson(res, 403, { error: "forbidden" });
-      return;
-    }
+    if (!requireHotelScope(res, principal, hotelId)) return;
 
     // Only admin can delete staff
     if (principal.typ === "staff" && principal.role !== "admin") {
@@ -3968,9 +3994,52 @@ async function handleRequest(req, res) {
       );
     }
 
+    let digitalKeyResult = checkinResult?.digitalKey ?? null;
+    try {
+      const dkConnector = await createDigitalKeyConnectorForHotel(principal.hotelId);
+      if (dkConnector) {
+        const stayRows = await query(
+          `SELECT check_in AS "checkIn", check_out AS "checkOut", guest_id AS "guestId" FROM stays WHERE id = $1 LIMIT 1`,
+          [principal.stayId]
+        );
+        const stayInfo = stayRows[0];
+        const guestEmail = typeof principal.email === "string" ? principal.email : null;
+
+        const keyResult = await dkConnector.issueKey({
+          guestId: resolvedGuestId ?? principal.stayId,
+          roomNumber: roomNumber ?? stay.roomNumber ?? "",
+          checkIn: stayInfo?.checkIn ?? new Date().toISOString().slice(0, 10),
+          checkOut: stayInfo?.checkOut ?? new Date().toISOString().slice(0, 10),
+          guestEmail
+        });
+
+        const keyId = `DK-${randomUUID().slice(0, 8).toUpperCase()}`;
+        await query(
+          `INSERT INTO digital_keys (id, hotel_id, stay_id, guest_id, room_number, external_key_id, provider, status, valid_from, valid_to)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8::date, $9::date)`,
+          [
+            keyId, principal.hotelId, principal.stayId, resolvedGuestId,
+            roomNumber ?? stay.roomNumber, keyResult?.keyId ?? null,
+            dkConnector.provider,
+            stayInfo?.checkIn ?? null, stayInfo?.checkOut ?? null
+          ]
+        );
+
+        digitalKeyResult = {
+          keyId,
+          externalKeyId: keyResult?.keyId ?? null,
+          provider: dkConnector.provider,
+          status: "active",
+          ...keyResult
+        };
+      }
+    } catch (error) {
+      console.error("digital_key_issuance_failed", error);
+    }
+
     sendJson(res, 200, {
       ok: true,
-      digitalKey: checkinResult?.digitalKey ?? null
+      digitalKey: digitalKeyResult
     });
     return;
   }
@@ -11522,6 +11591,266 @@ async function handleRequest(req, res) {
       sendJson(res, 500, { error: "create_failed" });
       return;
     }
+  }
+
+  // GET /api/v1/staff/dashboard-stats - Hotel-scoped dashboard metrics for staff
+  if (req.method === "GET" && url.pathname === "/api/v1/staff/dashboard-stats") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const hotelId = principal.hotelId;
+    if (!hotelId) {
+      sendJson(res, 400, { error: "no_hotel" });
+      return;
+    }
+
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+
+      const hotelRows = await query(`SELECT name FROM hotels WHERE id = $1 LIMIT 1`, [hotelId]);
+      const hotelName = hotelRows[0]?.name ?? "Hotel";
+
+      const [
+        activeStaysRow,
+        arrivalsRow,
+        departuresRow,
+        staffRow,
+        requestsTodayRow,
+        openTicketsRow,
+        pendingNotifsRow,
+        revenueTodayRow,
+        requestsByDayRows,
+        staysByDayRows,
+        ticketsByDeptRows,
+        ticketsByStatusRows,
+        recentActivityRows
+      ] = await Promise.all([
+        query(
+          `SELECT COUNT(*)::int AS count FROM stays WHERE hotel_id = $1 AND check_in::date <= $2::date AND check_out::date >= $2::date`,
+          [hotelId, today]
+        ),
+        query(
+          `SELECT COUNT(*)::int AS count FROM stays WHERE hotel_id = $1 AND check_in::date = $2::date`,
+          [hotelId, today]
+        ),
+        query(
+          `SELECT COUNT(*)::int AS count FROM stays WHERE hotel_id = $1 AND check_out::date = $2::date`,
+          [hotelId, today]
+        ),
+        query(
+          `SELECT COUNT(*)::int AS count FROM staff_users WHERE hotel_id = $1`,
+          [hotelId]
+        ),
+        query(
+          `SELECT COUNT(*)::int AS count FROM threads WHERE hotel_id = $1 AND (created_at AT TIME ZONE 'UTC')::date = $2::date`,
+          [hotelId, today]
+        ),
+        query(
+          `SELECT COUNT(*)::int AS count FROM tickets WHERE hotel_id = $1 AND status IN ('open', 'in_progress')`,
+          [hotelId]
+        ),
+        query(
+          `SELECT COUNT(*)::int AS count FROM notification_outbox WHERE hotel_id = $1 AND status = 'pending'`,
+          [hotelId]
+        ),
+        query(
+          `SELECT COALESCE(SUM(amount_cents), 0)::int AS total FROM invoices WHERE hotel_id = $1 AND (created_at AT TIME ZONE 'UTC')::date = $2::date`,
+          [hotelId, today]
+        ),
+        query(
+          `
+            SELECT (created_at AT TIME ZONE 'UTC')::date AS day, COUNT(*)::int AS count
+            FROM threads
+            WHERE hotel_id = $1
+              AND (created_at AT TIME ZONE 'UTC')::date >= $2::date - INTERVAL '6 days'
+              AND (created_at AT TIME ZONE 'UTC')::date <= $2::date
+            GROUP BY (created_at AT TIME ZONE 'UTC')::date
+            ORDER BY day ASC
+          `,
+          [hotelId, today]
+        ),
+        query(
+          `
+            SELECT d::date AS day,
+                   (SELECT COUNT(*)::int FROM stays s WHERE s.hotel_id = $1 AND s.check_in::date <= d::date AND s.check_out::date >= d::date) AS count
+            FROM generate_series($2::date - INTERVAL '6 days', $2::date, '1 day'::interval) d
+            ORDER BY d
+          `,
+          [hotelId, today]
+        ),
+        query(
+          `
+            SELECT department, status, COUNT(*)::int AS count
+            FROM tickets
+            WHERE hotel_id = $1
+            GROUP BY department, status
+          `,
+          [hotelId]
+        ),
+        query(
+          `
+            SELECT status, COUNT(*)::int AS count
+            FROM tickets
+            WHERE hotel_id = $1
+            GROUP BY status
+          `,
+          [hotelId]
+        ),
+        query(
+          `
+            (SELECT 'ticket' AS type, id, title AS summary, department, status, created_at AS "createdAt"
+             FROM tickets WHERE hotel_id = $1 ORDER BY created_at DESC LIMIT 5)
+            UNION ALL
+            (SELECT 'thread' AS type, id, title AS summary, department, status, created_at AS "createdAt"
+             FROM threads WHERE hotel_id = $1 ORDER BY created_at DESC LIMIT 5)
+            ORDER BY "createdAt" DESC
+            LIMIT 10
+          `,
+          [hotelId]
+        )
+      ]);
+
+      const requestsByDayMap = new Map(
+        (requestsByDayRows || []).map((r) => [r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day), r.count ?? 0])
+      );
+      const staysByDayMap = new Map(
+        (staysByDayRows || []).map((r) => [r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day), r.count ?? 0])
+      );
+      const requestsLast7Days = [];
+      const staysLast7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setUTCDate(d.getUTCDate() - i);
+        const dayStr = d.toISOString().slice(0, 10);
+        requestsLast7Days.push({ day: dayStr, count: requestsByDayMap.get(dayStr) ?? 0 });
+        staysLast7Days.push({ day: dayStr, count: staysByDayMap.get(dayStr) ?? 0 });
+      }
+
+      const deptMap = new Map();
+      for (const row of ticketsByDeptRows || []) {
+        const dept = row.department ?? "general";
+        if (!deptMap.has(dept)) deptMap.set(dept, { department: dept, open: 0, in_progress: 0, resolved: 0, closed: 0 });
+        const entry = deptMap.get(dept);
+        entry[row.status] = (entry[row.status] ?? 0) + row.count;
+      }
+      const ticketsByDepartment = Array.from(deptMap.values());
+
+      const ticketsByStatus = { open: 0, in_progress: 0, resolved: 0, closed: 0 };
+      for (const row of ticketsByStatusRows || []) {
+        if (row.status in ticketsByStatus) ticketsByStatus[row.status] = row.count;
+      }
+
+      sendJson(res, 200, {
+        hotelName,
+        role: principal.role,
+        departments: principal.departments ?? [],
+        overview: {
+          activeStays: activeStaysRow[0]?.count ?? 0,
+          arrivalsToday: arrivalsRow[0]?.count ?? 0,
+          departuresToday: departuresRow[0]?.count ?? 0,
+          totalStaff: staffRow[0]?.count ?? 0,
+          requestsToday: requestsTodayRow[0]?.count ?? 0,
+          openTickets: openTicketsRow[0]?.count ?? 0,
+          pendingNotifications: pendingNotifsRow[0]?.count ?? 0,
+          revenueTodayCents: revenueTodayRow[0]?.total ?? 0
+        },
+        requestsLast7Days,
+        staysLast7Days,
+        ticketsByDepartment,
+        ticketsByStatus,
+        recentActivity: recentActivityRows ?? []
+      });
+    } catch (error) {
+      console.error("staff_dashboard_stats_failed", error);
+      sendJson(res, 500, { error: "dashboard_stats_failed" });
+    }
+    return;
+  }
+
+  // GET /api/v1/staff/digital-keys - Staff: list digital keys for a stay
+  if (req.method === "GET" && url.pathname === "/api/v1/staff/digital-keys") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const stayId = url.searchParams.get("stayId");
+    const status = url.searchParams.get("status");
+
+    try {
+      const where = ["dk.hotel_id = $1"];
+      const params = [principal.hotelId];
+
+      if (stayId) { params.push(stayId); where.push(`dk.stay_id = $${params.length}`); }
+      if (status) { params.push(status); where.push(`dk.status = $${params.length}`); }
+
+      const rows = await query(
+        `SELECT dk.id, dk.hotel_id AS "hotelId", dk.stay_id AS "stayId",
+                dk.guest_id AS "guestId", dk.room_number AS "roomNumber",
+                dk.external_key_id AS "externalKeyId", dk.provider,
+                dk.status, dk.valid_from AS "validFrom", dk.valid_to AS "validTo",
+                dk.created_at AS "createdAt", dk.updated_at AS "updatedAt"
+         FROM digital_keys dk
+         WHERE ${where.join(" AND ")}
+         ORDER BY dk.created_at DESC
+         LIMIT 100`,
+        params
+      );
+      sendJson(res, 200, { items: rows });
+    } catch (error) {
+      if (isPgRelationMissing(error)) {
+        sendJson(res, 200, { items: [] });
+        return;
+      }
+      console.error("staff_digital_keys_list_failed", error);
+      sendJson(res, 500, { error: "fetch_failed" });
+    }
+    return;
+  }
+
+  // POST /api/v1/staff/digital-keys/:keyId/revoke - Staff: revoke a digital key
+  if (req.method === "POST" && url.pathname.match(/^\/api\/v1\/staff\/digital-keys\/[^/]+\/revoke$/)) {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const segments = url.pathname.split("/");
+    const keyId = decodeURIComponent(segments[5]);
+
+    try {
+      const keyRows = await query(
+        `SELECT id, hotel_id AS "hotelId", external_key_id AS "externalKeyId", provider, status
+         FROM digital_keys WHERE id = $1 LIMIT 1`,
+        [keyId]
+      );
+      const key = keyRows[0];
+      if (!key) {
+        sendJson(res, 404, { error: "key_not_found" });
+        return;
+      }
+      if (!requireHotelScope(res, principal, key.hotelId)) return;
+      if (key.status === "revoked") {
+        sendJson(res, 400, { error: "already_revoked" });
+        return;
+      }
+
+      try {
+        const dkConnector = await createDigitalKeyConnectorForHotel(key.hotelId);
+        if (dkConnector && key.externalKeyId) {
+          await dkConnector.revokeKey(key.externalKeyId);
+        }
+      } catch (error) {
+        console.error("external_key_revoke_failed", error);
+      }
+
+      await query(
+        `UPDATE digital_keys SET status = 'revoked', updated_at = NOW() WHERE id = $1`,
+        [keyId]
+      );
+
+      sendJson(res, 200, { ok: true, keyId, status: "revoked" });
+    } catch (error) {
+      console.error("staff_digital_key_revoke_failed", error);
+      sendJson(res, 500, { error: "revoke_failed" });
+    }
+    return;
   }
 
   // GET /api/v1/staff/service-bookings - Staff: list service bookings

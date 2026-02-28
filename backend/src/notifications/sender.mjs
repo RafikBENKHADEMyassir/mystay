@@ -15,14 +15,17 @@ function requireString(value, name) {
 
 async function sendEmailMock({ toAddress, subject, bodyText }) {
   console.log("[notifications][email][mock]", { toAddress, subject, bodyText });
+  return { externalId: `mock-email-${Date.now()}` };
 }
 
 async function sendSmsMock({ toAddress, bodyText }) {
   console.log("[notifications][sms][mock]", { toAddress, bodyText });
+  return { externalId: `mock-sms-${Date.now()}` };
 }
 
 async function sendPushMock({ toAddress, title, bodyText, data }) {
   console.log("[notifications][push][mock]", { toAddress, title, bodyText, data });
+  return { externalId: `mock-push-${Date.now()}` };
 }
 
 async function sendEmailSendgrid({ config, toAddress, subject, bodyText }) {
@@ -46,7 +49,10 @@ async function sendEmailSendgrid({ config, toAddress, subject, bodyText }) {
     body: JSON.stringify(payload)
   });
 
-  if (response.ok) return;
+  if (response.ok) {
+    const messageId = response.headers.get("x-message-id") ?? null;
+    return { externalId: messageId };
+  }
   const details = await response.text().catch(() => "");
   throw new Error(`sendgrid_error_${response.status}:${details.slice(0, 200)}`);
 }
@@ -68,7 +74,10 @@ async function sendSmsTwilio({ config, toAddress, bodyText }) {
     body
   });
 
-  if (response.ok) return;
+  if (response.ok) {
+    const twilioPayload = await response.json().catch(() => null);
+    return { externalId: twilioPayload?.sid ?? null };
+  }
   const details = await response.text().catch(() => "");
   throw new Error(`twilio_error_${response.status}:${details.slice(0, 200)}`);
 }
@@ -176,31 +185,34 @@ async function sendPushFirebase({ config, toAddress, title, bodyText, data }) {
     })
   });
 
-  if (response.ok) return;
+  if (response.ok) {
+    const fcmPayload = await response.json().catch(() => null);
+    return { externalId: fcmPayload?.name ?? null };
+  }
   const details = await response.text().catch(() => "");
   throw new Error(`firebase_error_${response.status}:${details.slice(0, 200)}`);
 }
 
 export async function sendEmail({ provider, config, toAddress, subject, bodyText }) {
   if (provider === "none") throw new Error("email_disabled");
-  if (provider === "mock") return sendEmailMock({ toAddress, subject, bodyText });
-  if (provider === "sendgrid") return sendEmailSendgrid({ config, toAddress, subject, bodyText });
+  if (provider === "mock") return await sendEmailMock({ toAddress, subject, bodyText });
+  if (provider === "sendgrid") return await sendEmailSendgrid({ config, toAddress, subject, bodyText });
 
   throw new Error(`email_provider_not_supported:${provider}`);
 }
 
 export async function sendSms({ provider, config, toAddress, bodyText }) {
   if (provider === "none") throw new Error("sms_disabled");
-  if (provider === "mock") return sendSmsMock({ toAddress, bodyText });
-  if (provider === "twilio") return sendSmsTwilio({ config, toAddress, bodyText });
+  if (provider === "mock") return await sendSmsMock({ toAddress, bodyText });
+  if (provider === "twilio") return await sendSmsTwilio({ config, toAddress, bodyText });
 
   throw new Error(`sms_provider_not_supported:${provider}`);
 }
 
 export async function sendPush({ provider, config, toAddress, title, bodyText, data }) {
   if (provider === "none") throw new Error("push_disabled");
-  if (provider === "mock") return sendPushMock({ toAddress, title, bodyText, data });
-  if (provider === "firebase") return sendPushFirebase({ config, toAddress, title, bodyText, data });
+  if (provider === "mock") return await sendPushMock({ toAddress, title, bodyText, data });
+  if (provider === "firebase") return await sendPushFirebase({ config, toAddress, title, bodyText, data });
 
   throw new Error(`push_provider_not_supported:${provider}`);
 }

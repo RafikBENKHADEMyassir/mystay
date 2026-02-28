@@ -29,8 +29,7 @@ export function AutomationsFilters() {
     const handle = setTimeout(() => {
       const next = new URLSearchParams(searchParams?.toString() ?? "");
       setParam(next, "search", search);
-      next.delete("page");
-      next.delete("automationId");
+      // Preserve page and automationId so opening a detail panel is not overwritten by this sync
       router.replace(next.toString() ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
     }, 250);
 

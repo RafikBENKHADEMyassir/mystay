@@ -2,12 +2,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/navigation/bottom-nav";
 import { DesktopNav } from "@/components/navigation/desktop-nav";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession, type DemoSession } from "@/lib/demo-session";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { guestBottomNav, guestNav } from "@/lib/navigation";
+import { stripLocaleFromPathname } from "@/lib/i18n/paths";
+
+const HIDE_BOTTOM_NAV_PATHS = ["/concierge", "/housekeeping", "/room-service", "/spa", "/gym"];
 
 export default function ExperienceLayout({
   children,
@@ -15,6 +19,9 @@ export default function ExperienceLayout({
   children: React.ReactNode;
 }) {
   const locale = useLocale();
+  const pathname = stripLocaleFromPathname(usePathname() ?? "/");
+  const hideBottomNav = HIDE_BOTTOM_NAV_PATHS.some((p) => pathname.startsWith(p));
+
   // Defer sessionStorage read to after mount to prevent hydration mismatch
   const [session, setSession] = useState<DemoSession | null>(null);
   useEffect(() => {
@@ -31,7 +38,7 @@ export default function ExperienceLayout({
       />
       
       {/* Main content area - full width on mobile, offset on desktop */}
-      <main className="flex-1 pb-16 lg:pb-0 lg:pl-64">
+      <main className={`flex-1 lg:pb-0 lg:pl-64 ${hideBottomNav ? "" : "pb-16"}`}>
         {/* Desktop header bar */}
         <div className="sticky top-0 z-40 hidden h-16 items-center border-b bg-background/95 px-8 backdrop-blur lg:flex">
           <div className="flex-1" />
@@ -48,8 +55,8 @@ export default function ExperienceLayout({
         </div>
       </main>
       
-      {/* Mobile bottom nav - shown on mobile, hidden on lg+ */}
-      <BottomNav items={guestBottomNav} />
+      {/* Mobile bottom nav - hidden on service detail pages */}
+      {!hideBottomNav && <BottomNav items={guestBottomNav} />}
     </div>
   );
 }

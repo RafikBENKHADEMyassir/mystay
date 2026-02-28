@@ -19,6 +19,9 @@
 ## Admin dashboard
 - `doc/admin-dashboard/requirements.md` staff + management console requirements and workflows.
 
+## Tutorials
+- `doc/platform-hotel-manager-frontend-tutorial.md` onboarding walkthrough with screenshots for platform admin, hotel manager, and guest frontend.
+
 ## Cross-cutting
 - `doc/architecture.md` architecture overview and current project structure.
 - `doc/setup.md` local setup and commands.

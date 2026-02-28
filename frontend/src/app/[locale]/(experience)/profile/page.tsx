@@ -21,6 +21,7 @@ import {
 } from "@/lib/demo-session";
 import { interpolateTemplate } from "@/lib/guest-content";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
+import { useGuestOverview } from "@/lib/hooks/use-guest-overview";
 import { withLocale } from "@/lib/i18n/paths";
 import {
   Sheet,
@@ -81,10 +82,18 @@ export default function ProfilePage() {
   const locale = useLocale();
   const router = useRouter();
 
+  const {
+    isLoading: overviewLoading,
+    overview,
+    authenticated,
+    token: overviewToken,
+  } = useGuestOverview();
+
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(
     null
   );
-  const { content } = useGuestContent(locale, session?.hotelId);
+  const hotelId = overview?.hotel?.id ?? session?.hotelId ?? null;
+  const { content } = useGuestContent(locale, hotelId);
   const page = content?.pages.profile;
 
   const [profile, setProfile] = useState<GuestProfilePayload | null>(null);
@@ -114,11 +123,13 @@ export default function ProfilePage() {
     [invoices]
   );
 
+  const authToken = overviewToken ?? session?.guestToken ?? "";
+
   useEffect(() => {
-    if (!session || !page) return;
+    if (!authToken || !page) return;
 
     const headers = {
-      Authorization: `Bearer ${session.guestToken}`,
+      Authorization: `Bearer ${authToken}`,
     };
 
     Promise.all([
@@ -142,7 +153,7 @@ export default function ProfilePage() {
       }
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.guestToken, page?.title]);
+  }, [authToken, page?.title]);
 
   function openEditor() {
     const firstName =
@@ -159,7 +170,7 @@ export default function ProfilePage() {
   }
 
   async function handleSaveProfile() {
-    if (!session || !page || isSaving) return;
+    if (!authToken || !page || isSaving) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -172,7 +183,7 @@ export default function ProfilePage() {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.guestToken}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             firstName: form.firstName,
@@ -202,15 +213,17 @@ export default function ProfilePage() {
           : current
       );
 
-      const nextSession = {
-        ...session,
-        guestFirstName: result.guest.firstName ?? null,
-        guestLastName: result.guest.lastName ?? null,
-        guestEmail: result.guest.email ?? null,
-        guestPhone: result.guest.phone ?? null,
-      };
-      setDemoSession(nextSession);
-      setSession(nextSession);
+      if (session) {
+        const nextSession = {
+          ...session,
+          guestFirstName: result.guest.firstName ?? null,
+          guestLastName: result.guest.lastName ?? null,
+          guestEmail: result.guest.email ?? null,
+          guestPhone: result.guest.phone ?? null,
+        };
+        setDemoSession(nextSession);
+        setSession(nextSession);
+      }
 
       setSaveSuccess(page.account.updatedSuccess);
       setIsEditOpen(false);
@@ -227,11 +240,11 @@ export default function ProfilePage() {
     window.location.href = withLocale(locale, "/");
   }
 
-  if (!page) {
+  if (overviewLoading || !page) {
     return <div className="min-h-screen bg-white" />;
   }
 
-  if (!session) {
+  if (!authenticated) {
     return (
       <div className="min-h-screen bg-white px-5 py-8">
         <div className="rounded-[6px] border border-black/[0.06] bg-white p-5 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
@@ -251,11 +264,11 @@ export default function ProfilePage() {
   }
 
   const firstName =
-    profile?.guest.firstName ?? session.guestFirstName ?? "";
+    profile?.guest.firstName ?? session?.guestFirstName ?? overview?.guest?.firstName ?? "";
   const lastName =
-    profile?.guest.lastName ?? session.guestLastName ?? "";
+    profile?.guest.lastName ?? session?.guestLastName ?? overview?.guest?.lastName ?? "";
   const displayName =
-    [firstName, lastName].filter(Boolean).join(" ") || session.hotelName;
+    [firstName, lastName].filter(Boolean).join(" ") || session?.hotelName || overview?.hotel?.name || "";
 
   return (
     <div className="min-h-screen bg-white pb-24">

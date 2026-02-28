@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { Topbar } from "@/components/layout/topbar";
+import { SignaturePad } from "@/components/signature/signature-pad";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession, setDemoSession } from "@/lib/demo-session";
 import type { GuestContent } from "@/lib/guest-content";
@@ -22,7 +23,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { stripLocaleFromPathname, withLocale } from "@/lib/i18n/paths";
 import { cn } from "@/lib/utils";
 
-type CheckInStep = "personal" | "identity" | "finalize" | "payment" | "success";
+type CheckInStep = "personal" | "identity" | "finalize" | "payment" | "signature" | "success";
 type StayReason = "personal" | "business";
 type GenderIdentity = "male" | "female" | "non_binary";
 type ExtraId = "baby_bed" | "extra_bed" | "flowers";
@@ -374,7 +375,7 @@ export default function CheckInPage() {
         return;
       }
 
-      setStep("success");
+      setStep("signature");
     } catch {
       setSubmitError(pageStrings.submitErrors.serviceUnavailable);
     } finally {
@@ -751,6 +752,24 @@ export default function CheckInPage() {
               {strings.paymentFields.submit}
             </button>
           </>
+        ) : null}
+
+        {step === "signature" ? (
+          <SignaturePad
+            title={strings.signature.title}
+            subtitle={strings.signature.subtitle}
+            clearLabel={strings.signature.clear}
+            continueLabel={strings.signature.continue}
+            requiredError={strings.signature.required}
+            icon={
+              <svg className="h-14 w-14" fill="none" viewBox="0 0 56 56" stroke="currentColor" strokeWidth="1.2">
+                <rect x="8" y="6" width="30" height="38" rx="2" />
+                <path d="M14 14h18M14 20h12M14 26h16" strokeLinecap="round" />
+                <path d="M32 30c4 -8 12 -6 10 2s-10 12-18 14" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+            }
+            onConfirm={() => setStep("success")}
+          />
         ) : null}
 
         {step === "success" ? (

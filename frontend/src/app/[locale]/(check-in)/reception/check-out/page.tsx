@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { useLocale } from "@/components/providers/locale-provider";
+import { SignaturePad } from "@/components/signature/signature-pad";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
 import { useGuestOverview } from "@/lib/hooks/use-guest-overview";
 import type { Locale } from "@/lib/i18n/locales";
@@ -121,6 +122,8 @@ export default function CheckoutPage() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmed, setConfirmed] =
     useState<CheckoutConfirmResult | null>(null);
+  const [showSignature, setShowSignature] = useState(false);
+  const [signatureDone, setSignatureDone] = useState(false);
 
   useEffect(() => {
     if (!strings || !token || !overview) return;
@@ -258,6 +261,7 @@ export default function CheckoutPage() {
         .catch(() => null)) as CheckoutConfirmResult | null;
       if (!res.ok) throw new Error("checkout_confirm_failed");
       setConfirmed(result);
+      setShowSignature(true);
     } catch {
       setError(strings.errors.couldNotConfirm);
     } finally {
@@ -274,6 +278,37 @@ export default function CheckoutPage() {
   }
 
   const hotelName = overview.hotel.name;
+
+  /* ---- Signature step ---- */
+  if (confirmed?.ok && showSignature && !signatureDone) {
+    return (
+      <div className="min-h-screen bg-white">
+        <CheckoutTopbar
+          title={strings.title}
+          subtitle={hotelName}
+          locale={locale}
+        />
+
+        <main className="mx-auto max-w-md px-4 pb-10 pt-4">
+          <SignaturePad
+            title={strings.signature.title}
+            subtitle={strings.signature.subtitle}
+            clearLabel={strings.signature.clear}
+            continueLabel={strings.signature.continue}
+            requiredError={strings.signature.required}
+            icon={
+              <svg className="h-14 w-14" fill="none" viewBox="0 0 56 56" stroke="currentColor" strokeWidth="1.2">
+                <rect x="8" y="6" width="30" height="38" rx="2" />
+                <path d="M14 14h18M14 20h12M14 26h16" strokeLinecap="round" />
+                <path d="M32 30c4 -8 12 -6 10 2s-10 12-18 14" strokeWidth="2.5" strokeLinecap="round" />
+              </svg>
+            }
+            onConfirm={() => setSignatureDone(true)}
+          />
+        </main>
+      </div>
+    );
+  }
 
   /* ---- Confirmed state ---- */
   if (confirmed?.ok) {

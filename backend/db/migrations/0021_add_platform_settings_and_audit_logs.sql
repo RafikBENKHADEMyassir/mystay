@@ -26,5 +26,6 @@ CREATE INDEX "idx_audit_logs_actor_email" ON "audit_logs" USING btree ("actor_em
 INSERT INTO platform_settings (key, value) VALUES
   ('rate_limits', '{"apiRequestsPerMinute": 60, "apiRequestsPerHour": 1000, "loginAttemptsPerMinute": 5, "fileUploadMaxMb": 10, "webhooksPerHour": 500}'::jsonb),
   ('backup', '{"enabled": false, "frequency": "daily", "retentionDays": 30, "storageProvider": "none", "lastBackupAt": null}'::jsonb),
-  ('compliance', '{"dataRetentionDays": 365, "gdprEnabled": true, "auditLogRetentionDays": 90}'::jsonb)
+  ('compliance', '{"dataRetentionDays": 365, "gdprEnabled": true, "auditLogRetentionDays": 90}'::jsonb),
+  ('default_notifications', '{"emailProvider":"none","emailConfig":{},"smsProvider":"none","smsConfig":{},"pushProvider":"none","pushConfig":{}}'::jsonb)
 ON CONFLICT (key) DO NOTHING;
