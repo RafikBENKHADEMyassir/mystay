@@ -460,6 +460,7 @@ export type GuestContent = {
         id: string;
         label: string;
         icon: string;
+        image?: string;
       }>;
     };
     messages: {
@@ -563,7 +564,7 @@ export type GuestContent = {
         resolved: string;
         pending: string;
       };
-      categories: Array<{ id: string; label: string }>;
+      categories: Array<{ id: string; label: string; galleryImages?: string[] }>;
       menuItems: Array<{
         id: string;
         name: string;

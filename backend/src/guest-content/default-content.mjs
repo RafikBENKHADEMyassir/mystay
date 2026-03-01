@@ -679,8 +679,8 @@ export const defaultGuestContent = {
       }
     },
     reception: {
-      heroImage: "/images/services/reception_background.png",
-      title: text("Reception", "Reception", "Recepcion"),
+      heroImage: "/images/reception/hero-background.png",
+      title: text("Reception", "Réception", "Recepción"),
       signInToAccess: text(
         "Sign in to access reception.",
         "Connectez-vous pour acceder a la reception.",
@@ -928,7 +928,7 @@ export const defaultGuestContent = {
       }
     },
     roomService: {
-      heroImage: "/images/services/roomservice_background.png",
+      heroImage: "/images/room-service/hero-background.png",
       title: text("Room Service", "Room Service", "Room Service"),
       orderTitlePrefix: text("Order", "Commande", "Pedido"),
       orderButton: text("Order", "Commander", "Pedir"),
@@ -947,12 +947,34 @@ export const defaultGuestContent = {
         pending: text("Order received", "Commande recue", "Pedido recibido")
       },
       categories: [
-        { id: "breakfast", label: text("Breakfast", "Petit-dejeuner", "Desayuno") },
-        { id: "starters", label: text("Starters", "Entrees", "Entradas") },
-        { id: "mains", label: text("Mains", "Plats", "Platos") },
-        { id: "desserts", label: text("Desserts", "Desserts", "Postres") },
+        {
+          id: "breakfast",
+          label: text("Breakfast", "Petit-déjeuner", "Desayuno"),
+          galleryImages: [
+            "/images/room-service/food-1.png",
+            "/images/room-service/food-2.png",
+            "/images/room-service/food-3.png"
+          ]
+        },
+        { id: "starters", label: text("Starters", "Entrées", "Entradas") },
+        {
+          id: "mains",
+          label: text("Mains", "Plats", "Platos"),
+          galleryImages: [
+            "/images/room-service/food-4.png",
+            "/images/room-service/food-5.png"
+          ]
+        },
+        {
+          id: "desserts",
+          label: text("Desserts", "Desserts", "Postres"),
+          galleryImages: [
+            "/images/room-service/food-6.png",
+            "/images/room-service/food-7.png"
+          ]
+        },
         { id: "drinks", label: text("Drinks", "Boissons", "Bebidas") },
-        { id: "night", label: text("Late night", "Carte de nuit", "Menu nocturno") }
+        { id: "night", label: text("Late night", "Carte de nuit", "Menú nocturno") }
       ],
       menuItems: [
         {
@@ -960,161 +982,218 @@ export const defaultGuestContent = {
           name: text("Chocolatine", "Chocolatine", "Chocolatine"),
           price: 1.5,
           category: "breakfast",
-          image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=200&q=80"
+          image: "/images/room-service/food-1.png"
         },
         {
           id: "pain_chocolat",
           name: text("Chocolate bread", "Pain au chocolat boulanger", "Pan de chocolate"),
-          price: 1.5,
+          price: 1.51,
           category: "breakfast",
-          image: "https://images.unsplash.com/photo-1530610476181-d83430b64dcd?w=200&q=80"
+          image: "/images/room-service/food-2.png"
         },
         {
           id: "goat_toast",
           name: text(
             "Goat cheese toast with red fruits",
-            "Toast au chevre et son assortiment de fruits rouges",
+            "Toast au chèvre et son assortiment de fruits rouges",
             "Tostada de cabra con frutos rojos"
           ),
           price: 8,
           category: "starters",
-          image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=200&q=80"
+          image: "/images/room-service/food-4.png"
         },
         {
           id: "caesar_salad",
-          name: text("Chef's Caesar salad", "Salade cesar du chef", "Ensalada Cesar del chef"),
+          name: text("Chef's Caesar salad", "Salade césar du chef", "Ensalada César del chef"),
           price: 10,
           category: "starters",
-          image: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=200&q=80"
+          image: "/images/room-service/food-5.png"
         },
         {
           id: "duck_breast",
           name: text("Duck breast", "Magret de canard", "Magret de pato"),
           price: 17.5,
           category: "mains",
-          image: "https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=200&q=80"
+          image: "/images/room-service/food-4.png"
         },
         {
           id: "pistachio_burger",
-          name: text("Pistachio burger", "Burger a la pistache", "Hamburguesa de pistacho"),
+          name: text("Pistachio burger", "Burger à la pistache", "Hamburguesa de pistacho"),
           description: text(
-            "Vegan - Potato patty",
+            "Vegan: Potato galette",
             "Vegan : Galette de pomme de terre",
-            "Vegano - Tortita de papa"
+            "Vegano: Tortita de papa"
           ),
           price: 15.5,
           category: "mains",
           tags: ["vegan"],
-          image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&q=80"
+          image: "/images/room-service/food-5.png"
         },
         {
           id: "chocolate_fondant",
           name: text("Chocolate fondant", "Fondant au chocolat", "Fondant de chocolate"),
           price: 3,
           category: "desserts",
-          image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=200&q=80"
+          image: "/images/room-service/food-6.png"
         },
         {
           id: "cafe_gourmand",
-          name: text("Gourmet coffee", "Cafe gourmand", "Cafe gourmet"),
+          name: text("Gourmet coffee", "Café gourmand", "Café gourmet"),
           price: 2.5,
           category: "desserts",
-          image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=200&q=80"
+          image: "/images/room-service/food-7.png"
         },
         {
           id: "sodas",
           name: text("Sodas", "Sodas", "Refrescos"),
           price: 1.5,
-          category: "drinks",
-          image: "https://images.unsplash.com/photo-1527960471264-932f39eb5846?w=200&q=80"
+          category: "drinks"
         },
         {
           id: "fruit_juice",
           name: text("Artisanal fruit juice", "Jus de fruits artisanal", "Jugo de frutas artesanal"),
           price: 2,
-          category: "drinks",
-          image: "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200&q=80"
+          category: "drinks"
         },
         {
           id: "night_duck",
           name: text("Duck breast", "Magret de canard", "Magret de pato"),
           price: 17.5,
-          category: "night",
-          image: "https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=200&q=80"
+          category: "night"
         },
         {
           id: "night_burger",
-          name: text("Pistachio burger", "Burger a la pistache", "Hamburguesa de pistacho"),
+          name: text("Pistachio burger", "Burger à la pistache", "Hamburguesa de pistacho"),
           price: 15.5,
-          category: "night",
-          image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&q=80"
+          category: "night"
         }
       ],
-      itemCount: text("{{count}} item(s)", "{{count}} article(s)", "{{count}} articulo(s)"),
+      itemCount: text("{{count}} item(s)", "{{count}} article(s)", "{{count}} artículo(s)"),
       placingOrder: text("Placing order...", "Envoi en cours...", "Enviando pedido..."),
       placeOrder: text("Place order", "Commander", "Realizar pedido")
     },
     restaurants: {
-      heroImage: "/images/services/restaurant_background.png",
+      heroImage: "/images/restaurant/hero-background.png",
       title: text("Restaurant", "Restaurant", "Restaurante"),
       experiencesTitle: text(
         "Our culinary experiences",
-        "Nos experiences culinaires",
+        "Nos expériences culinaires",
         "Nuestras experiencias culinarias"
       ),
-      bookTable: text("Book a table", "Reserver une table", "Reservar una mesa"),
+      bookTable: text("Book a table", "Réserver une table", "Reservar una mesa"),
       restaurants: [
         {
           id: "sea_fu",
           name: "SEA FU",
-          cuisine: text("Asian Fusion & Seafood", "Fusion asiatique & Fruits de mer", "Fusion asiatica y mariscos"),
+          cuisine: text("Asian Fusion & Seafood", "Fusion asiatique & Fruits de mer", "Fusión asiática y mariscos"),
           description: text(
             "Contemporary Asian cuisine with stunning ocean views",
-            "Cuisine asiatique contemporaine avec vue imprenable sur l'ocean",
-            "Cocina asiatica contemporanea con vistas al oceano"
+            "Cuisine asiatique contemporaine avec vue imprenable sur l'océan",
+            "Cocina asiática contemporánea con vistas al océano"
           ),
-          image: "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=400&q=80",
+          image: "/images/restaurant/sea-fu.png",
           hours: "12:00 - 23:00",
-          dressCode: text("Smart casual", "Tenue elegante decontractee", "Elegante casual")
+          dressCode: text("Smart casual", "Tenue élégante décontractée", "Elegante casual")
         },
         {
           id: "coya",
           name: "COYA",
-          cuisine: text("Peruvian", "Peruvien", "Peruano"),
+          cuisine: text("Peruvian", "Péruvien", "Peruano"),
           description: text(
             "Vibrant Peruvian flavors in an energetic atmosphere",
-            "Saveurs peruviennes vibrantes dans une atmosphere dynamique",
-            "Sabores peruanos vibrantes en una atmosfera energetica"
+            "Saveurs péruviennes vibrantes dans une atmosphère dynamique",
+            "Sabores peruanos vibrantes en una atmósfera energética"
           ),
-          image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=80",
+          image: "/images/restaurant/coya.png",
           hours: "19:00 - 02:00",
-          dressCode: text("Smart casual", "Tenue elegante decontractee", "Elegante casual")
+          dressCode: text("Smart casual", "Tenue élégante décontractée", "Elegante casual")
         },
         {
-          id: "la_terrasse",
-          name: "La Terrasse",
-          cuisine: text("Mediterranean", "Mediterraneen", "Mediterraneo"),
+          id: "mimi_kakushi",
+          name: "MIMI KAKUSHI",
+          cuisine: text("Japanese", "Japonais", "Japonés"),
           description: text(
-            "Al fresco dining with Mediterranean specialties",
-            "Repas en plein air avec des specialites mediterraneennes",
-            "Comida al aire libre con especialidades mediterraneas"
+            "Refined Japanese cuisine in an intimate setting",
+            "Cuisine japonaise raffinée dans un cadre intime",
+            "Cocina japonesa refinada en un entorno íntimo"
           ),
-          image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80",
+          image: "/images/restaurant/mimi-kakushi.png",
+          hours: "18:00 - 01:00",
+          dressCode: text("Smart casual", "Tenue élégante décontractée", "Elegante casual")
+        },
+        {
+          id: "scalini",
+          name: "SCALINI",
+          cuisine: text("Italian", "Italien", "Italiano"),
+          description: text(
+            "Authentic Italian cuisine with homemade pasta",
+            "Cuisine italienne authentique avec pâtes maison",
+            "Cocina italiana auténtica con pasta casera"
+          ),
+          image: "/images/restaurant/scalini.png",
+          hours: "12:00 - 23:30"
+        },
+        {
+          id: "verde",
+          name: "VERDE",
+          cuisine: text("Mediterranean", "Méditerranéen", "Mediterráneo"),
+          description: text(
+            "Fresh Mediterranean flavors and garden cuisine",
+            "Saveurs méditerranéennes fraîches et cuisine du jardin",
+            "Sabores mediterráneos frescos y cocina de jardín"
+          ),
+          image: "/images/restaurant/verde.png",
           hours: "07:00 - 22:00"
+        },
+        {
+          id: "pastries",
+          name: "PASTRIES",
+          cuisine: text("Patisserie & Café", "Pâtisserie & Café", "Pastelería y Café"),
+          description: text(
+            "Artisanal pastries and specialty coffee",
+            "Pâtisseries artisanales et café de spécialité",
+            "Pasteles artesanales y café de especialidad"
+          ),
+          image: "/images/restaurant/pastries.png",
+          hours: "06:30 - 20:00"
+        },
+        {
+          id: "nusr_et",
+          name: "NUSR-ET",
+          cuisine: text("Steakhouse", "Steakhouse", "Steakhouse"),
+          description: text(
+            "Premium steaks and signature cuts",
+            "Steaks premium et coupes signature",
+            "Steaks premium y cortes exclusivos"
+          ),
+          image: "/images/restaurant/nusr-et.png",
+          hours: "12:00 - 00:00"
+        },
+        {
+          id: "nammos",
+          name: "NAMMOS",
+          cuisine: text("Greek & Seafood", "Grec & Fruits de mer", "Griego y Mariscos"),
+          description: text(
+            "Mediterranean beach dining with Greek specialties",
+            "Cuisine de plage méditerranéenne avec spécialités grecques",
+            "Cocina de playa mediterránea con especialidades griegas"
+          ),
+          image: "/images/restaurant/nammos.png",
+          hours: "11:00 - 23:00"
         }
       ]
     },
     spaGym: {
-      heroImage: "/images/services/spa_gym_background.png",
+      heroImage: "/images/spa/hero-background.png",
       heroImages: {
-        spa: "/images/services/wellness/spa-hero-lounge.png",
-        gym: "/images/services/wellness/gym-hero-equipment.png"
+        spa: "/images/spa/hero-background.png",
+        gym: "/images/gym/hero-background.png"
       },
       galleryImages: {
         gym: [
-          "/images/services/wellness/gym-gallery-cardio.png",
-          "/images/services/wellness/gym-gallery-strength.png",
-          "/images/services/wellness/gym-gallery-closeup.png"
+          "/images/gym/gallery-1.png",
+          "/images/gym/gallery-2.png",
+          "/images/gym/gallery-3.png"
         ]
       },
       title: text("Spa & Gym", "Spa & Gym", "Spa y Gym"),
@@ -1193,7 +1272,7 @@ export const defaultGuestContent = {
             id: "equipment_question",
             label: text(
               "Ask a question about equipment",
-              "Poser une question sur l'equipement",
+              "Poser une question sur l'équipement",
               "Hacer una pregunta sobre el equipo"
             ),
             href: "/messages?department=spa-gym"
@@ -1202,7 +1281,7 @@ export const defaultGuestContent = {
             id: "reschedule_booking",
             label: text(
               "Cancel or reschedule a booking",
-              "Annuler ou deplacer une reservation",
+              "Annuler ou déplacer une réservation",
               "Cancelar o cambiar una reserva"
             ),
             href: "/messages?department=spa-gym"
@@ -1211,7 +1290,7 @@ export const defaultGuestContent = {
             id: "prepare_towels",
             label: text(
               "Prepare towels and water bottles",
-              "Preparer des serviettes et bouteilles d'eau",
+              "Préparer des serviettes et bouteilles d'eau",
               "Preparar toallas y botellas de agua"
             ),
             href: "/messages?department=spa-gym"
@@ -1280,79 +1359,79 @@ export const defaultGuestContent = {
           id: "relaxing_massage",
           name: text("Relaxing Massage", "Massage relaxant", "Masaje relajante"),
           description: text(
-            "A calming full-body treatment.",
-            "Une seance relaxante pour le corps.",
+            "A calming full-body treatment that extends over several sessions.",
+            "Courte description de la session qui s'étend sur plusieurs lignes.",
             "Un tratamiento relajante de cuerpo completo."
           ),
           duration: 60,
           price: 120,
           category: "spa",
-          image: "/images/services/wellness/spa-service-relaxing-massage.png"
+          image: "/images/spa/massage-relaxant.png"
         },
         {
           id: "therapeutic_massage",
-          name: text("Therapeutic Massage", "Massage therapeutique", "Masaje terapeutico"),
+          name: text("Therapeutic Massage", "Massage thérapeutique", "Masaje terapéutico"),
           description: text(
             "Targeted recovery massage for deep tension.",
-            "Massage cible pour detendre les tensions profondes.",
-            "Masaje especifico para aliviar tension profunda."
+            "Courte description de la session qui s'étend sur plusieurs lignes.",
+            "Masaje específico para aliviar tensión profunda."
           ),
           duration: 90,
           price: 150,
           category: "spa",
-          image: "/images/services/wellness/spa-service-therapeutic-massage.png"
+          image: "/images/spa/massage-therapeutique.png"
         },
         {
           id: "couples_massage",
           name: text("Couples Massage", "Massage en duo", "Masaje en pareja"),
           description: text(
             "Side-by-side treatment for two guests.",
-            "Soin a deux dans une ambiance apaisante.",
+            "Courte description de la session qui s'étend sur plusieurs lignes.",
             "Tratamiento compartido para dos personas."
           ),
           duration: 30,
           price: 220,
           category: "spa",
-          image: "/images/services/wellness/spa-service-couples-massage.png"
+          image: "/images/spa/massage-duo.png"
         },
         {
           id: "face_body_care",
           name: text("Face and Body Care", "Soins visage et corps", "Cuidado de rostro y cuerpo"),
           description: text(
             "A rejuvenating ritual with premium products.",
-            "Un rituel revitalisant avec produits premium.",
+            "Courte description de la session qui s'étend sur plusieurs lignes.",
             "Un ritual rejuvenecedor con productos premium."
           ),
           duration: 30,
           price: 95,
           category: "spa",
-          image: "/images/services/wellness/spa-service-face-body-care.png"
+          image: "/images/spa/soins-visage.png"
         },
         {
           id: "gym_access",
-          name: text("Gym Access", "Acces a la salle", "Acceso al gimnasio"),
+          name: text("Gym Access", "Accès à la salle", "Acceso al gimnasio"),
           description: text(
             "Access to the gym floor and equipment.",
-            "Acces a la salle et aux equipements.",
+            "Courte description de la session qui s'étend sur plusieurs lignes.",
             "Acceso a la sala y al equipamiento."
           ),
           duration: 0,
           price: 0,
           category: "gym",
-          image: "/images/services/wellness/gym-gallery-strength.png"
+          image: "/images/gym/hero-background.png"
         },
         {
           id: "yoga_class",
           name: text("Yoga Class", "Cours de yoga", "Clase de yoga"),
           description: text(
             "Guided class for balance and mobility.",
-            "Cours guide pour l'equilibre et la mobilite.",
+            "Courte description de la session qui s'étend sur plusieurs lignes.",
             "Clase guiada para equilibrio y movilidad."
           ),
           duration: 60,
           price: 30,
           category: "gym",
-          image: "/images/services/wellness/gym-service-yoga.png"
+          image: "/images/gym/yoga.png"
         },
         {
           id: "guided_workout",

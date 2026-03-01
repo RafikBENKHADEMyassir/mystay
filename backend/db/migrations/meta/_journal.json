@@ -148,6 +148,27 @@
       "when": 1770393600000,
       "tag": "0020_add_service_bookings",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1770480000000,
+      "tag": "0021_add_platform_settings_and_audit_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1770566400000,
+      "tag": "0022_add_notification_receipts_and_digital_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1770652800000,
+      "tag": "0023_add_service_item_image",
+      "breakpoints": true
     }
   ]
 }

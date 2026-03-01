@@ -105,22 +105,76 @@ ON CONFLICT (id) DO UPDATE SET
   sort_order = EXCLUDED.sort_order;
 
 -- =============================================================================
--- ROOM SERVICE
+-- HOUSEKEEPING QUICK-REQUEST ITEMS (Guest Mobile UI)
 -- =============================================================================
+-- These map to the quick-request buttons shown on the housekeeping mobile page
 
 INSERT INTO service_categories (id, hotel_id, department, name_key, name_default, description_key, description_default, icon, sort_order)
 VALUES 
-  ('SC-RS-BREAKFAST', 'H-FOURSEASONS', 'room-service', 'service.roomservice.breakfast', 'Breakfast', 'service.roomservice.breakfast.desc', 'In-room breakfast service', 'sun', 1),
-  ('SC-RS-DINING', 'H-FOURSEASONS', 'room-service', 'service.roomservice.dining', 'In-Room Dining', 'service.roomservice.dining.desc', 'Order from our dining menu', 'utensils', 2),
-  ('SC-RS-BEVERAGES', 'H-FOURSEASONS', 'room-service', 'service.roomservice.beverages', 'Beverages', 'service.roomservice.beverages.desc', 'Drinks and refreshments', 'glass', 3),
-  ('SC-RS-MINIBAR', 'H-FOURSEASONS', 'room-service', 'service.roomservice.minibar', 'Mini Bar', 'service.roomservice.minibar.desc', 'Minibar replenishment', 'wine', 4)
+  ('SC-HK-QUICKREQUEST', 'H-FOURSEASONS', 'housekeeping', 'service.housekeeping.quickrequest', 'Quick Requests', 'service.housekeeping.quickrequest.desc', 'Frequently requested guest amenities', 'zap', 0)
 ON CONFLICT (id) DO UPDATE SET
   name_default = EXCLUDED.name_default,
   description_default = EXCLUDED.description_default,
   icon = EXCLUDED.icon,
   sort_order = EXCLUDED.sort_order;
 
-INSERT INTO service_items (id, category_id, hotel_id, department, name_key, name_default, description_key, description_default, icon, form_fields, estimated_time_minutes, price_cents, sort_order)
+INSERT INTO service_items (id, category_id, hotel_id, department, name_key, name_default, description_key, description_default, icon, form_fields, estimated_time_minutes, sort_order)
+VALUES
+  ('SI-HK-QR-SHAMPOO', 'SC-HK-QUICKREQUEST', 'H-FOURSEASONS', 'housekeeping',
+   'service.housekeeping.qr.shampoo', 'Shampoo',
+   'service.housekeeping.qr.shampoo.desc', 'Request shampoo bottles',
+   'shampoo',
+   '[{"type":"quantity","name":"quantity","label":"Number of bottles","min":1,"max":5,"default":1}]'::jsonb,
+   10, 1),
+
+  ('SI-HK-QR-PILLOWS', 'SC-HK-QUICKREQUEST', 'H-FOURSEASONS', 'housekeeping',
+   'service.housekeeping.qr.pillows', 'Pillows',
+   'service.housekeeping.qr.pillows.desc', 'Request extra pillows',
+   'pillow',
+   '[{"type":"quantity","name":"quantity","label":"Number of pillows","min":1,"max":4,"default":1}]'::jsonb,
+   10, 2),
+
+  ('SI-HK-QR-TOILETPAPER', 'SC-HK-QUICKREQUEST', 'H-FOURSEASONS', 'housekeeping',
+   'service.housekeeping.qr.toiletpaper', 'Toilet Paper',
+   'service.housekeeping.qr.toiletpaper.desc', 'Request toilet paper rolls',
+   'toilet-paper',
+   '[{"type":"quantity","name":"quantity","label":"Number of rolls","min":1,"max":5,"default":2}]'::jsonb,
+   10, 3),
+
+  ('SI-HK-QR-TOWELS', 'SC-HK-QUICKREQUEST', 'H-FOURSEASONS', 'housekeeping',
+   'service.housekeeping.qr.towels', 'Towels',
+   'service.housekeeping.qr.towels.desc', 'Request fresh towels',
+   'towel',
+   '[{"type":"quantity","name":"quantity","label":"Number of towels","min":1,"max":6,"default":2}]'::jsonb,
+   10, 4)
+
+ON CONFLICT (id) DO UPDATE SET
+  name_default = EXCLUDED.name_default,
+  description_default = EXCLUDED.description_default,
+  icon = EXCLUDED.icon,
+  form_fields = EXCLUDED.form_fields,
+  estimated_time_minutes = EXCLUDED.estimated_time_minutes,
+  sort_order = EXCLUDED.sort_order;
+
+-- =============================================================================
+-- ROOM SERVICE
+-- =============================================================================
+
+INSERT INTO service_categories (id, hotel_id, department, name_key, name_default, description_key, description_default, icon, sort_order, gallery_images)
+VALUES 
+  ('SC-RS-BREAKFAST', 'H-FOURSEASONS', 'room-service', 'service.roomservice.breakfast', 'Petit-déjeuner', 'service.roomservice.breakfast.desc', 'In-room breakfast service', 'sun', 1,
+   '["/images/room-service/food-1.png","/images/room-service/food-2.png","/images/room-service/food-3.png"]'::jsonb),
+  ('SC-RS-DINING', 'H-FOURSEASONS', 'room-service', 'service.roomservice.dining', 'In-Room Dining', 'service.roomservice.dining.desc', 'Order from our dining menu', 'utensils', 2, '[]'::jsonb),
+  ('SC-RS-BEVERAGES', 'H-FOURSEASONS', 'room-service', 'service.roomservice.beverages', 'Beverages', 'service.roomservice.beverages.desc', 'Drinks and refreshments', 'glass', 3, '[]'::jsonb),
+  ('SC-RS-MINIBAR', 'H-FOURSEASONS', 'room-service', 'service.roomservice.minibar', 'Mini Bar', 'service.roomservice.minibar.desc', 'Minibar replenishment', 'wine', 4, '[]'::jsonb)
+ON CONFLICT (id) DO UPDATE SET
+  name_default = EXCLUDED.name_default,
+  description_default = EXCLUDED.description_default,
+  icon = EXCLUDED.icon,
+  sort_order = EXCLUDED.sort_order,
+  gallery_images = EXCLUDED.gallery_images;
+
+INSERT INTO service_items (id, category_id, hotel_id, department, name_key, name_default, description_key, description_default, icon, form_fields, estimated_time_minutes, price_cents, sort_order, image)
 VALUES
   -- Breakfast
   ('SI-RS-CONTINENTAL', 'SC-RS-BREAKFAST', 'H-FOURSEASONS', 'room-service',
@@ -128,14 +182,14 @@ VALUES
    'service.roomservice.continental.desc', 'Pastries, fresh fruits, juice, coffee or tea',
    'croissant',
    '[{"type":"time","name":"deliveryTime","label":"Delivery time","required":true},{"type":"quantity","name":"guests","label":"Number of guests","min":1,"max":4,"default":1}]'::jsonb,
-   30, 4500, 1),
+   30, 4500, 1, '/images/room-service/food-1.png'),
   
   ('SI-RS-AMERICAN', 'SC-RS-BREAKFAST', 'H-FOURSEASONS', 'room-service',
    'service.roomservice.american', 'American Breakfast',
    'service.roomservice.american.desc', 'Eggs, bacon, toast, juice, coffee',
    'egg',
    '[{"type":"time","name":"deliveryTime","label":"Delivery time","required":true},{"type":"select","name":"eggStyle","label":"Egg preparation","options":[{"value":"scrambled","label":"Scrambled"},{"value":"fried","label":"Fried"},{"value":"poached","label":"Poached"},{"value":"omelette","label":"Omelette"}]}]'::jsonb,
-   30, 5500, 2),
+   30, 5500, 2, '/images/room-service/food-2.png'),
   
   -- Beverages
   ('SI-RS-COFFEE', 'SC-RS-BEVERAGES', 'H-FOURSEASONS', 'room-service',
@@ -143,21 +197,21 @@ VALUES
    'service.roomservice.coffee.desc', 'Fresh brewed coffee',
    'coffee',
    '[{"type":"select","name":"type","label":"Coffee type","options":[{"value":"espresso","label":"Espresso"},{"value":"americano","label":"Americano"},{"value":"cappuccino","label":"Cappuccino"},{"value":"latte","label":"Latte"}]},{"type":"quantity","name":"cups","label":"Number of cups","min":1,"max":4,"default":1}]'::jsonb,
-   15, 800, 1),
+   15, 800, 1, NULL),
   
   ('SI-RS-TEA', 'SC-RS-BEVERAGES', 'H-FOURSEASONS', 'room-service',
    'service.roomservice.tea', 'Tea Service',
    'service.roomservice.tea.desc', 'Selection of fine teas',
    'leaf',
    '[{"type":"select","name":"type","label":"Tea selection","options":[{"value":"english","label":"English Breakfast"},{"value":"earl-grey","label":"Earl Grey"},{"value":"green","label":"Green Tea"},{"value":"chamomile","label":"Chamomile"}]},{"type":"quantity","name":"cups","label":"Number of cups","min":1,"max":4,"default":1}]'::jsonb,
-   15, 900, 2),
+   15, 900, 2, NULL),
   
   ('SI-RS-CHAMPAGNE', 'SC-RS-BEVERAGES', 'H-FOURSEASONS', 'room-service',
    'service.roomservice.champagne', 'Champagne',
    'service.roomservice.champagne.desc', 'Bottle of champagne delivered to your room',
    'sparkles',
    '[{"type":"select","name":"selection","label":"Selection","options":[{"value":"house","label":"House Champagne"},{"value":"moet","label":"Moët & Chandon"},{"value":"veuve","label":"Veuve Clicquot"},{"value":"dom","label":"Dom Pérignon"}]}]'::jsonb,
-   15, 12000, 3),
+   15, 12000, 3, NULL),
 
   -- Minibar
   ('SI-RS-MINIBAR-REFILL', 'SC-RS-MINIBAR', 'H-FOURSEASONS', 'room-service',
@@ -165,7 +219,7 @@ VALUES
    'service.roomservice.minibar.refill.desc', 'Restock your minibar',
    'refresh',
    '[{"type":"multiselect","name":"items","label":"Items to restock","options":[{"value":"water","label":"Still water"},{"value":"sparkling","label":"Sparkling water"},{"value":"softdrinks","label":"Soft drinks"},{"value":"snacks","label":"Snacks"},{"value":"all","label":"Full restock"}]}]'::jsonb,
-   20, 0, 1)
+   20, 0, 1, NULL)
 
 ON CONFLICT (id) DO UPDATE SET
   name_default = EXCLUDED.name_default,
@@ -174,7 +228,111 @@ ON CONFLICT (id) DO UPDATE SET
   form_fields = EXCLUDED.form_fields,
   estimated_time_minutes = EXCLUDED.estimated_time_minutes,
   price_cents = EXCLUDED.price_cents,
-  sort_order = EXCLUDED.sort_order;
+  sort_order = EXCLUDED.sort_order,
+  image = EXCLUDED.image;
+
+-- =============================================================================
+-- ROOM SERVICE MENU ITEMS (Guest Mobile UI)
+-- =============================================================================
+-- These map to the menu items shown on the room service mobile page.
+-- Categories include gallery_images for the photo carousels displayed per section.
+-- Items include image paths for individual menu item photos.
+-- All data is configurable by admin via PUT /api/v1/staff/guest-content
+-- or directly in the service catalog via POST /api/v1/services/items.
+
+INSERT INTO service_categories (id, hotel_id, department, name_key, name_default, description_key, description_default, icon, sort_order, gallery_images)
+VALUES 
+  ('SC-RS-MENU-STARTERS', 'H-FOURSEASONS', 'room-service', 'service.roomservice.starters', 'Entrées', 'service.roomservice.starters.desc', 'Appetizers and light bites', 'salad', 5, '[]'::jsonb),
+  ('SC-RS-MENU-MAINS', 'H-FOURSEASONS', 'room-service', 'service.roomservice.mains', 'Plats', 'service.roomservice.mains.desc', 'Main course dishes', 'utensils', 6,
+   '["/images/room-service/food-4.png","/images/room-service/food-5.png"]'::jsonb),
+  ('SC-RS-MENU-DESSERTS', 'H-FOURSEASONS', 'room-service', 'service.roomservice.desserts', 'Desserts', 'service.roomservice.desserts.desc', 'Sweet treats and pastries', 'cake', 7,
+   '["/images/room-service/food-6.png","/images/room-service/food-7.png"]'::jsonb),
+  ('SC-RS-MENU-DRINKS', 'H-FOURSEASONS', 'room-service', 'service.roomservice.drinks', 'Boissons', 'service.roomservice.drinks.desc', 'Cold beverages and juices', 'cup', 8, '[]'::jsonb),
+  ('SC-RS-MENU-NIGHT', 'H-FOURSEASONS', 'room-service', 'service.roomservice.night', 'Carte de nuit', 'service.roomservice.night.desc', 'Late night menu selection', 'moon', 9, '[]'::jsonb)
+ON CONFLICT (id) DO UPDATE SET
+  name_default = EXCLUDED.name_default,
+  description_default = EXCLUDED.description_default,
+  icon = EXCLUDED.icon,
+  sort_order = EXCLUDED.sort_order,
+  gallery_images = EXCLUDED.gallery_images;
+
+INSERT INTO service_items (id, category_id, hotel_id, department, name_key, name_default, description_key, description_default, icon, form_fields, estimated_time_minutes, price_cents, sort_order, image)
+VALUES
+  -- Petit-déjeuner menu items
+  ('SI-RS-CHOCOLATINE', 'SC-RS-BREAKFAST', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.chocolatine', 'Chocolatine',
+   'service.roomservice.chocolatine.desc', 'Fresh baked chocolatine',
+   'croissant', '[]'::jsonb, 20, 150, 3, '/images/room-service/food-1.png'),
+
+  ('SI-RS-PAIN-CHOCOLAT', 'SC-RS-BREAKFAST', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.painchocolat', 'Pain au chocolat boulanger',
+   'service.roomservice.painchocolat.desc', 'Artisan chocolate bread',
+   'croissant', '[]'::jsonb, 20, 151, 4, '/images/room-service/food-2.png'),
+
+  -- Entrées
+  ('SI-RS-GOAT-TOAST', 'SC-RS-MENU-STARTERS', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.goattoast', 'Toast au chèvre et son assortiment de fruits rouges',
+   'service.roomservice.goattoast.desc', 'Goat cheese toast with red fruits',
+   'bread', '[]'::jsonb, 30, 800, 1, '/images/room-service/food-4.png'),
+
+  ('SI-RS-CAESAR-SALAD', 'SC-RS-MENU-STARTERS', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.caesarsalad', 'Salade césar du chef',
+   'service.roomservice.caesarsalad.desc', 'Chef''s Caesar salad',
+   'salad', '[]'::jsonb, 30, 1000, 2, '/images/room-service/food-5.png'),
+
+  -- Plats
+  ('SI-RS-DUCK-BREAST', 'SC-RS-MENU-MAINS', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.duckbreast', 'Magret de canard',
+   'service.roomservice.duckbreast.desc', 'Duck breast',
+   'meat', '[]'::jsonb, 35, 1750, 1, '/images/room-service/food-4.png'),
+
+  ('SI-RS-PISTACHIO-BURGER', 'SC-RS-MENU-MAINS', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.pistachioburger', 'Burger à la pistache',
+   'service.roomservice.pistachioburger.desc', 'Vegan : Galette de pomme de terre',
+   'burger', '[]'::jsonb, 35, 1550, 2, '/images/room-service/food-5.png'),
+
+  -- Desserts
+  ('SI-RS-CHOCOLATE-FONDANT', 'SC-RS-MENU-DESSERTS', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.chocolatefondant', 'Fondant au chocolat',
+   'service.roomservice.chocolatefondant.desc', 'Chocolate fondant',
+   'cake', '[]'::jsonb, 25, 300, 1, '/images/room-service/food-6.png'),
+
+  ('SI-RS-CAFE-GOURMAND', 'SC-RS-MENU-DESSERTS', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.cafegourmand', 'Café gourmand',
+   'service.roomservice.cafegourmand.desc', 'Gourmet coffee',
+   'coffee', '[]'::jsonb, 15, 250, 2, '/images/room-service/food-7.png'),
+
+  -- Boissons
+  ('SI-RS-SODAS', 'SC-RS-MENU-DRINKS', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.sodas', 'Sodas',
+   'service.roomservice.sodas.desc', 'Selection of soft drinks',
+   'glass', '[]'::jsonb, 10, 150, 1, NULL),
+
+  ('SI-RS-FRUIT-JUICE', 'SC-RS-MENU-DRINKS', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.fruitjuice', 'Jus de fruits artisanal',
+   'service.roomservice.fruitjuice.desc', 'Artisanal fruit juice',
+   'glass', '[]'::jsonb, 10, 200, 2, NULL),
+
+  -- Carte de nuit
+  ('SI-RS-NIGHT-DUCK', 'SC-RS-MENU-NIGHT', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.nightduck', 'Magret de canard',
+   'service.roomservice.nightduck.desc', 'Duck breast - late night menu',
+   'meat', '[]'::jsonb, 40, 1750, 1, NULL),
+
+  ('SI-RS-NIGHT-BURGER', 'SC-RS-MENU-NIGHT', 'H-FOURSEASONS', 'room-service',
+   'service.roomservice.nightburger', 'Burger à la pistache',
+   'service.roomservice.nightburger.desc', 'Pistachio burger - late night menu',
+   'burger', '[]'::jsonb, 40, 1550, 2, NULL)
+
+ON CONFLICT (id) DO UPDATE SET
+  name_default = EXCLUDED.name_default,
+  description_default = EXCLUDED.description_default,
+  icon = EXCLUDED.icon,
+  form_fields = EXCLUDED.form_fields,
+  estimated_time_minutes = EXCLUDED.estimated_time_minutes,
+  price_cents = EXCLUDED.price_cents,
+  sort_order = EXCLUDED.sort_order,
+  image = EXCLUDED.image;
 
 -- =============================================================================
 -- CONCIERGE SERVICES

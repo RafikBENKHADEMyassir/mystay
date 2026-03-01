@@ -30,6 +30,7 @@ export function BottomNav({ items }: BottomNavProps) {
   const visible = items.slice(0, 5);
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [unreadThreads, setUnreadThreads] = useState(0);
+  const [servicesBadge] = useState(0);
 
   const messagesHref = useMemo(() => {
     const messagesItem = visible.find((item) => item.href === "/messages") ?? null;
@@ -137,14 +138,17 @@ export function BottomNav({ items }: BottomNavProps) {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/50 bg-background pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
       <div className={cn("grid gap-0 px-2 py-3", visible.length === 4 ? "grid-cols-4" : "grid-cols-5")}>
         {visible.map((item) => {
           const Icon = navIcon(item.icon);
           const isActive = pathname === item.href;
           const label = navLabel(item.href, item.title);
-          const showUnread = item.href === messagesHref && unreadThreads > 0;
-          const unreadLabel = unreadThreads > 99 ? "99+" : String(unreadThreads);
+          const isMessages = item.href === messagesHref;
+          const isServices = item.href === "/services";
+          const showBadge = (isMessages && unreadThreads > 0) || (isServices && servicesBadge > 0);
+          const badgeValue = isMessages ? unreadThreads : servicesBadge;
+          const badgeLabel = badgeValue > 99 ? "99+" : String(badgeValue);
 
           return (
             <AppLink
@@ -152,20 +156,20 @@ export function BottomNav({ items }: BottomNavProps) {
               href={withLocale(locale, item.href)}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 px-1 py-1 text-[11px] transition-colors",
-                isActive ? "text-foreground" : "text-muted-foreground"
+                isActive ? "text-black" : "text-black/40"
               )}
               aria-current={isActive ? "page" : undefined}
             >
               <span className="relative">
                 <Icon className="h-6 w-6" strokeWidth={isActive ? 2 : 1.5} />
-                {showUnread ? (
-                  <span className="absolute -right-2.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground px-1 text-[9px] font-bold text-background">
-                    {unreadLabel}
+                {showBadge ? (
+                  <span className="absolute -right-2.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#D4A843] px-1 text-[9px] font-bold text-white">
+                    {badgeLabel}
                   </span>
                 ) : null}
               </span>
               <span className={cn("leading-none", isActive && "font-semibold")}>{label}</span>
-              {isActive && <span className="h-[2px] w-4 rounded-full bg-foreground" />}
+              {isActive && <span className="h-[2px] w-4 rounded-full bg-black" />}
             </AppLink>
           );
         })}

@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { ChevronLeft, ChevronRight, Leaf, MessageCircle, Send } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
 import { AppLink } from "@/components/ui/app-link";
@@ -10,6 +10,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { getDemoSession } from "@/lib/demo-session";
 import type { GuestContent } from "@/lib/guest-content";
 import { useGuestContent } from "@/lib/hooks/use-guest-content";
+import { useGuestOverview } from "@/lib/hooks/use-guest-overview";
 import { withLocale } from "@/lib/i18n/paths";
 
 import { AvailabilityAccordion } from "./availability-accordion";
@@ -42,20 +43,34 @@ function formatDuration(durationMinutes: number, labels: { hour: string; minute:
 
 export function WellnessPage({ category }: WellnessPageProps) {
   const locale = useLocale();
+  const { overview, token: overviewToken } = useGuestOverview();
   const [session, setSession] = useState<ReturnType<typeof getDemoSession>>(null);
   const [availabilityExpanded, setAvailabilityExpanded] = useState(false);
   const [selectedService, setSelectedService] = useState<WellnessService | null>(null);
 
   useEffect(() => {
-    setSession(getDemoSession());
-  }, []);
+    const demo = getDemoSession();
+    if (demo) {
+      setSession(demo);
+    } else if (overview && overviewToken) {
+      setSession({
+        hotelId: overview.hotel.id,
+        hotelName: overview.hotel.name,
+        stayId: overview.stay.id,
+        confirmationNumber: overview.stay.confirmationNumber,
+        guestToken: overviewToken,
+        roomNumber: overview.stay.roomNumber
+      });
+    }
+  }, [overview, overviewToken]);
 
   useEffect(() => {
     setAvailabilityExpanded(false);
     setSelectedService(null);
   }, [category]);
 
-  const { content, isLoading } = useGuestContent(locale, session?.hotelId);
+  const hotelId = session?.hotelId ?? overview?.hotel.id ?? null;
+  const { content, isLoading } = useGuestContent(locale, hotelId);
   const page = content?.pages.spaGym;
   const common = content?.common;
 
@@ -84,12 +99,12 @@ export function WellnessPage({ category }: WellnessPageProps) {
       <div className="min-h-screen bg-white">
         <div className="flex items-center justify-between px-4 py-4">
           <AppLink href={withLocale(locale, "/services")} className="-ml-2 p-2">
-            <ChevronLeft className="h-6 w-6 text-gray-900" />
+            <Image src="/images/housekeeping/arrow-back.svg" alt="Back" width={26} height={26} unoptimized />
           </AppLink>
           <p className="text-base font-medium text-gray-900">
             {category === "spa" ? page.tabs.spa : page.tabs.gym}
           </p>
-          <Leaf className="h-6 w-6 text-gray-300" />
+          <Image src="/images/housekeeping/logo.svg" alt="" width={32} height={32} unoptimized />
         </div>
 
         <div className="px-4 py-12 text-center">
@@ -108,7 +123,9 @@ export function WellnessPage({ category }: WellnessPageProps) {
   return (
     <div className="min-h-screen bg-white pb-24">
       <div className="relative h-[260px] overflow-clip">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroImage})` }} />
+        <div className="absolute inset-0">
+          <Image src={heroImage ?? ""} alt="" fill className="object-cover" priority unoptimized />
+        </div>
         <div className="absolute inset-0 bg-black/40" />
 
         <div
@@ -124,9 +141,9 @@ export function WellnessPage({ category }: WellnessPageProps) {
             href={withLocale(locale, "/services")}
             className="rounded-md p-2 text-white/85 transition hover:bg-white/10"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <Image src="/images/housekeeping/arrow-back.svg" alt="Back" width={26} height={26} unoptimized />
           </AppLink>
-          <Leaf className="h-8 w-8 text-white/85" />
+          <Image src="/images/housekeeping/logo.svg" alt="" width={32} height={32} unoptimized />
         </div>
 
         <div className="absolute inset-x-0 top-[104px] flex justify-center">
@@ -143,11 +160,11 @@ export function WellnessPage({ category }: WellnessPageProps) {
         >
           <div className="flex items-center gap-3">
             <div className="relative h-[33px] w-[33px]">
-              <MessageCircle className="h-[33px] w-[33px] text-black/50" />
+              <Image src="/images/housekeeping/message-circle.svg" alt="" width={33} height={33} unoptimized />
               <span className="absolute right-[2px] top-[3px] h-[7px] w-[7px] rounded-full bg-[#78c99f]" />
             </div>
             <p className="flex-1 text-[15px] leading-[1.2] text-black">{page.messaging.availabilityMessage}</p>
-            <ChevronRight className="h-4 w-4 text-black/50" />
+            <Image src="/images/housekeeping/chevron-right.svg" alt="" width={18} height={12} unoptimized />
           </div>
         </AppLink>
       </div>
@@ -207,7 +224,7 @@ export function WellnessPage({ category }: WellnessPageProps) {
                 className="flex items-center gap-3 rounded-[6px] border border-black/10 p-3 text-[15px] text-black transition hover:bg-black/[0.02]"
               >
                 <span className="flex-1 leading-[1.15]">{action.label}</span>
-                <ChevronRight className="h-4 w-4 text-black/55" />
+                <Image src="/images/housekeeping/chevron-right.svg" alt="" width={18} height={12} unoptimized />
               </AppLink>
             ))}
           </div>
@@ -227,19 +244,6 @@ export function WellnessPage({ category }: WellnessPageProps) {
         timeSlots={page.timeSlots}
         content={page.bookingDialog}
       />
-
-      {/* Sticky Message Bar */}
-      <div className="sticky bottom-0 border-t bg-white/90 backdrop-blur">
-        <AppLink
-          href={withLocale(locale, `/messages?department=${encodeURIComponent(page.messaging.department)}`)}
-          className="mx-auto flex max-w-md items-center gap-3 px-4 py-3"
-        >
-          <span className="flex-1 text-sm text-gray-400">
-            {locale === "fr" ? "Écrire un message" : "Write a message"}
-          </span>
-          <Send className="h-5 w-5 text-black/60" />
-        </AppLink>
-      </div>
     </div>
   );
 }

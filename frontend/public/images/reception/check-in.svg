@@ -1,0 +1,16 @@
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 20.0885 20.1146" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 136">
+<path id="Rectangle 58" d="M17.4766 15.1263V16.6146C17.4766 18.2714 16.1334 19.6146 14.4766 19.6146H3.5C1.84315 19.6146 0.5 18.2714 0.5 16.6146V5.638C0.5 3.98115 1.84315 2.638 3.5 2.638H11.8177" stroke="url(#paint0_radial_5_8130)" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Rectangle 59" d="M19.5885 4.00671L10.5535 14.0417L6.04688 9.53503" stroke="url(#paint1_linear_5_8130)" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<radialGradient id="paint0_radial_5_8130" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(13.5208 7.1948) rotate(138.417) scale(16.2008 13.9701)">
+<stop/>
+<stop offset="1" stop-opacity="0.5"/>
+</radialGradient>
+<linearGradient id="paint1_linear_5_8130" x1="7.40518" y1="11.6771" x2="23.1811" y2="1.23597" gradientUnits="userSpaceOnUse">
+<stop/>
+<stop offset="1" stop-color="#666666"/>
+</linearGradient>
+</defs>
+</svg>
