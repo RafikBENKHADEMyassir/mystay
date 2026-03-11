@@ -868,6 +868,18 @@ cat > "${APP_DIR}/ecosystem.config.cjs" <<EOF_PM2
 module.exports = {
   apps: [
     {
+      name: "${PM2_PREFIX}-mock-opera",
+      cwd: "${APP_DIR}",
+      script: "mock-servers/opera-mock.mjs",
+      env: { NODE_ENV: "production" }
+    },
+    {
+      name: "${PM2_PREFIX}-mock-spabooker",
+      cwd: "${APP_DIR}",
+      script: "mock-servers/spabooker-mock.mjs",
+      env: { NODE_ENV: "production" }
+    },
+    {
       name: "${PM2_PREFIX}-backend",
       cwd: "${APP_DIR}",
       script: "npm",
