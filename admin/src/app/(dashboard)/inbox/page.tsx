@@ -1,5 +1,6 @@
 import { LiveInboxRefresh } from "@/components/live-inbox-refresh";
 import { ConversationSearch } from "@/components/inbox/conversation-search";
+import { InboxFilters } from "@/components/inbox/inbox-filters";
 import { MessagePanel } from "@/components/inbox/message-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,23 @@ import { requireStaffToken } from "@/lib/staff-auth";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
+const DEPARTMENT_COLORS: Record<string, string> = {
+  concierge: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300 dark:border-purple-700",
+  housekeeping: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700",
+  maintenance: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-300 dark:border-orange-700",
+  restaurants: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 border-rose-300 dark:border-rose-700",
+  front_desk: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700",
+  spa: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300 border-pink-300 dark:border-pink-700",
+  general: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-600",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700",
+  archived: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-600",
+};
+
+const DEFAULT_BADGE = "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-600";
 
 type Conversation = {
   id: string;
@@ -152,6 +170,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
   const tab = (searchParams?.tab ?? "messages").trim() || "messages";
   const stayId = (searchParams?.stayId ?? "").trim();
   const dept = (searchParams?.dept ?? "").trim();
+  const statusFilter = (searchParams?.status ?? "").trim();
   const search = (searchParams?.search ?? "").trim();
   const requestedConversationId = (searchParams?.conversationId ?? "").trim();
 
@@ -171,8 +190,14 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
     error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
   }
 
-  const conversations = data?.items ?? [];
-  const total = data?.total ?? conversations.length;
+  const allConversations = data?.items ?? [];
+  const conversations = statusFilter
+    ? allConversations.filter((c) => c.status === statusFilter)
+    : allConversations;
+  const total = statusFilter ? conversations.length : (data?.total ?? conversations.length);
+
+  const departments = Array.from(new Set(allConversations.map((c) => c.department).filter(Boolean))).sort();
+  const statuses = Array.from(new Set(allConversations.map((c) => c.status).filter(Boolean))).sort();
 
   if (!requestedConversationId && stayId && conversations.length) {
     const next = buildSearchParams(searchParams, { conversationId: conversations[0].id, sent: null, error: null });
@@ -363,12 +388,17 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
               </Link>
             </div>
 
-            {stayId ? (
-              <Badge variant="secondary" className="font-mono">
-                stayId={stayId}
-              </Badge>
-            ) : null}
-            {dept ? <Badge variant="outline">{dept}</Badge> : null}
+            <InboxFilters departments={departments} statuses={statuses} />
+
+            <div className="flex flex-wrap gap-1.5">
+              {stayId ? (
+                <Badge variant="secondary" className="font-mono">
+                  stayId={stayId}
+                </Badge>
+              ) : null}
+              {dept ? <Badge variant="outline" className={DEPARTMENT_COLORS[dept.toLowerCase()] ?? DEFAULT_BADGE}>{dept}</Badge> : null}
+              {statusFilter ? <Badge variant="outline" className={STATUS_COLORS[statusFilter] ?? DEFAULT_BADGE}>{statusFilter.replace("_", " ")}</Badge> : null}
+            </div>
           </div>
           <Separator />
           <div className="max-h-[calc(100vh-290px)] overflow-y-auto">
@@ -394,6 +424,11 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                             {roomLabel}
                             {conversation.lastMessage ? <span> · {preview(conversation.lastMessage)}</span> : null}
                           </p>
+                          {conversation.department ? (
+                            <Badge variant="outline" className={`mt-1 text-[10px] px-1.5 py-0 leading-4 ${DEPARTMENT_COLORS[conversation.department.toLowerCase()] ?? DEFAULT_BADGE}`}>
+                              {conversation.department}
+                            </Badge>
+                          ) : null}
                         </div>
                         <span className="whitespace-nowrap text-xs text-muted-foreground">{timestamp}</span>
                       </div>
@@ -423,8 +458,10 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                     ) : null}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{selectedConversation.department}</Badge>
-                    <Badge variant={selectedConversation.status === "archived" ? "secondary" : "outline"}>
+                    <Badge variant="outline" className={DEPARTMENT_COLORS[selectedConversation.department?.toLowerCase()] ?? DEFAULT_BADGE}>
+                      {selectedConversation.department}
+                    </Badge>
+                    <Badge variant="outline" className={STATUS_COLORS[selectedConversation.status] ?? DEFAULT_BADGE}>
                       {selectedConversation.status.replace("_", " ")}
                     </Badge>
                     {selectedConversation.guestEmail ? (

@@ -213,11 +213,10 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
         check_out,
         adults,
         children,
-        price_cents,
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14, $15, $16, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14, $15, NOW(), NOW())
       ON CONFLICT (confirmation_number) DO UPDATE
       SET
         guest_id = COALESCE(stays.guest_id, EXCLUDED.guest_id),
@@ -232,7 +231,6 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
         check_out = EXCLUDED.check_out,
         adults = EXCLUDED.adults,
         children = EXCLUDED.children,
-        price_cents = COALESCE(EXCLUDED.price_cents, stays.price_cents),
         updated_at = NOW()
       WHERE stays.hotel_id = EXCLUDED.hotel_id
       RETURNING
@@ -241,8 +239,7 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
         guest_id AS "guestId",
         confirmation_number AS "confirmationNumber",
         pms_reservation_id AS "pmsReservationId",
-        pms_status AS "pmsStatus",
-        price_cents AS "priceCents"
+        pms_status AS "pmsStatus"
     `,
     [
       stayId,
@@ -259,8 +256,7 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
       checkInDate,
       checkOutDate,
       adults,
-      children,
-      priceCents
+      children
     ]
   );
 
@@ -268,7 +264,18 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
     throw new Error("stay_upsert_conflict");
   }
 
-  return rows[0];
+  const result = rows[0];
+
+  if (priceCents !== null) {
+    try {
+      await query(`UPDATE stays SET price_cents = $1 WHERE id = $2`, [priceCents, result.id]);
+      result.priceCents = priceCents;
+    } catch {
+      // price_cents column may not exist yet - run db:migrate to add it
+    }
+  }
+
+  return result;
 }
 
 function csvEscape(value) {
@@ -3428,7 +3435,6 @@ async function handleRequest(req, res) {
           s.check_out,
           s.adults,
           s.children,
-          s.price_cents,
           h.id AS hotel_id,
           h.name AS hotel_name
         FROM stays s
@@ -3499,7 +3505,6 @@ async function handleRequest(req, res) {
             s.check_out,
             s.adults,
             s.children,
-            s.price_cents,
             h.id AS hotel_id,
             h.name AS hotel_name
           FROM stays s
@@ -3522,6 +3527,12 @@ async function handleRequest(req, res) {
       { expiresInSeconds: 60 * 60 * 24 * 7 }
     );
 
+    let stayPriceCents = null;
+    try {
+      const priceRows = await query(`SELECT price_cents FROM stays WHERE id = $1`, [stayRow.stay_id]);
+      stayPriceCents = priceRows[0]?.price_cents ?? null;
+    } catch { /* column may not exist yet */ }
+
     sendJson(res, 200, {
       token,
       hotel: { id: stayRow.hotel_id, name: stayRow.hotel_name },
@@ -3532,7 +3543,7 @@ async function handleRequest(req, res) {
         checkIn: stayRow.check_in,
         checkOut: stayRow.check_out,
         guests: { adults: stayRow.adults, children: stayRow.children },
-        priceCents: stayRow.price_cents ?? null
+        priceCents: stayPriceCents
       }
     });
     return;
@@ -5178,7 +5189,6 @@ async function handleRequest(req, res) {
           s.check_out AS "checkOut",
           s.adults,
           s.children,
-          s.price_cents AS "priceCents",
           s.created_at AS "createdAt",
           s.updated_at AS "updatedAt",
           g.first_name AS "guestFirstName",
@@ -5301,7 +5311,7 @@ async function handleRequest(req, res) {
         checkIn: stay.checkIn,
         checkOut: stay.checkOut,
         guests: { adults: stay.adults, children: stay.children },
-        priceCents: stay.priceCents ?? null,
+        priceCents: await (async () => { try { const r = await query(`SELECT price_cents FROM stays WHERE id = $1`, [stay.id]); return r[0]?.price_cents ?? null; } catch { return null; } })(),
         status,
         journeyStatus
       },
@@ -8447,6 +8457,24 @@ async function handleRequest(req, res) {
 
       const id = `T-${randomUUID().slice(0, 8).toUpperCase()}`;
 
+      // Auto-assign to a staff user in the same department, or fallback to any staff
+      let defaultAssignee = null;
+      try {
+        const deptStaff = await query(
+          `SELECT id FROM staff_users WHERE hotel_id = $1 AND $2 = ANY(departments) ORDER BY created_at LIMIT 1`,
+          [principal.hotelId, department]
+        );
+        if (deptStaff[0]) {
+          defaultAssignee = deptStaff[0].id;
+        } else {
+          const anyStaff = await query(
+            `SELECT id FROM staff_users WHERE hotel_id = $1 ORDER BY created_at LIMIT 1`,
+            [principal.hotelId]
+          );
+          defaultAssignee = anyStaff[0]?.id ?? null;
+        }
+      } catch { /* keep null */ }
+
       const rows = await query(
         `
           INSERT INTO tickets (
@@ -8457,11 +8485,12 @@ async function handleRequest(req, res) {
             department,
             status,
             title,
+            assigned_staff_user_id,
             payload,
             created_at,
             updated_at
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, NOW(), NOW())
           RETURNING
             id,
             hotel_id AS "hotelId",
@@ -8474,7 +8503,7 @@ async function handleRequest(req, res) {
             created_at AS "createdAt",
             updated_at AS "updatedAt"
         `,
-        [id, principal.hotelId, stayId, roomNumber, department, "pending", title, payloadJson]
+        [id, principal.hotelId, stayId, roomNumber, department, "pending", title, defaultAssignee, payloadJson]
       );
 
       const created = rows[0];

@@ -20,6 +20,14 @@ type StaffPrincipal = {
   displayName: string | null;
 };
 
+type StaffUser = {
+  id: string;
+  displayName: string | null;
+  email: string;
+  role: string;
+  departments: string[];
+};
+
 type TicketDetail = {
   id: string;
   hotelId: string;
@@ -51,6 +59,23 @@ type TicketDetailPageProps = {
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 const statusOptions = ["pending", "in_progress", "resolved"];
 
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300 dark:border-amber-700",
+  in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300 dark:border-blue-700",
+  resolved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700",
+};
+
+const DEPARTMENT_COLORS: Record<string, string> = {
+  concierge: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-300 dark:border-purple-700",
+  housekeeping: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700",
+  maintenance: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-300 dark:border-orange-700",
+  restaurants: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 border-rose-300 dark:border-rose-700",
+  front_desk: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700",
+  spa: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300 border-pink-300 dark:border-pink-700",
+};
+
+const DEFAULT_BADGE = "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-600";
+
 function safeJsonStringify(value: unknown): string {
   try {
     return JSON.stringify(value ?? {}, null, 2);
@@ -78,6 +103,25 @@ async function getMe(token: string): Promise<StaffPrincipal | null> {
   return payload?.principal && typeof payload.principal === "object" ? (payload.principal as StaffPrincipal) : null;
 }
 
+async function getStaffUsers(token: string): Promise<StaffUser[]> {
+  const response = await fetch(`${backendUrl}/api/v1/auth/me`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) return [];
+  const payload = (await response.json()) as { principal?: { hotelId?: string } };
+  const hotelId = payload?.principal && typeof payload.principal === "object" ? (payload.principal as StaffPrincipal).hotelId : null;
+  if (!hotelId) return [];
+
+  const staffResponse = await fetch(`${backendUrl}/api/v1/hotels/${encodeURIComponent(hotelId)}/staff`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!staffResponse.ok) return [];
+  const staffPayload = (await staffResponse.json()) as { items?: StaffUser[] };
+  return Array.isArray(staffPayload.items) ? staffPayload.items : [];
+}
+
 async function getTicketNotes(token: string, ticketId: string): Promise<InternalNote[]> {
   const response = await fetch(`${backendUrl}/api/v1/tickets/${encodeURIComponent(ticketId)}/notes`, {
     cache: "no-store",
@@ -93,6 +137,8 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
   const ticketId = params.ticketId;
 
   const [ticket, me] = await Promise.all([getTicket(token, ticketId), getMe(token)]);
+  const isManager = me?.role === "admin" || me?.role === "manager";
+  const staffUsers = isManager && ticket ? await getStaffUsers(token) : [];
   const notes = ticket ? await getTicketNotes(token, ticketId) : [];
 
   async function updateStatus(formData: FormData) {
@@ -157,6 +203,30 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
     redirect(`/requests/${encodeURIComponent(ticketId)}?saved=1`);
   }
 
+  async function assignToStaff(formData: FormData) {
+    "use server";
+
+    const staffUserId = String(formData.get("staffUserId") ?? "").trim();
+    if (!staffUserId) {
+      redirect(`/requests/${encodeURIComponent(ticketId)}?error=missing_staff_user`);
+    }
+
+    const token = requireStaffToken();
+    const response = await fetch(`${backendUrl}/api/v1/tickets/${encodeURIComponent(ticketId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ assignedTo: staffUserId })
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      const errorCode = typeof payload?.error === "string" ? payload.error : `backend_error_${response.status}`;
+      redirect(`/requests/${encodeURIComponent(ticketId)}?error=${encodeURIComponent(errorCode)}`);
+    }
+
+    redirect(`/requests/${encodeURIComponent(ticketId)}?saved=1`);
+  }
+
   async function addNote(formData: FormData) {
     "use server";
 
@@ -203,7 +273,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
     );
   }
 
-  const isAdmin = me?.role === "admin";
+  const isAdmin = me?.role === "admin" || me?.role === "manager";
   const isAssignedToMe = Boolean(me?.staffUserId && ticket.assignedStaffUser?.id === me.staffUserId);
   const isUnassigned = !ticket.assignedStaffUser;
 
@@ -219,8 +289,8 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Badge variant="outline">{ticket.department}</Badge>
-          <Badge variant={ticket.status === "resolved" ? "secondary" : "outline"}>{ticket.status.replace("_", " ")}</Badge>
+          <Badge variant="outline" className={DEPARTMENT_COLORS[ticket.department.toLowerCase()] ?? DEFAULT_BADGE}>{ticket.department}</Badge>
+          <Badge variant="outline" className={STATUS_COLORS[ticket.status] ?? DEFAULT_BADGE}>{ticket.status.replace("_", " ")}</Badge>
           {ticket.assignedStaffUser ? (
             <Badge variant="secondary">{ticket.assignedStaffUser.displayName ?? ticket.assignedStaffUser.id}</Badge>
           ) : (
@@ -260,10 +330,10 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
               <p className="text-sm">
                 {ticket.assignedStaffUser ? ticket.assignedStaffUser.displayName ?? ticket.assignedStaffUser.id : "Unassigned"}
               </p>
-              {isUnassigned || isAdmin ? (
+              {isUnassigned || !isAssignedToMe ? (
                 <form action={takeOwnership}>
                   <Button type="submit" size="sm" variant="outline">
-                    {ticket.assignedStaffUser && isAdmin ? "Assign to me" : "Take ownership"}
+                    Assign to me
                   </Button>
                 </form>
               ) : null}
@@ -275,6 +345,27 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
                 </form>
               ) : null}
             </div>
+            {isAdmin && staffUsers.length > 0 ? (
+              <form action={assignToStaff} className="mt-2 flex items-end gap-2">
+                <div className="w-full space-y-1 sm:max-w-xs">
+                  <Label htmlFor="assign-staff">Assign to staff</Label>
+                  <select
+                    id="assign-staff"
+                    name="staffUserId"
+                    defaultValue={ticket.assignedStaffUser?.id ?? ""}
+                    className={nativeSelectClassName}
+                  >
+                    <option value="">— Select staff —</option>
+                    {staffUsers.map((staff) => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.displayName ?? staff.email} ({staff.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="submit" size="sm">Assign</Button>
+              </form>
+            ) : null}
           </div>
         </CardContent>
       </Card>
