@@ -63,7 +63,8 @@ export default function LinkReservationPage() {
               roomNumber: data.stay.roomNumber,
               checkIn: data.stay.checkIn,
               checkOut: data.stay.checkOut,
-              guests: data.stay.guests ?? null
+              guests: data.stay.guests ?? null,
+              priceCents: data.stay.priceCents ?? null
             });
           }
         } catch {

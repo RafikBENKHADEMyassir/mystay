@@ -55,6 +55,13 @@ type StayLookupResponse = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 const devDefaultConfirmation = "0123456789";
 
+function stripCountryCode(phone: string, countryCode: string): string {
+  if (!phone || !countryCode) return phone;
+  const code = countryCode.replace(/[^\d+]/g, "");
+  if (code && phone.startsWith(code)) return phone.slice(code.length);
+  return phone;
+}
+
 function formatMoney(locale: Locale, amountCents: number) {
   const languageTag = locale === "fr" ? "fr-FR" : "en-US";
   try {
@@ -196,17 +203,59 @@ export default function CheckInPage() {
   // Populate form with guest data from session when available
   useEffect(() => {
     const existing = getDemoSession();
-    if (existing) {
-      setSession(existing);
-      // Update form with guest data if available
-      if (existing.guestFirstName || existing.guestLastName || existing.guestEmail || existing.guestPhone) {
+
+    function populateForm(source: NonNullable<ReturnType<typeof getDemoSession>>) {
+      if (source.guestFirstName || source.guestLastName || source.guestEmail || source.guestPhone) {
         setForm((prev) => ({
           ...prev,
-          firstName: existing.guestFirstName ?? prev.firstName,
-          lastName: existing.guestLastName ?? prev.lastName,
-          email: existing.guestEmail ?? prev.email,
-          phoneNumber: existing.guestPhone ?? prev.phoneNumber
+          firstName: source.guestFirstName ?? prev.firstName,
+          lastName: source.guestLastName ?? prev.lastName,
+          email: source.guestEmail ?? prev.email,
+          phoneNumber: stripCountryCode(source.guestPhone ?? prev.phoneNumber, defaultPhoneCountryCode)
         }));
+      }
+    }
+
+    function refreshFromLookup(confirmation: string) {
+      const lookupUrl = new URL("/api/v1/stays/lookup", apiBaseUrl);
+      lookupUrl.searchParams.set("confirmation", confirmation);
+
+      fetch(lookupUrl.toString(), { method: "GET" })
+        .then(async (response) => {
+          if (!response.ok) return null;
+          return (await response.json()) as StayLookupResponse;
+        })
+        .then((data) => {
+          if (!data) return;
+          const prev = getDemoSession();
+          setDemoSession({
+            ...(prev ?? {}),
+            hotelId: data.hotel.id,
+            hotelName: data.hotel.name,
+            stayId: data.stay.id,
+            confirmationNumber: data.stay.confirmationNumber,
+            guestToken: data.token,
+            roomNumber: data.stay.roomNumber,
+            checkIn: data.stay.checkIn,
+            checkOut: data.stay.checkOut,
+            guests: data.stay.guests,
+            priceCents: data.stay.priceCents ?? null
+          });
+          setSession(getDemoSession());
+        })
+        .catch(() => {
+          setSessionError("backend_unreachable");
+        });
+    }
+
+    if (existing) {
+      setSession(existing);
+      populateForm(existing);
+
+      // Refresh from API when session is missing price or a scoped token
+      const needsRefresh = typeof existing.priceCents !== "number" || !existing.guestToken;
+      if (needsRefresh && existing.confirmationNumber) {
+        refreshFromLookup(existing.confirmationNumber);
       }
       return;
     }
@@ -216,42 +265,21 @@ export default function CheckInPage() {
       (process.env.NODE_ENV === "development" ? devDefaultConfirmation : null);
 
     if (!confirmation) return;
-
-    const url = new URL("/api/v1/stays/lookup", apiBaseUrl);
-    url.searchParams.set("confirmation", confirmation);
-
-    fetch(url.toString(), { method: "GET" })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return (await response.json()) as StayLookupResponse;
-      })
-      .then((data) => {
-        if (!data) return;
-        setDemoSession({
-          hotelId: data.hotel.id,
-          hotelName: data.hotel.name,
-          stayId: data.stay.id,
-          confirmationNumber: data.stay.confirmationNumber,
-          guestToken: data.token,
-          roomNumber: data.stay.roomNumber,
-          checkIn: data.stay.checkIn,
-          checkOut: data.stay.checkOut,
-          guests: data.stay.guests,
-          priceCents: data.stay.priceCents ?? null
-        });
-        setSession(getDemoSession());
-      })
-      .catch(() => {
-        setSessionError("backend_unreachable");
-      });
+    refreshFromLookup(confirmation);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!defaultPhoneCountryCode) return;
-    if (form.phoneCountryCode) return;
-    setForm((current) => ({ ...current, phoneCountryCode: defaultPhoneCountryCode }));
-  }, [defaultPhoneCountryCode, form.phoneCountryCode]);
+    setForm((current) => {
+      const updates: Partial<CheckInFormState> = {};
+      if (!current.phoneCountryCode) updates.phoneCountryCode = defaultPhoneCountryCode;
+      if (current.phoneNumber && current.phoneNumber.startsWith(defaultPhoneCountryCode)) {
+        updates.phoneNumber = current.phoneNumber.slice(defaultPhoneCountryCode.length);
+      }
+      return Object.keys(updates).length ? { ...current, ...updates } : current;
+    });
+  }, [defaultPhoneCountryCode]);
 
   const topbarHotelName = session?.hotelName ?? strings?.hotelNameFallback ?? "";
 
@@ -612,7 +640,9 @@ export default function CheckInPage() {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">{form.email || strings.emailFallback}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {form.phoneCountryCode} {form.phoneNumber || strings.phoneFallback}
+                  {form.phoneNumber?.startsWith("+")
+                    ? form.phoneNumber
+                    : `${form.phoneCountryCode} ${form.phoneNumber || strings.phoneFallback}`}
                 </p>
               </div>
             </section>

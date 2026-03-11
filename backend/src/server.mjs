@@ -1006,6 +1006,7 @@ async function handleRequest(req, res) {
           s.check_out AS "checkOut",
           s.adults,
           s.children,
+          s.price_cents AS "priceCents",
           h.name AS "hotelName"
         FROM stays s
         JOIN hotels h ON h.id = s.hotel_id
@@ -1053,7 +1054,8 @@ async function handleRequest(req, res) {
             roomNumber: activeStay.roomNumber,
             checkIn: activeStay.checkIn,
             checkOut: activeStay.checkOut,
-            guests: { adults: activeStay.adults, children: activeStay.children }
+            guests: { adults: activeStay.adults, children: activeStay.children },
+            priceCents: activeStay.priceCents ?? null
           }
         : null
     });
@@ -1097,6 +1099,7 @@ async function handleRequest(req, res) {
           s.check_out AS "checkOut",
           s.adults,
           s.children,
+          s.price_cents AS "priceCents",
           h.name AS "hotelName"
         FROM stays s
         JOIN hotels h ON h.id = s.hotel_id
@@ -1156,6 +1159,7 @@ async function handleRequest(req, res) {
             s.check_out AS "checkOut",
             s.adults,
             s.children,
+            s.price_cents AS "priceCents",
             h.name AS "hotelName"
           FROM stays s
           JOIN hotels h ON h.id = s.hotel_id
@@ -1208,7 +1212,8 @@ async function handleRequest(req, res) {
         roomNumber: stay.roomNumber,
         checkIn: stay.checkIn,
         checkOut: stay.checkOut,
-        guests: { adults: stay.adults, children: stay.children }
+        guests: { adults: stay.adults, children: stay.children },
+        priceCents: stay.priceCents ?? null
       }
     });
     return;

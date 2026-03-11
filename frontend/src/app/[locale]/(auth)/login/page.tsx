@@ -66,12 +66,12 @@ export default function LoginPage() {
             hotelName: data.stay.hotelName ?? pageStrings.fallbackHotelName,
             stayId: data.stay.id,
             confirmationNumber: data.stay.confirmationNumber,
-            guestToken: data.token, // Backend JWT token for API calls
+            guestToken: data.token,
             roomNumber: data.stay.roomNumber,
             checkIn: data.stay.checkIn,
             checkOut: data.stay.checkOut,
             guests: data.stay.guests,
-            // Include guest info for check-in form
+            priceCents: data.stay.priceCents ?? null,
             guestFirstName: data.guest.firstName,
             guestLastName: data.guest.lastName,
             guestEmail: data.guest.email,

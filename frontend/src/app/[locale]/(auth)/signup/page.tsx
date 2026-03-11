@@ -162,6 +162,7 @@ export default function SignupPage() {
           checkIn: stay.checkIn,
           checkOut: stay.checkOut,
           guests: stay.guests,
+          priceCents: stay.priceCents ?? null,
           guestFirstName: form.firstName,
           guestLastName: form.lastName,
           guestEmail: form.email,
