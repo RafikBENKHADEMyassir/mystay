@@ -1,11 +1,82 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Building2, Users, Settings, TrendingUp, Hotel } from "lucide-react";
 
 import { getStaffToken } from "@/lib/staff-token";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlatformDashboardCharts } from "./PlatformDashboardCharts";
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+const platformDashboardCopy = {
+  en: {
+    title: "Platform Dashboard",
+    subtitle: "Manage hotels, monitor performance, and configure platform settings.",
+    stats: {
+      totalHotels: "Total Hotels",
+      activeHotelsHint: "Active partner hotels",
+      activeStays: "Active Stays",
+      activeStaysHint: "Guests currently staying",
+      staffUsers: "Staff Users",
+      staffUsersHint: "Across all hotels",
+      requestsToday: "Requests Today",
+      requestsTodayHint: "Total guest requests",
+    },
+    quickActions: {
+      manageHotelsTitle: "Manage Hotels",
+      manageHotelsDescription: "Add new hotels, update branding, and manage hotel settings.",
+      addHotelTitle: "Add New Hotel",
+      addHotelDescription: "Onboard a new partner hotel to the MyStay platform.",
+      settingsTitle: "Platform Settings",
+      settingsDescription: "Configure global settings and integrations.",
+    },
+  },
+  fr: {
+    title: "Tableau de bord plateforme",
+    subtitle: "Gerez les hotels, suivez la performance et configurez les parametres plateforme.",
+    stats: {
+      totalHotels: "Total hotels",
+      activeHotelsHint: "Hotels partenaires actifs",
+      activeStays: "Sejours actifs",
+      activeStaysHint: "Clients actuellement heberges",
+      staffUsers: "Utilisateurs staff",
+      staffUsersHint: "Sur l'ensemble des hotels",
+      requestsToday: "Demandes du jour",
+      requestsTodayHint: "Total des demandes clients",
+    },
+    quickActions: {
+      manageHotelsTitle: "Gerer les hotels",
+      manageHotelsDescription: "Ajoutez des hotels, mettez a jour le branding et gerez les parametres hotel.",
+      addHotelTitle: "Ajouter un hotel",
+      addHotelDescription: "Integrez un nouvel hotel partenaire sur MyStay.",
+      settingsTitle: "Parametres plateforme",
+      settingsDescription: "Configurez les parametres globaux et integrations.",
+    },
+  },
+  es: {
+    title: "Panel de plataforma",
+    subtitle: "Gestiona hoteles, monitorea rendimiento y configura ajustes de plataforma.",
+    stats: {
+      totalHotels: "Hoteles totales",
+      activeHotelsHint: "Hoteles socios activos",
+      activeStays: "Estancias activas",
+      activeStaysHint: "Huespedes alojados actualmente",
+      staffUsers: "Usuarios staff",
+      staffUsersHint: "En todos los hoteles",
+      requestsToday: "Solicitudes de hoy",
+      requestsTodayHint: "Total de solicitudes de huespedes",
+    },
+    quickActions: {
+      manageHotelsTitle: "Gestionar hoteles",
+      manageHotelsDescription: "Agrega hoteles, actualiza branding y gestiona ajustes del hotel.",
+      addHotelTitle: "Agregar hotel",
+      addHotelDescription: "Incorpora un nuevo hotel socio a la plataforma MyStay.",
+      settingsTitle: "Configuracion de plataforma",
+      settingsDescription: "Configura ajustes globales e integraciones.",
+    },
+  },
+} as const;
 
 type DashboardStats = {
   hotelCount: number;
@@ -46,6 +117,8 @@ async function getDashboardStats(token: string): Promise<DashboardStats> {
 }
 
 export default async function PlatformDashboardPage() {
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = platformDashboardCopy[locale];
   const token = getStaffToken();
   const stats = token
     ? await getDashboardStats(token)
@@ -61,9 +134,9 @@ export default async function PlatformDashboardPage() {
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Platform Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
         <p className="text-muted-foreground">
-          Manage hotels, monitor performance, and configure platform settings.
+          {t.subtitle}
         </p>
       </header>
 
@@ -71,42 +144,42 @@ export default async function PlatformDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Hotels</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.totalHotels}</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.hotelCount}</div>
-            <p className="text-xs text-muted-foreground">Active partner hotels</p>
+            <p className="text-xs text-muted-foreground">{t.stats.activeHotelsHint}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Stays</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.activeStays}</CardTitle>
             <Hotel className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.activeStaysCount}</div>
-            <p className="text-xs text-muted-foreground">Guests currently staying</p>
+            <p className="text-xs text-muted-foreground">{t.stats.activeStaysHint}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Staff Users</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.staffUsers}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.staffUsersCount}</div>
-            <p className="text-xs text-muted-foreground">Across all hotels</p>
+            <p className="text-xs text-muted-foreground">{t.stats.staffUsersHint}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Requests Today</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.requestsToday}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.requestsTodayCount}</div>
-            <p className="text-xs text-muted-foreground">Total guest requests</p>
+            <p className="text-xs text-muted-foreground">{t.stats.requestsTodayHint}</p>
           </CardContent>
         </Card>
       </div>
@@ -124,10 +197,10 @@ export default async function PlatformDashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
-                Manage Hotels
+                {t.quickActions.manageHotelsTitle}
               </CardTitle>
               <CardDescription>
-                Add new hotels, update branding, and manage hotel settings.
+                {t.quickActions.manageHotelsDescription}
               </CardDescription>
             </CardHeader>
           </Card>
@@ -137,10 +210,10 @@ export default async function PlatformDashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Hotel className="h-5 w-5" />
-                Add New Hotel
+                {t.quickActions.addHotelTitle}
               </CardTitle>
               <CardDescription>
-                Onboard a new partner hotel to the MyStay platform.
+                {t.quickActions.addHotelDescription}
               </CardDescription>
             </CardHeader>
           </Card>
@@ -150,10 +223,10 @@ export default async function PlatformDashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                Platform Settings
+                {t.quickActions.settingsTitle}
               </CardTitle>
               <CardDescription>
-                Configure global settings and integrations.
+                {t.quickActions.settingsDescription}
               </CardDescription>
             </CardHeader>
           </Card>

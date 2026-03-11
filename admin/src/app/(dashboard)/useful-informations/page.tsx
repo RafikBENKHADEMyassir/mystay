@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { Info, Plus, Save, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { adminLocaleCookieName, resolveAdminLocale, type AdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 import { getStaffPrincipal } from "@/lib/staff-token";
 
@@ -45,6 +47,149 @@ type PageProps = {
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
+const usefulInfoCopy = {
+  en: {
+    title: "Useful Informations",
+    accessDescription: "Only managers and admins can manage useful informations.",
+    backendUnreachable: "Backend unreachable. Start the backend server then refresh.",
+    saveMessages: {
+      category_created: "Category created.",
+      category_updated: "Category updated.",
+      category_deleted: "Category deleted.",
+      item_created: "Item created.",
+      item_updated: "Item updated.",
+      item_deleted: "Item deleted.",
+    },
+    errorMessages: {
+      title_required: "Category title is required.",
+      fields_required: "Required fields are missing.",
+      missing_category: "Missing category id.",
+      missing_item: "Missing item id.",
+    },
+    active: "Active",
+    inactive: "Inactive",
+    titleLabel: "Title",
+    titlePlaceholder: "Category title",
+    iconLabel: "Icon",
+    iconPlaceholder: "Icon name (e.g. wifi)",
+    sortOrderLabel: "Sort order",
+    save: "Save",
+    deleteCategory: "Delete category",
+    itemsTitle: "Items",
+    itemTitleLabel: "Title",
+    itemTitlePlaceholder: "Item title",
+    itemContentLabel: "Content",
+    itemContentPlaceholder: "Item content",
+    orderLabel: "Order",
+    delete: "Delete",
+    addNewItem: "Add new item",
+    addItem: "Add item",
+    addNewCategoryTitle: "Add new category",
+    addNewCategoryDescription: "Create a new useful information category (e.g. Wi-Fi, Breakfast).",
+    createCategory: "Create category",
+    categoryTitlePlaceholder: "e.g. Wi-Fi connection",
+    categoryIconPlaceholder: "e.g. wifi, coffee, dumbbell",
+  },
+  fr: {
+    title: "Informations utiles",
+    accessDescription: "Seuls les managers et admins peuvent gerer les informations utiles.",
+    backendUnreachable: "Backend inaccessible. Demarrez le serveur backend puis actualisez.",
+    saveMessages: {
+      category_created: "Categorie creee.",
+      category_updated: "Categorie mise a jour.",
+      category_deleted: "Categorie supprimee.",
+      item_created: "Element cree.",
+      item_updated: "Element mis a jour.",
+      item_deleted: "Element supprime.",
+    },
+    errorMessages: {
+      title_required: "Le titre de la categorie est obligatoire.",
+      fields_required: "Des champs obligatoires sont manquants.",
+      missing_category: "Identifiant de categorie manquant.",
+      missing_item: "Identifiant d'element manquant.",
+    },
+    active: "Actif",
+    inactive: "Inactif",
+    titleLabel: "Titre",
+    titlePlaceholder: "Titre de la categorie",
+    iconLabel: "Icone",
+    iconPlaceholder: "Nom de l'icone (ex: wifi)",
+    sortOrderLabel: "Ordre",
+    save: "Enregistrer",
+    deleteCategory: "Supprimer categorie",
+    itemsTitle: "Elements",
+    itemTitleLabel: "Titre",
+    itemTitlePlaceholder: "Titre de l'element",
+    itemContentLabel: "Contenu",
+    itemContentPlaceholder: "Contenu de l'element",
+    orderLabel: "Ordre",
+    delete: "Supprimer",
+    addNewItem: "Ajouter un element",
+    addItem: "Ajouter",
+    addNewCategoryTitle: "Ajouter une categorie",
+    addNewCategoryDescription: "Creez une nouvelle categorie d'information utile (ex: Wi-Fi, Petit-dejeuner).",
+    createCategory: "Creer categorie",
+    categoryTitlePlaceholder: "ex: Connexion Wi-Fi",
+    categoryIconPlaceholder: "ex: wifi, coffee, dumbbell",
+  },
+  es: {
+    title: "Informaciones utiles",
+    accessDescription: "Solo managers y admins pueden gestionar las informaciones utiles.",
+    backendUnreachable: "Backend inaccesible. Inicia el servidor backend y actualiza.",
+    saveMessages: {
+      category_created: "Categoria creada.",
+      category_updated: "Categoria actualizada.",
+      category_deleted: "Categoria eliminada.",
+      item_created: "Elemento creado.",
+      item_updated: "Elemento actualizado.",
+      item_deleted: "Elemento eliminado.",
+    },
+    errorMessages: {
+      title_required: "El titulo de la categoria es obligatorio.",
+      fields_required: "Faltan campos obligatorios.",
+      missing_category: "Falta el id de categoria.",
+      missing_item: "Falta el id del elemento.",
+    },
+    active: "Activo",
+    inactive: "Inactivo",
+    titleLabel: "Titulo",
+    titlePlaceholder: "Titulo de la categoria",
+    iconLabel: "Icono",
+    iconPlaceholder: "Nombre del icono (ej. wifi)",
+    sortOrderLabel: "Orden",
+    save: "Guardar",
+    deleteCategory: "Eliminar categoria",
+    itemsTitle: "Elementos",
+    itemTitleLabel: "Titulo",
+    itemTitlePlaceholder: "Titulo del elemento",
+    itemContentLabel: "Contenido",
+    itemContentPlaceholder: "Contenido del elemento",
+    orderLabel: "Orden",
+    delete: "Eliminar",
+    addNewItem: "Agregar elemento",
+    addItem: "Agregar",
+    addNewCategoryTitle: "Agregar nueva categoria",
+    addNewCategoryDescription: "Crea una nueva categoria de informacion util (ej. Wi-Fi, Desayuno).",
+    createCategory: "Crear categoria",
+    categoryTitlePlaceholder: "ej. Conexion Wi-Fi",
+    categoryIconPlaceholder: "ej. wifi, coffee, dumbbell",
+  },
+} as const;
+
+function humanize(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function formatSavedMessage(value: string | undefined, locale: AdminLocale) {
+  if (!value) return null;
+  return usefulInfoCopy[locale].saveMessages[value as keyof (typeof usefulInfoCopy)[AdminLocale]["saveMessages"]] ?? humanize(value);
+}
+
+function formatErrorMessage(value: string | undefined, locale: AdminLocale) {
+  if (!value) return null;
+  return usefulInfoCopy[locale].errorMessages[value as keyof (typeof usefulInfoCopy)[AdminLocale]["errorMessages"]] ?? humanize(value);
+}
+
 async function fetchUsefulInfo(token: string): Promise<UsefulInfoResponse> {
   const response = await fetch(`${backendUrl}/api/v1/staff/useful-informations`, {
     cache: "no-store",
@@ -62,6 +207,8 @@ function parseNumber(raw: unknown) {
 
 export default async function UsefulInformationsPage({ searchParams }: PageProps) {
   const token = requireStaffToken();
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = usefulInfoCopy[locale];
   const principal = getStaffPrincipal();
   const role = principal?.role ?? "staff";
   const canManage = role === "admin" || role === "manager";
@@ -70,8 +217,8 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Useful Informations</CardTitle>
-          <CardDescription>Only managers and admins can manage useful informations.</CardDescription>
+          <CardTitle>{t.title}</CardTitle>
+          <CardDescription>{t.accessDescription}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -83,7 +230,7 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
   try {
     data = await fetchUsefulInfo(token);
   } catch {
-    error = "Backend unreachable. Start the backend server then refresh.";
+    error = t.backendUnreachable;
   }
 
   const categories = data?.categories ?? [];
@@ -266,18 +413,18 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
     <div className="mx-auto max-w-4xl space-y-6 p-6">
       <div className="flex items-center gap-3">
         <Info className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">Useful Informations</h1>
+        <h1 className="text-2xl font-bold">{t.title}</h1>
       </div>
 
       {searchParams?.saved && (
         <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
-          {searchParams.saved.replace(/_/g, " ")}
+          {formatSavedMessage(searchParams.saved, locale)}
         </Badge>
       )}
 
       {(error || searchParams?.error) && (
         <Badge variant="destructive">
-          {error ?? searchParams?.error?.replace(/_/g, " ")}
+          {error ?? formatErrorMessage(searchParams?.error, locale)}
         </Badge>
       )}
 
@@ -291,31 +438,31 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-2">
                     <Badge variant={category.isActive ? "default" : "secondary"}>
-                      {category.isActive ? "Active" : "Inactive"}
+                      {category.isActive ? t.active : t.inactive}
                     </Badge>
                     <span className="text-xs text-muted-foreground">#{category.sortOrder}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <Label htmlFor={`cat-title-${category.id}`}>Title</Label>
+                      <Label htmlFor={`cat-title-${category.id}`}>{t.titleLabel}</Label>
                       <Input
                         id={`cat-title-${category.id}`}
                         name="title"
                         defaultValue={category.title}
-                        placeholder="Category title"
+                        placeholder={t.titlePlaceholder}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`cat-icon-${category.id}`}>Icon</Label>
+                      <Label htmlFor={`cat-icon-${category.id}`}>{t.iconLabel}</Label>
                       <Input
                         id={`cat-icon-${category.id}`}
                         name="icon"
                         defaultValue={category.icon ?? ""}
-                        placeholder="Icon name (e.g. wifi)"
+                        placeholder={t.iconPlaceholder}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`cat-order-${category.id}`}>Sort order</Label>
+                      <Label htmlFor={`cat-order-${category.id}`}>{t.sortOrderLabel}</Label>
                       <Input
                         id={`cat-order-${category.id}`}
                         name="sortOrder"
@@ -331,12 +478,12 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
                       id={`cat-active-${category.id}`}
                       defaultChecked={category.isActive}
                     />
-                    <Label htmlFor={`cat-active-${category.id}`}>Active</Label>
+                    <Label htmlFor={`cat-active-${category.id}`}>{t.active}</Label>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" size="sm" variant="outline">
-                    <Save className="mr-1 h-3 w-3" /> Save
+                    <Save className="mr-1 h-3 w-3" /> {t.save}
                   </Button>
                 </div>
               </div>
@@ -344,14 +491,14 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
             <form action={deleteCategory} className="inline">
               <input type="hidden" name="categoryId" value={category.id} />
               <Button type="submit" size="sm" variant="destructive" className="mt-2">
-                <Trash2 className="mr-1 h-3 w-3" /> Delete category
+                <Trash2 className="mr-1 h-3 w-3" /> {t.deleteCategory}
               </Button>
             </form>
           </CardHeader>
 
           <CardContent className="space-y-3">
             <p className="text-sm font-medium text-muted-foreground">
-              Items ({category.items.length})
+              {t.itemsTitle} ({category.items.length})
             </p>
 
             {category.items.map((item) => (
@@ -360,26 +507,26 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
                   <input type="hidden" name="itemId" value={item.id} />
                   <div className="grid grid-cols-[1fr_2fr_auto_auto] gap-3 items-end">
                     <div>
-                      <Label htmlFor={`item-title-${item.id}`}>Title</Label>
+                      <Label htmlFor={`item-title-${item.id}`}>{t.itemTitleLabel}</Label>
                       <Input
                         id={`item-title-${item.id}`}
                         name="title"
                         defaultValue={item.title}
-                        placeholder="Item title"
+                        placeholder={t.itemTitlePlaceholder}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`item-content-${item.id}`}>Content</Label>
+                      <Label htmlFor={`item-content-${item.id}`}>{t.itemContentLabel}</Label>
                       <Textarea
                         id={`item-content-${item.id}`}
                         name="content"
                         defaultValue={item.content}
-                        placeholder="Item content"
+                        placeholder={t.itemContentPlaceholder}
                         rows={2}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`item-order-${item.id}`}>Order</Label>
+                      <Label htmlFor={`item-order-${item.id}`}>{t.orderLabel}</Label>
                       <Input
                         id={`item-order-${item.id}`}
                         name="sortOrder"
@@ -395,19 +542,19 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
                         id={`item-active-${item.id}`}
                         defaultChecked={item.isActive}
                       />
-                      <Label htmlFor={`item-active-${item.id}`}>Active</Label>
+                      <Label htmlFor={`item-active-${item.id}`}>{t.active}</Label>
                     </div>
                   </div>
                   <div className="mt-2 flex gap-2">
                     <Button type="submit" size="sm" variant="outline">
-                      <Save className="mr-1 h-3 w-3" /> Save
+                      <Save className="mr-1 h-3 w-3" /> {t.save}
                     </Button>
                   </div>
                 </form>
                 <form action={deleteItem} className="mt-1 inline">
                   <input type="hidden" name="itemId" value={item.id} />
                   <Button type="submit" size="sm" variant="ghost" className="text-destructive">
-                    <Trash2 className="mr-1 h-3 w-3" /> Delete
+                    <Trash2 className="mr-1 h-3 w-3" /> {t.delete}
                   </Button>
                 </form>
               </div>
@@ -416,17 +563,17 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
             {/* Add new item to this category */}
             <form action={createItem} className="rounded-md border border-dashed p-3">
               <input type="hidden" name="categoryId" value={category.id} />
-              <p className="mb-2 text-sm font-medium">Add new item</p>
+              <p className="mb-2 text-sm font-medium">{t.addNewItem}</p>
               <div className="grid grid-cols-[1fr_2fr] gap-3">
                 <div>
-                  <Input name="title" placeholder="Item title" required />
+                  <Input name="title" placeholder={t.itemTitlePlaceholder} required />
                 </div>
                 <div>
-                  <Textarea name="content" placeholder="Item content" rows={2} required />
+                  <Textarea name="content" placeholder={t.itemContentPlaceholder} rows={2} required />
                 </div>
               </div>
               <Button type="submit" size="sm" className="mt-2">
-                <Plus className="mr-1 h-3 w-3" /> Add item
+                <Plus className="mr-1 h-3 w-3" /> {t.addItem}
               </Button>
             </form>
           </CardContent>
@@ -436,23 +583,23 @@ export default async function UsefulInformationsPage({ searchParams }: PageProps
       {/* Create new category */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Add new category</CardTitle>
-          <CardDescription>Create a new useful information category (e.g. Wi-Fi, Breakfast).</CardDescription>
+          <CardTitle className="text-base">{t.addNewCategoryTitle}</CardTitle>
+          <CardDescription>{t.addNewCategoryDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={createCategory} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="new-cat-title">Title</Label>
-                <Input id="new-cat-title" name="title" placeholder="e.g. Connexion Wi-Fi" required />
+                <Label htmlFor="new-cat-title">{t.titleLabel}</Label>
+                <Input id="new-cat-title" name="title" placeholder={t.categoryTitlePlaceholder} required />
               </div>
               <div>
-                <Label htmlFor="new-cat-icon">Icon</Label>
-                <Input id="new-cat-icon" name="icon" placeholder="e.g. wifi, coffee, dumbbell" />
+                <Label htmlFor="new-cat-icon">{t.iconLabel}</Label>
+                <Input id="new-cat-icon" name="icon" placeholder={t.categoryIconPlaceholder} />
               </div>
             </div>
             <Button type="submit">
-              <Plus className="mr-1 h-4 w-4" /> Create category
+              <Plus className="mr-1 h-4 w-4" /> {t.createCategory}
             </Button>
           </form>
         </CardContent>

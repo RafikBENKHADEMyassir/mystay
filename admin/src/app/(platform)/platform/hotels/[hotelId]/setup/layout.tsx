@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { ArrowLeft, Settings2 } from "lucide-react";
 
 import { PropertySetupNav } from "@/components/platform/property-setup-nav";
@@ -7,9 +8,31 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { getStaffToken } from "@/lib/staff-token";
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+const setupLayoutCopy = {
+  en: {
+    propertySetup: "Property setup",
+    active: "Active",
+    inactive: "Inactive",
+    setup: "Setup",
+  },
+  fr: {
+    propertySetup: "Configuration hotel",
+    active: "Actif",
+    inactive: "Inactif",
+    setup: "Config",
+  },
+  es: {
+    propertySetup: "Configuracion de propiedad",
+    active: "Activo",
+    inactive: "Inactivo",
+    setup: "Config",
+  },
+} as const;
 
 type Hotel = {
   id: string;
@@ -39,6 +62,8 @@ export default async function PropertySetupLayout({
   params: Promise<{ hotelId: string }>;
 }) {
   const { hotelId } = await params;
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = setupLayoutCopy[locale];
   const token = getStaffToken();
   if (!token) redirect("/login?type=platform");
 
@@ -55,16 +80,16 @@ export default async function PropertySetupLayout({
             </Link>
           </Button>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Property setup</p>
+            <p className="text-sm text-muted-foreground">{t.propertySetup}</p>
             <h1 className="text-2xl font-semibold">{hotel.name}</h1>
             <p className="text-xs text-muted-foreground font-mono">{hotel.id}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Badge variant={hotel.isActive ? "default" : "secondary"}>{hotel.isActive ? "Active" : "Inactive"}</Badge>
+          <Badge variant={hotel.isActive ? "default" : "secondary"}>{hotel.isActive ? t.active : t.inactive}</Badge>
           <Badge variant="outline" className="gap-1">
             <Settings2 className="h-3 w-3" />
-            Setup
+            {t.setup}
           </Badge>
         </div>
       </header>
@@ -81,4 +106,3 @@ export default async function PropertySetupLayout({
     </div>
   );
 }
-

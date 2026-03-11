@@ -7,6 +7,77 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
+
+const messageTemplatesFiltersCopy = {
+  en: {
+    search: "Search",
+    searchPlaceholder: "Search for message name",
+    channel: "Channel",
+    allChannels: "All channels",
+    status: "Status",
+    allStatuses: "All statuses",
+    reset: "Reset",
+    channels: {
+      email: "Email",
+      sms: "SMS",
+      app: "App",
+    },
+    statuses: {
+      draft: "Draft",
+      published: "Published",
+      archived: "Archived",
+    },
+  },
+  fr: {
+    search: "Recherche",
+    searchPlaceholder: "Rechercher un nom de message",
+    channel: "Canal",
+    allChannels: "Tous les canaux",
+    status: "Statut",
+    allStatuses: "Tous les statuts",
+    reset: "Reinitialiser",
+    channels: {
+      email: "Email",
+      sms: "SMS",
+      app: "Application",
+    },
+    statuses: {
+      draft: "Brouillon",
+      published: "Publie",
+      archived: "Archive",
+    },
+  },
+  es: {
+    search: "Buscar",
+    searchPlaceholder: "Buscar nombre del mensaje",
+    channel: "Canal",
+    allChannels: "Todos los canales",
+    status: "Estado",
+    allStatuses: "Todos los estados",
+    reset: "Restablecer",
+    channels: {
+      email: "Correo",
+      sms: "SMS",
+      app: "App",
+    },
+    statuses: {
+      draft: "Borrador",
+      published: "Publicado",
+      archived: "Archivado",
+    },
+  },
+} as const;
+
+function formatChannelLabel(value: string, localeCopy: (typeof messageTemplatesFiltersCopy)[keyof typeof messageTemplatesFiltersCopy]) {
+  const normalized = value.trim().toLowerCase() as keyof typeof localeCopy.channels;
+  return localeCopy.channels[normalized] ?? value.toUpperCase();
+}
+
+function formatStatusLabel(value: string, localeCopy: (typeof messageTemplatesFiltersCopy)[keyof typeof messageTemplatesFiltersCopy]) {
+  const normalized = value.trim().toLowerCase() as keyof typeof localeCopy.statuses;
+  return localeCopy.statuses[normalized] ?? value.replaceAll("_", " ");
+}
 
 function setParam(next: URLSearchParams, key: string, value: string) {
   const trimmed = value.trim();
@@ -22,6 +93,8 @@ type MessageTemplatesFiltersProps = {
 export function MessageTemplatesFilters({ channels, statuses }: MessageTemplatesFiltersProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "/message-templates";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = messageTemplatesFiltersCopy[locale];
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams?.get("search") ?? "");
@@ -73,48 +146,52 @@ export function MessageTemplatesFilters({ channels, statuses }: MessageTemplates
   return (
     <div className="grid gap-3 md:grid-cols-[1fr,200px,200px,auto] md:items-end">
       <div className="space-y-2">
-        <Label htmlFor="mt-search">Search</Label>
-        <Input id="mt-search" placeholder="Search for message name" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <Label htmlFor="mt-search">{t.search}</Label>
+        <Input
+          id="mt-search"
+          placeholder={t.searchPlaceholder}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="mt-channel">Channel</Label>
+        <Label htmlFor="mt-channel">{t.channel}</Label>
         <select
           id="mt-channel"
           className={nativeSelectClassName}
           value={searchParams?.get("channel") ?? ""}
           onChange={(event) => updateChannel(event.target.value)}
         >
-          <option value="">All channels</option>
+          <option value="">{t.allChannels}</option>
           {stableChannels.map((channel) => (
             <option key={channel} value={channel}>
-              {channel.toUpperCase()}
+              {formatChannelLabel(channel, t)}
             </option>
           ))}
         </select>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="mt-status">Status</Label>
+        <Label htmlFor="mt-status">{t.status}</Label>
         <select
           id="mt-status"
           className={nativeSelectClassName}
           value={searchParams?.get("status") ?? ""}
           onChange={(event) => updateStatus(event.target.value)}
         >
-          <option value="">All statuses</option>
+          <option value="">{t.allStatuses}</option>
           {stableStatuses.map((status) => (
             <option key={status} value={status}>
-              {status.replaceAll("_", " ")}
+              {formatStatusLabel(status, t)}
             </option>
           ))}
         </select>
       </div>
 
       <Button type="button" variant="outline" onClick={reset}>
-        Reset
+        {t.reset}
       </Button>
     </div>
   );
 }
-

@@ -5196,7 +5196,9 @@ async function handleRequest(req, res) {
           g.email AS "guestEmail",
           g.phone AS "guestPhone",
           g.email_verified AS "guestEmailVerified",
-          g.id_document_verified AS "guestIdDocumentVerified"
+          g.id_document_verified AS "guestIdDocumentVerified",
+          g.id_document_url AS "guestIdDocumentUrl",
+          s.price_cents AS "priceCents"
         FROM stays s
         JOIN hotels h ON h.id = s.hotel_id
         LEFT JOIN guests g ON g.id = s.guest_id
@@ -5300,7 +5302,8 @@ async function handleRequest(req, res) {
         email: guestEmail,
         phone: guestPhone,
         emailVerified: Boolean(stay.guestId && stay.guestEmailVerified),
-        idDocumentVerified: Boolean(stay.guestId && stay.guestIdDocumentVerified)
+        idDocumentVerified: Boolean(stay.guestId && stay.guestIdDocumentVerified),
+        idDocumentUrl: stay.guestIdDocumentUrl ?? null
       },
       stay: {
         id: stay.id,
@@ -5311,7 +5314,7 @@ async function handleRequest(req, res) {
         checkIn: stay.checkIn,
         checkOut: stay.checkOut,
         guests: { adults: stay.adults, children: stay.children },
-        priceCents: await (async () => { try { const r = await query(`SELECT price_cents FROM stays WHERE id = $1`, [stay.id]); return r[0]?.price_cents ?? null; } catch { return null; } })(),
+        priceCents: stay.priceCents ?? null,
         status,
         journeyStatus
       },
@@ -5437,6 +5440,56 @@ async function handleRequest(req, res) {
 
     const stay = await upsertStayFromPmsReservation(principal.hotelId, updated);
     sendJson(res, 200, { stay });
+    return;
+  }
+
+  // PATCH /api/v1/staff/guests/:guestId/id-verification - toggle ID document verification
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "guests" &&
+    segments[4] &&
+    segments[5] === "id-verification" &&
+    req.method === "PATCH" &&
+    segments.length === 6
+  ) {
+    const guestId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    const body = await readJson(req);
+    const verified = typeof body?.verified === "boolean" ? body.verified : null;
+    if (verified === null) {
+      sendJson(res, 400, { error: "missing_verified_field" });
+      return;
+    }
+
+    const rows = await query(
+      `
+        UPDATE guests
+        SET id_document_verified = $1, updated_at = NOW()
+        WHERE id = $2
+        RETURNING
+          id,
+          id_document_verified AS "idDocumentVerified",
+          id_document_url AS "idDocumentUrl"
+      `,
+      [verified, guestId]
+    );
+
+    const row = rows[0] ?? null;
+    if (!row) {
+      sendJson(res, 404, { error: "guest_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, {
+      guestId: row.id,
+      idDocumentVerified: row.idDocumentVerified,
+      idDocumentUrl: row.idDocumentUrl
+    });
     return;
   }
 
@@ -5920,6 +5973,262 @@ async function handleRequest(req, res) {
     }
 
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  // =====================================================
+  // STAFF: HOUSEKEEPING
+  // =====================================================
+
+  // GET /api/v1/staff/housekeeping - list housekeeping tasks (rooms)
+  if (url.pathname === "/api/v1/staff/housekeeping" && req.method === "GET") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    // Ensure housekeeping_tasks table exists
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS housekeeping_tasks (
+          id TEXT PRIMARY KEY,
+          hotel_id TEXT NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
+          room_number TEXT NOT NULL,
+          floor INTEGER NOT NULL DEFAULT 1,
+          room_type TEXT NOT NULL DEFAULT 'Standard',
+          status TEXT NOT NULL DEFAULT 'dirty',
+          assigned_staff_user_id TEXT REFERENCES staff_users(id) ON DELETE SET NULL,
+          stay_id TEXT REFERENCES stays(id) ON DELETE SET NULL,
+          guest_name TEXT,
+          check_out TEXT,
+          priority TEXT NOT NULL DEFAULT 'normal',
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      await query(`CREATE UNIQUE INDEX IF NOT EXISTS housekeeping_tasks_hotel_room_unique ON housekeeping_tasks(hotel_id, room_number)`);
+    } catch { /* table already exists */ }
+
+    const rows = await query(
+      `
+        SELECT
+          ht.id,
+          ht.room_number AS "roomNumber",
+          ht.floor,
+          ht.room_type AS "roomType",
+          ht.status,
+          ht.assigned_staff_user_id AS "assignedStaffUserId",
+          su.display_name AS "assignedStaffName",
+          ht.stay_id AS "stayId",
+          ht.guest_name AS "guestName",
+          ht.check_out AS "checkOut",
+          ht.priority,
+          ht.notes,
+          ht.updated_at AS "updatedAt"
+        FROM housekeeping_tasks ht
+        LEFT JOIN staff_users su ON su.id = ht.assigned_staff_user_id
+        WHERE ht.hotel_id = $1
+        ORDER BY ht.floor ASC, ht.room_number ASC
+      `,
+      [principal.hotelId]
+    );
+
+    // Get staff members available for housekeeping (those with housekeeping department or all staff)
+    const staffRows = await query(
+      `
+        SELECT
+          id,
+          display_name AS "displayName",
+          email,
+          role,
+          departments
+        FROM staff_users
+        WHERE hotel_id = $1
+        ORDER BY display_name ASC
+      `,
+      [principal.hotelId]
+    );
+
+    sendJson(res, 200, { rooms: rows, staff: staffRows });
+    return;
+  }
+
+  // POST /api/v1/staff/housekeeping/sync - sync rooms from active stays into housekeeping tasks
+  if (url.pathname === "/api/v1/staff/housekeeping/sync" && req.method === "POST") {
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+    if (!requireStaffRole(res, principal, ["admin", "manager"])) return;
+
+    // Ensure table exists
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS housekeeping_tasks (
+          id TEXT PRIMARY KEY,
+          hotel_id TEXT NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
+          room_number TEXT NOT NULL,
+          floor INTEGER NOT NULL DEFAULT 1,
+          room_type TEXT NOT NULL DEFAULT 'Standard',
+          status TEXT NOT NULL DEFAULT 'dirty',
+          assigned_staff_user_id TEXT REFERENCES staff_users(id) ON DELETE SET NULL,
+          stay_id TEXT REFERENCES stays(id) ON DELETE SET NULL,
+          guest_name TEXT,
+          check_out TEXT,
+          priority TEXT NOT NULL DEFAULT 'normal',
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `);
+      await query(`CREATE UNIQUE INDEX IF NOT EXISTS housekeeping_tasks_hotel_room_unique ON housekeeping_tasks(hotel_id, room_number)`);
+    } catch { /* table already exists */ }
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    // Get all stays with room numbers for this hotel
+    const stayRows = await query(
+      `
+        SELECT
+          s.id AS "stayId",
+          s.room_number AS "roomNumber",
+          s.check_in AS "checkIn",
+          s.check_out AS "checkOut",
+          TRIM(COALESCE(s.guest_first_name, '') || ' ' || COALESCE(s.guest_last_name, '')) AS "guestName"
+        FROM stays s
+        WHERE s.hotel_id = $1
+          AND s.room_number IS NOT NULL
+          AND s.room_number <> ''
+        ORDER BY s.room_number ASC
+      `,
+      [principal.hotelId]
+    );
+
+    let synced = 0;
+    for (const stay of stayRows) {
+      const roomNumber = stay.roomNumber.trim();
+      if (!roomNumber) continue;
+
+      const floorGuess = parseInt(roomNumber.charAt(0), 10) || 1;
+      const isCheckoutToday = stay.checkOut === todayIso;
+      const isActive = stay.checkIn <= todayIso && stay.checkOut >= todayIso;
+      const guestName = stay.guestName?.trim() || null;
+
+      try {
+        await query(
+          `
+            INSERT INTO housekeeping_tasks (id, hotel_id, room_number, floor, room_type, status, stay_id, guest_name, check_out, priority, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, 'Standard', $5, $6, $7, $8, $9, NOW(), NOW())
+            ON CONFLICT (hotel_id, room_number) DO UPDATE SET
+              stay_id = EXCLUDED.stay_id,
+              guest_name = EXCLUDED.guest_name,
+              check_out = CASE WHEN EXCLUDED.check_out IS NOT NULL THEN EXCLUDED.check_out ELSE housekeeping_tasks.check_out END,
+              updated_at = NOW()
+          `,
+          [
+            `HK-${randomUUID().slice(0, 8).toUpperCase()}`,
+            principal.hotelId,
+            roomNumber,
+            floorGuess,
+            isCheckoutToday ? "checkout" : (isActive ? "clean" : "dirty"),
+            stay.stayId,
+            guestName,
+            isCheckoutToday ? stay.checkOut : null,
+            isCheckoutToday ? "high" : "normal"
+          ]
+        );
+        synced++;
+      } catch (err) {
+        console.error("housekeeping_sync_room_failed", roomNumber, err);
+      }
+    }
+
+    sendJson(res, 200, { synced });
+    return;
+  }
+
+  // PATCH /api/v1/staff/housekeeping/:taskId - update room status, assignment, notes
+  if (
+    segments[0] === "api" &&
+    segments[1] === "v1" &&
+    segments[2] === "staff" &&
+    segments[3] === "housekeeping" &&
+    segments[4] &&
+    req.method === "PATCH" &&
+    segments.length === 5
+  ) {
+    const taskId = decodeURIComponent(segments[4]);
+    const principal = requirePrincipal(req, res, url, ["staff"]);
+    if (!principal) return;
+
+    const body = await readJson(req);
+    if (!body) {
+      sendJson(res, 400, { error: "missing_body" });
+      return;
+    }
+
+    const updates = [];
+    const params = [];
+
+    if (typeof body.status === "string") {
+      const validStatuses = ["clean", "cleaning", "dirty", "inspection", "maintenance", "checkout"];
+      if (!validStatuses.includes(body.status)) {
+        sendJson(res, 400, { error: "invalid_status" });
+        return;
+      }
+      params.push(body.status);
+      updates.push(`status = $${params.length}`);
+    }
+
+    if (body.assignedStaffUserId !== undefined) {
+      params.push(body.assignedStaffUserId || null);
+      updates.push(`assigned_staff_user_id = $${params.length}`);
+    }
+
+    if (typeof body.notes === "string") {
+      params.push(body.notes || null);
+      updates.push(`notes = $${params.length}`);
+    }
+
+    if (typeof body.priority === "string") {
+      params.push(body.priority);
+      updates.push(`priority = $${params.length}`);
+    }
+
+    if (updates.length === 0) {
+      sendJson(res, 400, { error: "no_updates" });
+      return;
+    }
+
+    updates.push("updated_at = NOW()");
+    params.push(taskId);
+    params.push(principal.hotelId);
+
+    const rows = await query(
+      `
+        UPDATE housekeeping_tasks
+        SET ${updates.join(", ")}
+        WHERE id = $${params.length - 1} AND hotel_id = $${params.length}
+        RETURNING
+          id,
+          room_number AS "roomNumber",
+          floor,
+          room_type AS "roomType",
+          status,
+          assigned_staff_user_id AS "assignedStaffUserId",
+          guest_name AS "guestName",
+          check_out AS "checkOut",
+          priority,
+          notes,
+          updated_at AS "updatedAt"
+      `,
+      params
+    );
+
+    const row = rows[0] ?? null;
+    if (!row) {
+      sendJson(res, 404, { error: "task_not_found" });
+      return;
+    }
+
+    sendJson(res, 200, row);
     return;
   }
 

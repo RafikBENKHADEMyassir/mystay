@@ -169,6 +169,20 @@
       "when": 1770652800000,
       "tag": "0023_add_service_item_image",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1770739200000,
+      "tag": "0024_add_stay_price_cents",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1770825600000,
+      "tag": "0025_add_housekeeping_tasks",
+      "breakpoints": true
     }
   ]
 }

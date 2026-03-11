@@ -76,14 +76,22 @@ export default async function PayPage({ params, searchParams }: PayPageProps) {
   const token = params.token;
   const locale = resolveLocaleFromHeaders();
   const paymentLink = await getPaymentLink(token);
-  const payContent = await getPayPageContent(paymentLink?.hotel.id ?? defaultHotelId, locale);
-  if (!payContent) {
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto flex min-h-screen max-w-lg items-center justify-center p-6" />
-      </div>
-    );
-  }
+  const payContentFromApi = await getPayPageContent(paymentLink?.hotel.id ?? defaultHotelId, locale);
+  const payContent: PayPageContent = payContentFromApi ?? {
+    notAvailableTitle: "Payment link not available",
+    notAvailableDescription: "It may have expired or been removed.",
+    completePaymentTitle: "Complete payment",
+    paymentRequestFallback: "Payment request",
+    paymentCompleted: "Payment completed.",
+    errorPrefix: "Error",
+    statusPrefix: "Status",
+    statusPaid: "Paid",
+    statusExpired: "Expired",
+    statusCreated: "Created",
+    actionAlreadyPaid: "Already paid",
+    actionExpired: "Expired",
+    actionPayNow: "Pay now",
+  };
 
   async function pay() {
     "use server";

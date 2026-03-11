@@ -7,6 +7,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
+
+const upsellServicesFiltersCopy = {
+  en: {
+    search: "Search",
+    searchPlaceholder: "Search services or categories",
+    category: "Category",
+    allCategories: "All categories",
+    reset: "Reset",
+  },
+  fr: {
+    search: "Recherche",
+    searchPlaceholder: "Rechercher services ou categories",
+    category: "Categorie",
+    allCategories: "Toutes les categories",
+    reset: "Reinitialiser",
+  },
+  es: {
+    search: "Buscar",
+    searchPlaceholder: "Buscar servicios o categorias",
+    category: "Categoria",
+    allCategories: "Todas las categorias",
+    reset: "Restablecer",
+  },
+} as const;
 
 function setParam(next: URLSearchParams, key: string, value: string) {
   const trimmed = value.trim();
@@ -21,6 +46,8 @@ type UpsellServicesFiltersProps = {
 export function UpsellServicesFilters({ categories }: UpsellServicesFiltersProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "/upsell-services";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = upsellServicesFiltersCopy[locale];
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams?.get("search") ?? "");
@@ -65,19 +92,19 @@ export function UpsellServicesFilters({ categories }: UpsellServicesFiltersProps
   return (
     <div className="grid gap-3 md:grid-cols-[1fr,260px,auto] md:items-end">
       <div className="space-y-2">
-        <Label htmlFor="up-search">Search</Label>
-        <Input id="up-search" placeholder="Search services or categories" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <Label htmlFor="up-search">{t.search}</Label>
+        <Input id="up-search" placeholder={t.searchPlaceholder} value={search} onChange={(event) => setSearch(event.target.value)} />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="up-category">Category</Label>
+        <Label htmlFor="up-category">{t.category}</Label>
         <select
           id="up-category"
           className={nativeSelectClassName}
           value={searchParams?.get("category") ?? ""}
           onChange={(event) => updateCategory(event.target.value)}
         >
-          <option value="">All categories</option>
+          <option value="">{t.allCategories}</option>
           {stableCategories.map((category) => (
             <option key={category} value={category}>
               {category}
@@ -87,9 +114,8 @@ export function UpsellServicesFilters({ categories }: UpsellServicesFiltersProps
       </div>
 
       <Button type="button" variant="outline" onClick={reset}>
-        Reset
+        {t.reset}
       </Button>
     </div>
   );
 }
-

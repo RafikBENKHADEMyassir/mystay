@@ -7,6 +7,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
+
+const automationsFiltersCopy = {
+  en: {
+    search: "Search",
+    searchPlaceholder: "Search for automation name",
+    status: "Status",
+    allStatuses: "All statuses",
+    active: "Active",
+    paused: "Paused",
+    reset: "Reset",
+  },
+  fr: {
+    search: "Recherche",
+    searchPlaceholder: "Rechercher un nom d'automatisation",
+    status: "Statut",
+    allStatuses: "Tous les statuts",
+    active: "Actif",
+    paused: "En pause",
+    reset: "Reinitialiser",
+  },
+  es: {
+    search: "Buscar",
+    searchPlaceholder: "Buscar nombre de automatizacion",
+    status: "Estado",
+    allStatuses: "Todos los estados",
+    active: "Activo",
+    paused: "Pausado",
+    reset: "Restablecer",
+  },
+} as const;
 
 function setParam(next: URLSearchParams, key: string, value: string) {
   const trimmed = value.trim();
@@ -17,6 +48,8 @@ function setParam(next: URLSearchParams, key: string, value: string) {
 export function AutomationsFilters() {
   const router = useRouter();
   const pathname = usePathname() ?? "/automations";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = automationsFiltersCopy[locale];
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams?.get("search") ?? "");
@@ -56,33 +89,32 @@ export function AutomationsFilters() {
   return (
     <div className="grid gap-3 md:grid-cols-[1fr,220px,auto] md:items-end">
       <div className="space-y-2">
-        <Label htmlFor="auto-search">Search</Label>
+        <Label htmlFor="auto-search">{t.search}</Label>
         <Input
           id="auto-search"
-          placeholder="Search for automation name"
+          placeholder={t.searchPlaceholder}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="auto-status">Status</Label>
+        <Label htmlFor="auto-status">{t.status}</Label>
         <select
           id="auto-status"
           className={nativeSelectClassName}
           value={searchParams?.get("status") ?? ""}
           onChange={(event) => updateStatus(event.target.value)}
         >
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="paused">Paused</option>
+          <option value="">{t.allStatuses}</option>
+          <option value="active">{t.active}</option>
+          <option value="paused">{t.paused}</option>
         </select>
       </div>
 
       <Button type="button" variant="outline" onClick={reset}>
-        Reset
+        {t.reset}
       </Button>
     </div>
   );
 }
-

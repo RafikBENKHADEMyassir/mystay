@@ -5224,3 +5224,88 @@ DELETE FROM useful_info_categories WHERE id LIKE 'uic-%';
 
 -- Keep outbox history but drop failed retry artifacts captured from stale migration states.
 DELETE FROM notification_outbox WHERE status <> 'sent' OR last_error IS NOT NULL;
+
+-- =============================================================================
+-- HOUSEKEEPING TASKS (Room status board)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS housekeeping_tasks (
+  id TEXT PRIMARY KEY,
+  hotel_id TEXT NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
+  room_number TEXT NOT NULL,
+  floor INTEGER NOT NULL DEFAULT 1,
+  room_type TEXT NOT NULL DEFAULT 'Standard',
+  status TEXT NOT NULL DEFAULT 'dirty',
+  assigned_staff_user_id TEXT REFERENCES staff_users(id) ON DELETE SET NULL,
+  stay_id TEXT REFERENCES stays(id) ON DELETE SET NULL,
+  guest_name TEXT,
+  check_out TEXT,
+  priority TEXT NOT NULL DEFAULT 'normal',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS housekeeping_tasks_hotel_room_unique ON housekeeping_tasks(hotel_id, room_number);
+
+INSERT INTO housekeeping_tasks (
+  id, hotel_id, room_number, floor, room_type, status,
+  assigned_staff_user_id, stay_id, guest_name, check_out, priority, notes
+)
+VALUES
+  -- Floor 1: occupied & vacant rooms
+  ('HK-0001', 'H-FOURSEASONS', '101', 1, 'Standard', 'clean',
+   'SU-0004', NULL, NULL, NULL, 'normal', NULL),
+  ('HK-0002', 'H-FOURSEASONS', '102', 1, 'Standard', 'cleaning',
+   'SU-0004', NULL, 'P. Dupont', NULL, 'normal', NULL),
+  ('HK-0003', 'H-FOURSEASONS', '103', 1, 'Superior', 'dirty',
+   NULL, NULL, NULL, '14:00', 'high', 'Late check-out approved'),
+  ('HK-0004', 'H-FOURSEASONS', '104', 1, 'Standard', 'clean',
+   'SU-0004', NULL, 'A. Bernard', NULL, 'normal', NULL),
+  ('HK-0005', 'H-FOURSEASONS', '105', 1, 'Suite', 'checkout',
+   NULL, NULL, NULL, '11:00', 'vip', 'VIP guest — deep clean required'),
+
+  -- Floor 2: mix of statuses
+  ('HK-0006', 'H-FOURSEASONS', '201', 2, 'Superior', 'dirty',
+   NULL, NULL, NULL, '11:00', 'normal', NULL),
+  ('HK-0007', 'H-FOURSEASONS', '202', 2, 'Standard', 'cleaning',
+   'SU-0001', NULL, 'L. Moreau', NULL, 'normal', NULL),
+  ('HK-0008', 'H-FOURSEASONS', '203', 2, 'Suite', 'clean',
+   'SU-0001', NULL, 'R. Johnson', NULL, 'vip', NULL),
+  ('HK-0009', 'H-FOURSEASONS', '204', 2, 'Standard', 'maintenance',
+   NULL, NULL, NULL, NULL, 'normal', 'AC unit repair — ETA 16:00'),
+  ('HK-0010', 'H-FOURSEASONS', '205', 2, 'Superior', 'inspection',
+   'SU-0004', NULL, NULL, NULL, 'high', 'Arrival at 15:00'),
+
+  -- Floor 3: linked to real stays
+  ('HK-0011', 'H-FOURSEASONS', '227', 2, 'Deluxe', 'clean',
+   'SU-0004', 'S-DEMO', 'Demo Guest', NULL, 'normal', NULL),
+  ('HK-0012', 'H-FOURSEASONS', '301', 3, 'Suite', 'clean',
+   'SU-0001', NULL, 'K. Williams', NULL, 'normal', NULL),
+  ('HK-0013', 'H-FOURSEASONS', '302', 3, 'Standard', 'dirty',
+   NULL, NULL, NULL, '12:00', 'normal', NULL),
+  ('HK-0014', 'H-FOURSEASONS', '305', 3, 'Superior', 'clean',
+   NULL, 'S-0004', 'Emma Dubois', NULL, 'normal', NULL),
+
+  -- Floor 5: linked to Yuki Tanaka stay
+  ('HK-0015', 'H-FOURSEASONS', '502', 5, 'Suite', 'cleaning',
+   'SU-0004', 'S-0003', 'Yuki Tanaka', NULL, 'normal', NULL),
+
+  -- Floor 7: linked to Sophie Martin stay (VIP suite)
+  ('HK-0016', 'H-FOURSEASONS', '701', 7, 'Presidential Suite', 'clean',
+   'SU-0001', 'S-0001', 'Sophie Martin', NULL, 'vip', NULL),
+
+  -- Penthouse: linked to Mohammed Al-Rashid stay
+  ('HK-0017', 'H-FOURSEASONS', 'PH1', 8, 'Penthouse', 'clean',
+   'SU-0001', 'S-0006', 'Mohammed Al-Rashid', NULL, 'vip', NULL)
+
+ON CONFLICT (id) DO UPDATE SET
+  hotel_id = EXCLUDED.hotel_id,
+  room_number = EXCLUDED.room_number,
+  floor = EXCLUDED.floor,
+  room_type = EXCLUDED.room_type,
+  status = EXCLUDED.status,
+  assigned_staff_user_id = EXCLUDED.assigned_staff_user_id,
+  stay_id = EXCLUDED.stay_id,
+  guest_name = EXCLUDED.guest_name,
+  check_out = EXCLUDED.check_out,
+  priority = EXCLUDED.priority,
+  notes = EXCLUDED.notes;

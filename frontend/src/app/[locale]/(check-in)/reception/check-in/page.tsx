@@ -255,6 +255,17 @@ export default function CheckInPage() {
 
   const topbarHotelName = session?.hotelName ?? strings?.hotelNameFallback ?? "";
 
+  const stepsOrder: CheckInStep[] = ["personal", "identity", "finalize", "payment", "signature", "success"];
+
+  function handleBack() {
+    const currentIndex = stepsOrder.indexOf(step);
+    if (currentIndex > 0) {
+      setStep(stepsOrder[currentIndex - 1]);
+    } else {
+      router.push(withLocale(locale, "/"));
+    }
+  }
+
   const genderError = submitted && !form.gender && strings ? validationMessage(strings, "select_gender") : null;
 
   const identityFilesError = useMemo(() => {
@@ -276,9 +287,13 @@ export default function CheckInPage() {
     () => {
       if (!strings) return [];
       const sessionPrice = session?.priceCents;
+      if (typeof sessionPrice === "number") {
+        const roomLabel = strings.baseLineItems.find((item) => item.id === "room")?.label ?? strings.details;
+        return [{ label: roomLabel, amountCents: sessionPrice }];
+      }
       return strings.baseLineItems.map((item) => ({
         label: item.label,
-        amountCents: item.id === "room" && typeof sessionPrice === "number" ? sessionPrice : item.amountCents
+        amountCents: item.amountCents
       }));
     },
     [strings, session?.priceCents]
@@ -427,7 +442,7 @@ export default function CheckInPage() {
 
   return (
     <div className="min-h-screen overflow-y-auto">
-      <Topbar title={strings.topbarTitle} subtitle={topbarHotelName} backHref={withLocale(locale, "/")} />
+      <Topbar title={strings.topbarTitle} subtitle={topbarHotelName} onBack={step !== "success" ? handleBack : undefined} />
 
       <main className="mx-auto max-w-md space-y-4 px-4 pb-32 pt-4">
         {sessionError ? <p className="text-xs text-muted-foreground">{strings.sessionError}</p> : null}

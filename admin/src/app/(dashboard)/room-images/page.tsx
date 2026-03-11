@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { ImagePlus, Trash2, GripVertical, Save, X, Copy, Plus, ChevronDown, ChevronUp, Bed, Edit2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { defaultAdminLocale, getAdminLocaleFromPathname, type AdminLocale } from "@/lib/admin-locale";
 import { cn } from "@/lib/utils";
 
 type RoomImage = {
@@ -34,7 +36,211 @@ type Room = {
   isExpanded: boolean;
 };
 
+const roomImagesCopy: Record<
+  AdminLocale,
+  {
+    appName: string;
+    title: string;
+    subtitle: string;
+    loading: string;
+    addRoom: string;
+    addNewRoomTitle: string;
+    addNewRoomDescription: string;
+    roomNumberLabel: string;
+    roomTypeLabel: string;
+    roomNumberPlaceholder: string;
+    roomTypePlaceholder: string;
+    cancel: string;
+    add: string;
+    duplicateRoomTitle: string;
+    imagesForRoom: string;
+    addImage: string;
+    uploadImage: string;
+    uploading: string;
+    pasteImageUrl: string;
+    imageUrlPlaceholder: string;
+    imageTitleOptional: string;
+    imageTitlePlaceholder: string;
+    imageTitleShortPlaceholder: string;
+    previewAlt: string;
+    on: string;
+    off: string;
+    untitled: string;
+    noImagesInRoom: string;
+    noRooms: string;
+    noRoomsDescription: string;
+    roomNumberRequired: string;
+    imageUrlRequired: string;
+    defaultRoomType: string;
+    duplicatePrompt: string;
+    deleteRoomConfirm: string;
+    roomUpdated: string;
+    imageAdded: string;
+    imageRemoved: string;
+    imageUpdated: string;
+    imageUploadSuccess: string;
+    imageUploadFailed: string;
+    loadFailed: string;
+    roomAdded: (roomNumber: string) => string;
+    roomDuplicated: (from: string, to: string) => string;
+    roomDeleted: (roomNumber: string) => string;
+    roomHeader: (roomNumber: string) => string;
+    roomCount: (count: number) => string;
+  }
+> = {
+  en: {
+    appName: "MyStay Admin",
+    title: "Room Images",
+    subtitle: "Manage room photos by room. Each room can have its own set of images for the guest app carousel.",
+    loading: "Loading room images...",
+    addRoom: "Add Room",
+    addNewRoomTitle: "Add New Room",
+    addNewRoomDescription: "Create a new room to add images for.",
+    roomNumberLabel: "Room Number *",
+    roomTypeLabel: "Room Type",
+    roomNumberPlaceholder: "e.g., 701, PH1, Suite A",
+    roomTypePlaceholder: "e.g., Sea View Suite, Garden Room",
+    cancel: "Cancel",
+    add: "Add",
+    duplicateRoomTitle: "Duplicate room",
+    imagesForRoom: "Images for Room",
+    addImage: "Add Image",
+    uploadImage: "Upload Image",
+    uploading: "Uploading...",
+    pasteImageUrl: "Or paste Image URL",
+    imageUrlPlaceholder: "https://example.com/image.jpg or /uploads/image.jpg",
+    imageTitleOptional: "Title (optional)",
+    imageTitlePlaceholder: "Bedroom, Bathroom, etc.",
+    imageTitleShortPlaceholder: "Title",
+    previewAlt: "Preview",
+    on: "On",
+    off: "Off",
+    untitled: "Untitled",
+    noImagesInRoom: "No images yet. Add images for this room.",
+    noRooms: "No rooms yet.",
+    noRoomsDescription: "Click \"Add Room\" to get started.",
+    roomNumberRequired: "Please enter a room number",
+    imageUrlRequired: "Please enter an image URL",
+    defaultRoomType: "Standard Room",
+    duplicatePrompt: "Enter the new room number for the duplicate:",
+    deleteRoomConfirm: "Delete room {room} and all its images?",
+    roomUpdated: "Room updated",
+    imageAdded: "Image added",
+    imageRemoved: "Image removed",
+    imageUpdated: "Image updated",
+    imageUploadSuccess: "Image uploaded successfully",
+    imageUploadFailed: "Failed to upload image",
+    loadFailed: "Failed to load room images",
+    roomAdded: (roomNumber) => `Room ${roomNumber} added`,
+    roomDuplicated: (from, to) => `Room ${from} duplicated to ${to}`,
+    roomDeleted: (roomNumber) => `Room ${roomNumber} deleted`,
+    roomHeader: (roomNumber) => `Room ${roomNumber}`,
+    roomCount: (count) => `${count} images`,
+  },
+  fr: {
+    appName: "MyStay Admin",
+    title: "Images des chambres",
+    subtitle: "Gerez les photos par chambre. Chaque chambre peut avoir son propre carousel dans l'app client.",
+    loading: "Chargement des images de chambres...",
+    addRoom: "Ajouter chambre",
+    addNewRoomTitle: "Ajouter une chambre",
+    addNewRoomDescription: "Creez une nouvelle chambre pour y ajouter des images.",
+    roomNumberLabel: "Numero de chambre *",
+    roomTypeLabel: "Type de chambre",
+    roomNumberPlaceholder: "ex: 701, PH1, Suite A",
+    roomTypePlaceholder: "ex: Suite vue mer, Chambre jardin",
+    cancel: "Annuler",
+    add: "Ajouter",
+    duplicateRoomTitle: "Dupliquer la chambre",
+    imagesForRoom: "Images pour la chambre",
+    addImage: "Ajouter image",
+    uploadImage: "Televerser une image",
+    uploading: "Televersement...",
+    pasteImageUrl: "Ou coller l'URL d'image",
+    imageUrlPlaceholder: "https://example.com/image.jpg ou /uploads/image.jpg",
+    imageTitleOptional: "Titre (optionnel)",
+    imageTitlePlaceholder: "Chambre, Salle de bain, etc.",
+    imageTitleShortPlaceholder: "Titre",
+    previewAlt: "Apercu",
+    on: "On",
+    off: "Off",
+    untitled: "Sans titre",
+    noImagesInRoom: "Aucune image pour le moment. Ajoutez des images pour cette chambre.",
+    noRooms: "Aucune chambre pour le moment.",
+    noRoomsDescription: "Cliquez sur \"Ajouter chambre\" pour commencer.",
+    roomNumberRequired: "Veuillez saisir un numero de chambre",
+    imageUrlRequired: "Veuillez saisir une URL d'image",
+    defaultRoomType: "Chambre standard",
+    duplicatePrompt: "Saisissez le nouveau numero de chambre pour la duplication:",
+    deleteRoomConfirm: "Supprimer la chambre {room} et toutes ses images ?",
+    roomUpdated: "Chambre mise a jour",
+    imageAdded: "Image ajoutee",
+    imageRemoved: "Image supprimee",
+    imageUpdated: "Image mise a jour",
+    imageUploadSuccess: "Image televersee avec succes",
+    imageUploadFailed: "Echec du televersement de l'image",
+    loadFailed: "Echec du chargement des images de chambres",
+    roomAdded: (roomNumber) => `Chambre ${roomNumber} ajoutee`,
+    roomDuplicated: (from, to) => `Chambre ${from} dupliquee vers ${to}`,
+    roomDeleted: (roomNumber) => `Chambre ${roomNumber} supprimee`,
+    roomHeader: (roomNumber) => `Chambre ${roomNumber}`,
+    roomCount: (count) => `${count} images`,
+  },
+  es: {
+    appName: "MyStay Admin",
+    title: "Imagenes de habitaciones",
+    subtitle: "Gestiona las fotos por habitacion. Cada habitacion puede tener su propio carrusel en la app del huesped.",
+    loading: "Cargando imagenes de habitaciones...",
+    addRoom: "Agregar habitacion",
+    addNewRoomTitle: "Agregar nueva habitacion",
+    addNewRoomDescription: "Crea una nueva habitacion para agregar imagenes.",
+    roomNumberLabel: "Numero de habitacion *",
+    roomTypeLabel: "Tipo de habitacion",
+    roomNumberPlaceholder: "ej: 701, PH1, Suite A",
+    roomTypePlaceholder: "ej: Suite vista mar, Habitacion jardin",
+    cancel: "Cancelar",
+    add: "Agregar",
+    duplicateRoomTitle: "Duplicar habitacion",
+    imagesForRoom: "Imagenes de la habitacion",
+    addImage: "Agregar imagen",
+    uploadImage: "Subir imagen",
+    uploading: "Subiendo...",
+    pasteImageUrl: "O pega la URL de imagen",
+    imageUrlPlaceholder: "https://example.com/image.jpg o /uploads/image.jpg",
+    imageTitleOptional: "Titulo (opcional)",
+    imageTitlePlaceholder: "Dormitorio, Bano, etc.",
+    imageTitleShortPlaceholder: "Titulo",
+    previewAlt: "Vista previa",
+    on: "On",
+    off: "Off",
+    untitled: "Sin titulo",
+    noImagesInRoom: "Aun no hay imagenes. Agrega imagenes para esta habitacion.",
+    noRooms: "Aun no hay habitaciones.",
+    noRoomsDescription: "Haz clic en \"Agregar habitacion\" para empezar.",
+    roomNumberRequired: "Ingresa un numero de habitacion",
+    imageUrlRequired: "Ingresa una URL de imagen",
+    defaultRoomType: "Habitacion estandar",
+    duplicatePrompt: "Ingresa el nuevo numero de habitacion para duplicar:",
+    deleteRoomConfirm: "Eliminar la habitacion {room} y todas sus imagenes?",
+    roomUpdated: "Habitacion actualizada",
+    imageAdded: "Imagen agregada",
+    imageRemoved: "Imagen eliminada",
+    imageUpdated: "Imagen actualizada",
+    imageUploadSuccess: "Imagen subida correctamente",
+    imageUploadFailed: "Error al subir la imagen",
+    loadFailed: "No se pudieron cargar las imagenes de habitaciones",
+    roomAdded: (roomNumber) => `Habitacion ${roomNumber} agregada`,
+    roomDuplicated: (from, to) => `Habitacion ${from} duplicada a ${to}`,
+    roomDeleted: (roomNumber) => `Habitacion ${roomNumber} eliminada`,
+    roomHeader: (roomNumber) => `Habitacion ${roomNumber}`,
+    roomCount: (count) => `${count} imagenes`,
+  },
+};
+
 export default function RoomImagesPage() {
+  const pathname = usePathname() ?? "/room-images";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = roomImagesCopy[locale];
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [newRoomNumber, setNewRoomNumber] = useState("");
@@ -77,7 +283,7 @@ export default function RoomImagesPage() {
         // Convert to Room array
         const roomsData: Room[] = Array.from(roomMap.entries()).map(([roomNumber, images]) => ({
           roomNumber,
-          roomType: images[0]?.roomType || "Standard Room",
+          roomType: images[0]?.roomType || t.defaultRoomType,
           images: images.sort((a, b) => a.sortOrder - b.sortOrder),
           isExpanded: false
         }));
@@ -85,14 +291,15 @@ export default function RoomImagesPage() {
         setRooms(roomsData);
       } catch (error) {
         console.error('Failed to fetch room images:', error);
-        showMessage('error', 'Failed to load room images');
+        setMessage({ type: "error", text: t.loadFailed });
+        setTimeout(() => setMessage(null), 3000);
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchRoomImages();
-  }, []);
+  }, [t.defaultRoomType, t.loadFailed]);
 
   const saveToStorage = useCallback((data: Room[]) => {
     // Keep for compatibility, but data is now from API
@@ -107,13 +314,13 @@ export default function RoomImagesPage() {
 
   const handleAddRoom = () => {
     if (!newRoomNumber.trim()) {
-      showMessage("error", "Please enter a room number");
+      showMessage("error", t.roomNumberRequired);
       return;
     }
 
     const newRoom: Room = {
       roomNumber: newRoomNumber.trim(),
-      roomType: newRoomType.trim() || "Standard Room",
+      roomType: newRoomType.trim() || t.defaultRoomType,
       isExpanded: true,
       images: []
     };
@@ -124,11 +331,11 @@ export default function RoomImagesPage() {
     setNewRoomNumber("");
     setNewRoomType("");
     setIsAddingRoom(false);
-    showMessage("success", `Room ${newRoom.roomNumber} added`);
+    showMessage("success", t.roomAdded(newRoom.roomNumber));
   };
 
   const handleDuplicateRoom = (room: Room) => {
-    const newRoomNum = prompt("Enter the new room number for the duplicate:", `${room.roomNumber}-copy`);
+    const newRoomNum = prompt(t.duplicatePrompt, `${room.roomNumber}-copy`);
     if (!newRoomNum) return;
 
     const duplicatedRoom: Room = {
@@ -147,15 +354,15 @@ export default function RoomImagesPage() {
     const updated = [...rooms, duplicatedRoom];
     setRooms(updated);
     saveToStorage(updated);
-    showMessage("success", `Room ${room.roomNumber} duplicated to ${newRoomNum}`);
+    showMessage("success", t.roomDuplicated(room.roomNumber, newRoomNum));
   };
 
   const handleDeleteRoom = (roomNumber: string) => {
-    if (!confirm(`Delete room ${roomNumber} and all its images?`)) return;
+    if (!confirm(t.deleteRoomConfirm.replace("{room}", roomNumber))) return;
     const updated = rooms.filter((r) => r.roomNumber !== roomNumber);
     setRooms(updated);
     saveToStorage(updated);
-    showMessage("success", `Room ${roomNumber} deleted`);
+    showMessage("success", t.roomDeleted(roomNumber));
   };
 
   const handleStartEditRoom = (room: Room) => {
@@ -184,7 +391,7 @@ export default function RoomImagesPage() {
     setRooms(updated);
     saveToStorage(updated);
     setEditingRoom(null);
-    showMessage("success", "Room updated");
+    showMessage("success", t.roomUpdated);
   };
 
   const handleToggleExpand = (roomNumber: string) => {
@@ -209,9 +416,9 @@ export default function RoomImagesPage() {
 
       const data = await response.json() as { url: string };
       setNewImageUrl(data.url);
-      showMessage("success", "Image uploaded successfully");
+      showMessage("success", t.imageUploadSuccess);
     } catch (error) {
-      showMessage("error", "Failed to upload image");
+      showMessage("error", t.imageUploadFailed);
       console.error("Upload error:", error);
     } finally {
       setIsUploading(false);
@@ -220,7 +427,7 @@ export default function RoomImagesPage() {
 
   const handleAddImage = (roomNumber: string) => {
     if (!newImageUrl.trim()) {
-      showMessage("error", "Please enter an image URL");
+      showMessage("error", t.imageUrlRequired);
       return;
     }
 
@@ -250,7 +457,7 @@ export default function RoomImagesPage() {
     setNewImageUrl("");
     setNewImageTitle("");
     setIsAddingImage(null);
-    showMessage("success", "Image added");
+    showMessage("success", t.imageAdded);
   };
 
   const handleDeleteImage = (roomNumber: string, imageId: string) => {
@@ -266,7 +473,7 @@ export default function RoomImagesPage() {
     });
     setRooms(updated);
     saveToStorage(updated);
-    showMessage("success", "Image removed");
+    showMessage("success", t.imageRemoved);
   };
 
   const handleToggleImageActive = (roomNumber: string, imageId: string) => {
@@ -325,7 +532,7 @@ export default function RoomImagesPage() {
     setRooms(updated);
     saveToStorage(updated);
     setEditingImageId(null);
-    showMessage("success", "Image updated");
+    showMessage("success", t.imageUpdated);
   };
 
   // Get all active images for preview
@@ -336,12 +543,12 @@ export default function RoomImagesPage() {
       <div className="space-y-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">MyStay Admin</p>
-            <h1 className="text-2xl font-semibold">Room Images</h1>
+            <p className="text-sm text-muted-foreground">{t.appName}</p>
+            <h1 className="text-2xl font-semibold">{t.title}</h1>
           </div>
         </header>
         <div className="flex h-64 items-center justify-center">
-          <div className="text-muted-foreground">Loading room images...</div>
+          <div className="text-muted-foreground">{t.loading}</div>
         </div>
       </div>
     );
@@ -351,15 +558,15 @@ export default function RoomImagesPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
-          <h1 className="text-2xl font-semibold">Room Images</h1>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
+          <h1 className="text-2xl font-semibold">{t.title}</h1>
           <p className="text-sm text-muted-foreground">
-            Manage room photos by room. Each room can have its own set of images for the guest app carousel.
+            {t.subtitle}
           </p>
         </div>
         <Button onClick={() => setIsAddingRoom(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Add Room
+          {t.addRoom}
         </Button>
       </header>
 
@@ -424,34 +631,34 @@ export default function RoomImagesPage() {
           <div className="absolute inset-0 bg-background/60 backdrop-blur" onClick={() => setIsAddingRoom(false)} />
           <Card className="relative z-10 w-full max-w-md">
             <CardHeader>
-              <CardTitle>Add New Room</CardTitle>
-              <CardDescription>Create a new room to add images for.</CardDescription>
+              <CardTitle>{t.addNewRoomTitle}</CardTitle>
+              <CardDescription>{t.addNewRoomDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="room-number">Room Number *</Label>
+                <Label htmlFor="room-number">{t.roomNumberLabel}</Label>
                 <Input
                   id="room-number"
-                  placeholder="e.g., 701, PH1, Suite A"
+                  placeholder={t.roomNumberPlaceholder}
                   value={newRoomNumber}
                   onChange={(e) => setNewRoomNumber(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="room-type">Room Type</Label>
+                <Label htmlFor="room-type">{t.roomTypeLabel}</Label>
                 <Input
                   id="room-type"
-                  placeholder="e.g., Sea View Suite, Garden Room"
+                  placeholder={t.roomTypePlaceholder}
                   value={newRoomType}
                   onChange={(e) => setNewRoomType(e.target.value)}
                 />
               </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setIsAddingRoom(false)}>
-                  Cancel
+                  {t.cancel}
                 </Button>
                 <Button className="flex-1" onClick={handleAddRoom}>
-                  Add Room
+                  {t.addRoom}
                 </Button>
               </div>
             </CardContent>
@@ -476,13 +683,13 @@ export default function RoomImagesPage() {
                         value={editRoomNumber}
                         onChange={(e) => setEditRoomNumber(e.target.value)}
                         className="h-8 w-24"
-                        placeholder="Room #"
+                        placeholder={t.roomNumberLabel.replace(" *", "")}
                       />
                       <Input
                         value={editRoomType}
                         onChange={(e) => setEditRoomType(e.target.value)}
                         className="h-8 w-40"
-                        placeholder="Room Type"
+                        placeholder={t.roomTypeLabel}
                       />
                       <Button size="sm" variant="ghost" onClick={() => setEditingRoom(null)}>
                         <X className="h-4 w-4" />
@@ -493,13 +700,13 @@ export default function RoomImagesPage() {
                     </div>
                   ) : (
                     <div>
-                      <CardTitle className="text-base">Room {room.roomNumber}</CardTitle>
+                      <CardTitle className="text-base">{t.roomHeader(room.roomNumber)}</CardTitle>
                       <CardDescription>{room.roomType}</CardDescription>
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{room.images.length} images</Badge>
+                  <Badge variant="outline">{t.roomCount(room.images.length)}</Badge>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -517,7 +724,7 @@ export default function RoomImagesPage() {
                       e.stopPropagation();
                       handleDuplicateRoom(room);
                     }}
-                    title="Duplicate room"
+                    title={t.duplicateRoomTitle}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -545,14 +752,14 @@ export default function RoomImagesPage() {
               <CardContent className="pt-0">
                 <div className="border-t pt-4">
                   <div className="mb-4 flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Images for Room {room.roomNumber}</p>
+                    <p className="text-sm text-muted-foreground">{t.imagesForRoom} {room.roomNumber}</p>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => setIsAddingImage(room.roomNumber)}
                     >
                       <ImagePlus className="mr-1 h-4 w-4" />
-                      Add Image
+                      {t.addImage}
                     </Button>
                   </div>
 
@@ -561,7 +768,7 @@ export default function RoomImagesPage() {
                     <div className="mb-4 rounded-lg border bg-muted/10 p-4">
                       <div className="space-y-3">
                         <div className="space-y-1">
-                          <Label>Upload Image</Label>
+                          <Label>{t.uploadImage}</Label>
                           <div className="flex gap-2">
                             <Input
                               type="file"
@@ -578,24 +785,24 @@ export default function RoomImagesPage() {
                             {isUploading && (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                Uploading...
+                                {t.uploading}
                               </div>
                             )}
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <Label>Or paste Image URL</Label>
+                          <Label>{t.pasteImageUrl}</Label>
                           <Input
-                            placeholder="https://example.com/image.jpg or /uploads/image.jpg"
+                            placeholder={t.imageUrlPlaceholder}
                             value={newImageUrl}
                             onChange={(e) => setNewImageUrl(e.target.value)}
                             disabled={isUploading}
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label>Title (optional)</Label>
+                          <Label>{t.imageTitleOptional}</Label>
                           <Input
-                            placeholder="Bedroom, Bathroom, etc."
+                            placeholder={t.imageTitlePlaceholder}
                             value={newImageTitle}
                             onChange={(e) => setNewImageTitle(e.target.value)}
                             disabled={isUploading}
@@ -605,7 +812,7 @@ export default function RoomImagesPage() {
                           <div className="relative h-32 w-full overflow-hidden rounded-lg bg-muted">
                             <Image
                               src={newImageUrl}
-                              alt="Preview"
+                              alt={t.previewAlt}
                               fill
                               className="object-cover"
                               unoptimized
@@ -625,10 +832,10 @@ export default function RoomImagesPage() {
                               setNewImageTitle("");
                             }}
                           >
-                            Cancel
+                            {t.cancel}
                           </Button>
                           <Button size="sm" onClick={() => handleAddImage(room.roomNumber)}>
-                            Add
+                            {t.add}
                           </Button>
                         </div>
                       </div>
@@ -649,7 +856,7 @@ export default function RoomImagesPage() {
                           <div className="relative h-32">
                             <Image
                               src={img.imageUrl}
-                              alt={img.title ?? "Room"}
+                              alt={img.title ?? t.title}
                               fill
                               className="object-cover"
                               unoptimized
@@ -663,7 +870,7 @@ export default function RoomImagesPage() {
                                     value={editImageTitle}
                                     onChange={(e) => setEditImageTitle(e.target.value)}
                                     className="h-7 text-xs"
-                                    placeholder="Title"
+                                    placeholder={t.imageTitleShortPlaceholder}
                                   />
                                   <Button
                                     size="icon"
@@ -687,7 +894,7 @@ export default function RoomImagesPage() {
                                   onClick={() => handleStartEditImage(img)}
                                   className="truncate text-xs font-medium hover:underline"
                                 >
-                                  {img.title || "Untitled"}
+                                  {img.title || t.untitled}
                                 </button>
                               )}
                             </div>
@@ -716,7 +923,7 @@ export default function RoomImagesPage() {
                                 )}
                                 onClick={() => handleToggleImageActive(room.roomNumber, img.id)}
                               >
-                                {img.isActive ? "On" : "Off"}
+                                {img.isActive ? t.on : t.off}
                               </Badge>
                               <button
                                 onClick={() => handleDeleteImage(room.roomNumber, img.id)}
@@ -731,7 +938,7 @@ export default function RoomImagesPage() {
                     </div>
                   ) : (
                     <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-                      No images yet. Add images for this room.
+                      {t.noImagesInRoom}
                     </div>
                   )}
                 </div>
@@ -744,7 +951,7 @@ export default function RoomImagesPage() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Bed className="mb-4 h-12 w-12 text-muted-foreground/50" />
-              <p className="text-muted-foreground">No rooms yet. Click &quot;Add Room&quot; to get started.</p>
+              <p className="text-muted-foreground">{t.noRooms} {t.noRoomsDescription}</p>
             </CardContent>
           </Card>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
@@ -46,21 +46,34 @@ export function ReservationsFilters() {
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams?.get("search") ?? "");
+  const searchParamsRef = useRef(searchParams);
+  const isTypingRef = useRef(false);
+
+  searchParamsRef.current = searchParams;
 
   useEffect(() => {
+    if (isTypingRef.current) return;
     setSearch(searchParams?.get("search") ?? "");
   }, [searchParams]);
 
+  const handleSearchChange = useCallback((value: string) => {
+    isTypingRef.current = true;
+    setSearch(value);
+  }, []);
+
   useEffect(() => {
+    if (!isTypingRef.current) return;
+
     const handle = setTimeout(() => {
-      const next = new URLSearchParams(searchParams?.toString() ?? "");
+      const next = new URLSearchParams(searchParamsRef.current?.toString() ?? "");
       setParam(next, "search", search);
       next.delete("page");
       router.replace(next.toString() ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
-    }, 250);
+      isTypingRef.current = false;
+    }, 400);
 
     return () => clearTimeout(handle);
-  }, [pathname, router, search, searchParams]);
+  }, [pathname, router, search]);
 
   function updateDate(key: "from" | "to", value: string) {
     const next = new URLSearchParams(searchParams?.toString() ?? "");
@@ -106,7 +119,7 @@ export function ReservationsFilters() {
           id="res-search"
           placeholder={t.searchPlaceholder}
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => handleSearchChange(event.target.value)}
         />
       </div>
 

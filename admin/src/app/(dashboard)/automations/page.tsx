@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { AutomationsFilters } from "@/components/automations/automations-filters";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 import { getStaffPrincipal } from "@/lib/staff-token";
 
@@ -48,6 +50,164 @@ type AutomationsPageProps = {
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
+const triggerValues = ["check_in_invitation", "reservation_confirmed", "unlocked_room"] as const;
+
+const automationsCopy = {
+  en: {
+    appName: "MyStay Admin",
+    title: "Automations",
+    subtitle: "Manage check-in invitations, confirmations, and engagement flows.",
+    createAutomation: "Create automation",
+    filtersTitle: "Filters",
+    filtersDescription: "Search and status filters.",
+    automationsTitle: "Automations",
+    automationsDescription: "Sorted by last updated.",
+    previous: "Previous",
+    next: "Next",
+    automation: "automation",
+    automations: "automations",
+    updated: "Updated",
+    pause: "Pause",
+    activate: "Activate",
+    noAutomations: "No automations found.",
+    close: "Close",
+    createLabel: "Create automation",
+    editLabel: "Edit automation",
+    newAutomation: "New automation",
+    automationFallback: "Automation",
+    saved: "Saved",
+    createCardTitle: "Create automation",
+    createCardDescription: "Name, trigger, and initial status.",
+    name: "Name",
+    namePlaceholder: "Check-in invitation",
+    trigger: "Trigger",
+    status: "Status",
+    active: "Active",
+    paused: "Paused",
+    description: "Description",
+    descriptionPlaceholder: "Optional description",
+    configJson: "Config (JSON)",
+    createAutomationAction: "Create automation",
+    readOnly: "Read-only",
+    readOnlyDescription: "Ask a manager to create or edit automations.",
+    detailsTitle: "Details",
+    detailsDescription: "Update the automation fields and config.",
+    saveChanges: "Save changes",
+    pauseAutomation: "Pause automation",
+    activateAutomation: "Activate automation",
+    unavailableTitle: "Automation not available",
+    unavailableDescription: "Refresh the list to see latest automations.",
+    backendUnreachable: "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.",
+    triggers: {
+      check_in_invitation: "Check-in invitation",
+      reservation_confirmed: "Reservation confirmed",
+      unlocked_room: "Unlocked room",
+    },
+  },
+  fr: {
+    appName: "MyStay Admin",
+    title: "Automatisations",
+    subtitle: "Gerer les invitations de check-in, confirmations et parcours d'engagement.",
+    createAutomation: "Creer automatisation",
+    filtersTitle: "Filtres",
+    filtersDescription: "Recherche et filtres de statut.",
+    automationsTitle: "Automatisations",
+    automationsDescription: "Triees par derniere mise a jour.",
+    previous: "Precedent",
+    next: "Suivant",
+    automation: "automatisation",
+    automations: "automatisations",
+    updated: "Mis a jour",
+    pause: "Mettre en pause",
+    activate: "Activer",
+    noAutomations: "Aucune automatisation trouvee.",
+    close: "Fermer",
+    createLabel: "Creer automatisation",
+    editLabel: "Modifier automatisation",
+    newAutomation: "Nouvelle automatisation",
+    automationFallback: "Automatisation",
+    saved: "Enregistre",
+    createCardTitle: "Creer automatisation",
+    createCardDescription: "Nom, declencheur et statut initial.",
+    name: "Nom",
+    namePlaceholder: "Invitation check-in",
+    trigger: "Declencheur",
+    status: "Statut",
+    active: "Actif",
+    paused: "En pause",
+    description: "Description",
+    descriptionPlaceholder: "Description optionnelle",
+    configJson: "Config (JSON)",
+    createAutomationAction: "Creer automatisation",
+    readOnly: "Lecture seule",
+    readOnlyDescription: "Demandez a un manager de creer ou modifier les automatisations.",
+    detailsTitle: "Details",
+    detailsDescription: "Mettre a jour les champs et la config de l'automatisation.",
+    saveChanges: "Enregistrer modifications",
+    pauseAutomation: "Mettre en pause l'automatisation",
+    activateAutomation: "Activer l'automatisation",
+    unavailableTitle: "Automatisation indisponible",
+    unavailableDescription: "Actualisez la liste pour voir les dernieres automatisations.",
+    backendUnreachable: "Backend inaccessible. Lancez `npm run dev:backend` (et `npm run db:reset` une fois) puis actualisez.",
+    triggers: {
+      check_in_invitation: "Invitation check-in",
+      reservation_confirmed: "Reservation confirmee",
+      unlocked_room: "Chambre deverrouillee",
+    },
+  },
+  es: {
+    appName: "MyStay Admin",
+    title: "Automatizaciones",
+    subtitle: "Gestiona invitaciones de check-in, confirmaciones y flujos de interaccion.",
+    createAutomation: "Crear automatizacion",
+    filtersTitle: "Filtros",
+    filtersDescription: "Busqueda y filtros de estado.",
+    automationsTitle: "Automatizaciones",
+    automationsDescription: "Ordenadas por ultima actualizacion.",
+    previous: "Anterior",
+    next: "Siguiente",
+    automation: "automatizacion",
+    automations: "automatizaciones",
+    updated: "Actualizado",
+    pause: "Pausar",
+    activate: "Activar",
+    noAutomations: "No se encontraron automatizaciones.",
+    close: "Cerrar",
+    createLabel: "Crear automatizacion",
+    editLabel: "Editar automatizacion",
+    newAutomation: "Nueva automatizacion",
+    automationFallback: "Automatizacion",
+    saved: "Guardado",
+    createCardTitle: "Crear automatizacion",
+    createCardDescription: "Nombre, disparador y estado inicial.",
+    name: "Nombre",
+    namePlaceholder: "Invitacion de check-in",
+    trigger: "Disparador",
+    status: "Estado",
+    active: "Activo",
+    paused: "Pausado",
+    description: "Descripcion",
+    descriptionPlaceholder: "Descripcion opcional",
+    configJson: "Config (JSON)",
+    createAutomationAction: "Crear automatizacion",
+    readOnly: "Solo lectura",
+    readOnlyDescription: "Pide a un manager que cree o edite automatizaciones.",
+    detailsTitle: "Detalles",
+    detailsDescription: "Actualiza campos y configuracion de la automatizacion.",
+    saveChanges: "Guardar cambios",
+    pauseAutomation: "Pausar automatizacion",
+    activateAutomation: "Activar automatizacion",
+    unavailableTitle: "Automatizacion no disponible",
+    unavailableDescription: "Actualiza la lista para ver las automatizaciones mas recientes.",
+    backendUnreachable: "Backend no disponible. Inicia `npm run dev:backend` (y `npm run db:reset` una vez) y luego recarga.",
+    triggers: {
+      check_in_invitation: "Invitacion de check-in",
+      reservation_confirmed: "Reserva confirmada",
+      unlocked_room: "Habitacion desbloqueada",
+    },
+  },
+} as const;
+
 function buildSearchParams(current: AutomationsPageProps["searchParams"], patch: Record<string, string | null | undefined>) {
   const next = new URLSearchParams();
   for (const [key, value] of Object.entries(current ?? {})) {
@@ -83,23 +243,25 @@ async function getAutomation(token: string, id: string): Promise<AutomationListI
   return payload.automation ?? null;
 }
 
-function statusBadge(status: string) {
+function statusBadge(status: string, t: (typeof automationsCopy)[keyof typeof automationsCopy]) {
   const normalized = status.trim().toLowerCase();
-  if (normalized === "active") return { label: "Active", className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-  return { label: "Paused", className: "border-amber-200 bg-amber-50 text-amber-800" };
+  if (normalized === "active") return { label: t.active, className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
+  return { label: t.paused, className: "border-amber-200 bg-amber-50 text-amber-800" };
 }
 
-const triggerOptions = [
-  { value: "check_in_invitation", label: "Check-in invitation" },
-  { value: "reservation_confirmed", label: "Reservation confirmed" },
-  { value: "unlocked_room", label: "Unlocked room" }
-] as const;
+function triggerLabel(trigger: string, t: (typeof automationsCopy)[keyof typeof automationsCopy]) {
+  const normalized = trigger.trim().toLowerCase() as keyof (typeof automationsCopy)[keyof typeof automationsCopy]["triggers"];
+  return t.triggers[normalized] ?? trigger.replaceAll("_", " ");
+}
 
 export default async function AutomationsPage({ searchParams }: AutomationsPageProps) {
   const token = requireStaffToken();
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = automationsCopy[locale];
   const principal = getStaffPrincipal();
   const role = principal?.role ?? "staff";
   const canManage = role === "admin" || role === "manager";
+  const triggerOptions = triggerValues.map((value) => ({ value, label: t.triggers[value] }));
 
   const automationId = (searchParams?.automationId ?? "").trim();
   const wantsNew = (searchParams?.new ?? "").trim() === "1";
@@ -122,7 +284,7 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
     data = await getAutomations(token, query);
     if (automationId) detail = await getAutomation(token, automationId);
   } catch {
-    error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
+    error = t.backendUnreachable;
   }
 
   const items = data?.items ?? [];
@@ -249,21 +411,21 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
-          <h1 className="text-2xl font-semibold">Automations</h1>
-          <p className="text-sm text-muted-foreground">Manage check-in invitations, confirmations, and engagement flows.</p>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
+          <h1 className="text-2xl font-semibold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         {canManage ? (
           <Button asChild>
-            <Link href={openNewHref}>+ Create automation</Link>
+            <Link href={openNewHref}>+ {t.createAutomation}</Link>
           </Button>
         ) : null}
       </header>
 
       <Card>
         <CardHeader className="space-y-1">
-          <CardTitle className="text-base">Filters</CardTitle>
-          <CardDescription>Search and status filters.</CardDescription>
+          <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
+          <CardDescription>{t.filtersDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <AutomationsFilters />
@@ -274,28 +436,32 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
       <Card>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-base">Automations</CardTitle>
-            <CardDescription>Sorted by last updated.</CardDescription>
+            <CardTitle className="text-base">{t.automationsTitle}</CardTitle>
+            <CardDescription>{t.automationsDescription}</CardDescription>
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" disabled={page <= 1}>
-              <Link href={`/automations?${buildSearchParams(searchParams, { page: String(Math.max(1, page - 1)) }).toString()}`}>Previous</Link>
+              <Link href={`/automations?${buildSearchParams(searchParams, { page: String(Math.max(1, page - 1)) }).toString()}`}>
+                {t.previous}
+              </Link>
             </Button>
             <Badge variant="outline" className="font-mono">
               {page}/{totalPages}
             </Badge>
             <Button asChild variant="outline" disabled={page >= totalPages}>
-              <Link href={`/automations?${buildSearchParams(searchParams, { page: String(Math.min(totalPages, page + 1)) }).toString()}`}>Next</Link>
+              <Link href={`/automations?${buildSearchParams(searchParams, { page: String(Math.min(totalPages, page + 1)) }).toString()}`}>
+                {t.next}
+              </Link>
             </Button>
             <Badge variant="secondary">
-              {data?.total ?? 0} automation{(data?.total ?? 0) === 1 ? "" : "s"}
+              {data?.total ?? 0} {(data?.total ?? 0) === 1 ? t.automation : t.automations}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {items.map((automation) => {
-            const badge = statusBadge(automation.status);
-            const triggerLabel = triggerOptions.find((opt) => opt.value === automation.trigger)?.label ?? automation.trigger.replaceAll("_", " ");
+            const badge = statusBadge(automation.status, t);
+            const currentTriggerLabel = triggerOptions.find((opt) => opt.value === automation.trigger)?.label ?? triggerLabel(automation.trigger, t);
 
             return (
               <div key={automation.id} className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -306,12 +472,12 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                       {badge.label}
                     </Badge>
                     <Badge variant="outline" className="capitalize">
-                      {triggerLabel}
+                      {currentTriggerLabel}
                     </Badge>
                   </div>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{automation.description ?? "—"}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Updated {new Date(automation.updatedAt).toLocaleString()}
+                    {t.updated} {new Date(automation.updatedAt).toLocaleString()}
                     {automation.createdBy ? ` · ${automation.createdBy}` : ""}
                   </p>
                 </Link>
@@ -320,7 +486,7 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                   <form action={toggleAutomation} className="shrink-0">
                     <input type="hidden" name="automationId" value={automation.id} />
                     <Button type="submit" variant="outline">
-                      {automation.status === "active" ? "Pause" : "Activate"}
+                      {automation.status === "active" ? t.pause : t.activate}
                     </Button>
                   </form>
                 ) : null}
@@ -328,22 +494,22 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
             );
           })}
 
-          {items.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No automations found.</p> : null}
+          {items.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{t.noAutomations}</p> : null}
         </CardContent>
       </Card>
 
       {wantsNew || automationId ? (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <Link href={closeDrawerHref} className="absolute inset-0 bg-background/60 backdrop-blur" aria-label="Close" />
+          <Link href={closeDrawerHref} className="absolute inset-0 bg-background/60 backdrop-blur" aria-label={t.close} />
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l bg-background shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background/95 p-6">
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">{wantsNew ? "Create" : "Edit"} automation</p>
-                <h2 className="truncate text-lg font-semibold">{wantsNew ? "New automation" : detail?.name ?? "Automation"}</h2>
+                <p className="text-xs text-muted-foreground">{wantsNew ? t.createLabel : t.editLabel}</p>
+                <h2 className="truncate text-lg font-semibold">{wantsNew ? t.newAutomation : detail?.name ?? t.automationFallback}</h2>
                 {detail ? <p className="truncate text-xs text-muted-foreground font-mono">{detail.id}</p> : null}
               </div>
               <Button variant="outline" asChild>
-                <Link href={closeDrawerHref}>Close</Link>
+                <Link href={closeDrawerHref}>{t.close}</Link>
               </Button>
             </div>
 
@@ -356,7 +522,7 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
 
               {searchParams?.saved ? (
                 <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                  Saved ({searchParams.saved}).
+                  {t.saved} ({searchParams.saved}).
                 </p>
               ) : null}
 
@@ -364,17 +530,17 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                 canManage ? (
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Create automation</CardTitle>
-                      <CardDescription>Name, trigger, and initial status.</CardDescription>
+                      <CardTitle className="text-base">{t.createCardTitle}</CardTitle>
+                      <CardDescription>{t.createCardDescription}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <form action={createAutomation} className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="auto-name">Name</Label>
-                          <Input id="auto-name" name="name" placeholder="Check-in invitation" required />
+                          <Label htmlFor="auto-name">{t.name}</Label>
+                          <Input id="auto-name" name="name" placeholder={t.namePlaceholder} required />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="auto-trigger">Trigger</Label>
+                          <Label htmlFor="auto-trigger">{t.trigger}</Label>
                           <select id="auto-trigger" name="trigger" className={nativeSelectClassName} defaultValue={triggerOptions[0].value}>
                             {triggerOptions.map((opt) => (
                               <option key={opt.value} value={opt.value}>
@@ -384,22 +550,22 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="auto-status">Status</Label>
+                          <Label htmlFor="auto-status">{t.status}</Label>
                           <select id="auto-status" name="status" className={nativeSelectClassName} defaultValue="active">
-                            <option value="active">Active</option>
-                            <option value="paused">Paused</option>
+                            <option value="active">{t.active}</option>
+                            <option value="paused">{t.paused}</option>
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="auto-description">Description</Label>
-                          <Input id="auto-description" name="description" placeholder="Optional description" />
+                          <Label htmlFor="auto-description">{t.description}</Label>
+                          <Input id="auto-description" name="description" placeholder={t.descriptionPlaceholder} />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="auto-config">Config (JSON)</Label>
+                          <Label htmlFor="auto-config">{t.configJson}</Label>
                           <Textarea id="auto-config" name="config" placeholder='{"steps": []}' className="min-h-[120px]" />
                         </div>
                         <Button type="submit" className="w-full">
-                          Create automation
+                          {t.createAutomationAction}
                         </Button>
                       </form>
                     </CardContent>
@@ -407,8 +573,8 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                 ) : (
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Read-only</CardTitle>
-                      <CardDescription>Ask a manager to create or edit automations.</CardDescription>
+                      <CardTitle className="text-base">{t.readOnly}</CardTitle>
+                      <CardDescription>{t.readOnlyDescription}</CardDescription>
                     </CardHeader>
                   </Card>
                 )
@@ -416,18 +582,18 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                 <>
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Details</CardTitle>
-                      <CardDescription>Update the automation fields and config.</CardDescription>
+                      <CardTitle className="text-base">{t.detailsTitle}</CardTitle>
+                      <CardDescription>{t.detailsDescription}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <form action={updateAutomation} className="space-y-4">
                         <input type="hidden" name="automationId" value={detail.id} />
                         <div className="space-y-2">
-                          <Label htmlFor="auto-name-edit">Name</Label>
+                          <Label htmlFor="auto-name-edit">{t.name}</Label>
                           <Input id="auto-name-edit" name="name" defaultValue={detail.name} disabled={!canManage} required />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="auto-trigger-edit">Trigger</Label>
+                          <Label htmlFor="auto-trigger-edit">{t.trigger}</Label>
                           <select
                             id="auto-trigger-edit"
                             name="trigger"
@@ -443,7 +609,7 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="auto-status-edit">Status</Label>
+                          <Label htmlFor="auto-status-edit">{t.status}</Label>
                           <select
                             id="auto-status-edit"
                             name="status"
@@ -451,16 +617,16 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                             defaultValue={detail.status}
                             disabled={!canManage}
                           >
-                            <option value="active">Active</option>
-                            <option value="paused">Paused</option>
+                            <option value="active">{t.active}</option>
+                            <option value="paused">{t.paused}</option>
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="auto-description-edit">Description</Label>
+                          <Label htmlFor="auto-description-edit">{t.description}</Label>
                           <Input id="auto-description-edit" name="description" defaultValue={detail.description ?? ""} disabled={!canManage} />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="auto-config-edit">Config (JSON)</Label>
+                          <Label htmlFor="auto-config-edit">{t.configJson}</Label>
                           <Textarea
                             id="auto-config-edit"
                             name="config"
@@ -471,7 +637,7 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                         </div>
                         {canManage ? (
                           <Button type="submit" className="w-full">
-                            Save changes
+                            {t.saveChanges}
                           </Button>
                         ) : null}
                       </form>
@@ -481,7 +647,7 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
                     <form action={toggleAutomation}>
                       <input type="hidden" name="automationId" value={detail.id} />
                       <Button type="submit" variant="outline" className="w-full">
-                        {detail.status === "active" ? "Pause automation" : "Activate automation"}
+                        {detail.status === "active" ? t.pauseAutomation : t.activateAutomation}
                       </Button>
                     </form>
                   ) : null}
@@ -489,8 +655,8 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
               ) : (
                 <Card>
                   <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-base">Automation not available</CardTitle>
-                    <CardDescription>Refresh the list to see latest automations.</CardDescription>
+                    <CardTitle className="text-base">{t.unavailableTitle}</CardTitle>
+                    <CardDescription>{t.unavailableDescription}</CardDescription>
                   </CardHeader>
                 </Card>
               )}
@@ -501,4 +667,3 @@ export default async function AutomationsPage({ searchParams }: AutomationsPageP
     </div>
   );
 }
-

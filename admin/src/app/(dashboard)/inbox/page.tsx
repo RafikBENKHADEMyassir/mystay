@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { adminLocaleCookieName, resolveAdminLocale, type AdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 import { cn } from "@/lib/utils";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -80,6 +82,7 @@ type InboxPageProps = {
     tab?: string;
     stayId?: string;
     dept?: string;
+    status?: string;
     search?: string;
     conversationId?: string;
     sent?: string;
@@ -88,6 +91,152 @@ type InboxPageProps = {
 };
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+const inboxCopy = {
+  en: {
+    appName: "MyStay Admin",
+    title: "Inbox",
+    subtitle: "Unified guest conversations (messages, archive, ratings).",
+    conversation: "conversation",
+    conversations: "conversations",
+    tabs: {
+      messages: "Messages",
+      archived: "Archive",
+      ratings: "Ratings",
+    },
+    unlinkedGuest: "Unlinked guest",
+    room: "Room",
+    noConversationsFound: "No conversations found.",
+    archiveConversation: "Archive conversation",
+    archivedReadOnly: "Archived conversations are read-only.",
+    composerPlaceholder: "Write a message",
+    caseResolvedHint: "Case resolved? Archive it now.",
+    archiveNow: "Archive it now",
+    send: "Send",
+    newConversation: "New conversation",
+    noConversationForStay: "No conversation exists for this stay yet. Send the first message to start one.",
+    selectConversation: "Select a conversation to view the chat thread.",
+    backendUnreachable: "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.",
+    errors: {
+      missing_body_text: "Message text is required.",
+      invalid_conversation: "Invalid conversation returned by backend.",
+      missing_conversation_id: "Conversation id is required.",
+    },
+  },
+  fr: {
+    appName: "MyStay Admin",
+    title: "Boite de reception",
+    subtitle: "Conversations clients unifiees (messages, archive, notes).",
+    conversation: "conversation",
+    conversations: "conversations",
+    tabs: {
+      messages: "Messages",
+      archived: "Archive",
+      ratings: "Avis",
+    },
+    unlinkedGuest: "Client non lie",
+    room: "Chambre",
+    noConversationsFound: "Aucune conversation trouvee.",
+    archiveConversation: "Archiver la conversation",
+    archivedReadOnly: "Les conversations archivees sont en lecture seule.",
+    composerPlaceholder: "Ecrire un message",
+    caseResolvedHint: "Dossier resolu ? Archivez-le maintenant.",
+    archiveNow: "Archiver maintenant",
+    send: "Envoyer",
+    newConversation: "Nouvelle conversation",
+    noConversationForStay: "Aucune conversation n'existe encore pour ce sejour. Envoyez le premier message pour en creer une.",
+    selectConversation: "Selectionnez une conversation pour afficher le fil.",
+    backendUnreachable: "Backend inaccessible. Lancez `npm run dev:backend` (et `npm run db:reset` une fois) puis actualisez.",
+    errors: {
+      missing_body_text: "Le texte du message est obligatoire.",
+      invalid_conversation: "Conversation invalide retournee par le backend.",
+      missing_conversation_id: "L'identifiant de conversation est obligatoire.",
+    },
+  },
+  es: {
+    appName: "MyStay Admin",
+    title: "Bandeja de entrada",
+    subtitle: "Conversaciones de huespedes unificadas (mensajes, archivo, valoraciones).",
+    conversation: "conversacion",
+    conversations: "conversaciones",
+    tabs: {
+      messages: "Mensajes",
+      archived: "Archivo",
+      ratings: "Valoraciones",
+    },
+    unlinkedGuest: "Huesped no vinculado",
+    room: "Habitacion",
+    noConversationsFound: "No se encontraron conversaciones.",
+    archiveConversation: "Archivar conversacion",
+    archivedReadOnly: "Las conversaciones archivadas son de solo lectura.",
+    composerPlaceholder: "Escribe un mensaje",
+    caseResolvedHint: "Caso resuelto? Archivarlo ahora.",
+    archiveNow: "Archivar ahora",
+    send: "Enviar",
+    newConversation: "Nueva conversacion",
+    noConversationForStay: "Todavia no existe una conversacion para esta estancia. Envia el primer mensaje para crearla.",
+    selectConversation: "Selecciona una conversacion para ver el chat.",
+    backendUnreachable: "Backend inaccesible. Inicia `npm run dev:backend` (y `npm run db:reset` una vez) y actualiza.",
+    errors: {
+      missing_body_text: "El texto del mensaje es obligatorio.",
+      invalid_conversation: "El backend devolvio una conversacion invalida.",
+      missing_conversation_id: "El id de conversacion es obligatorio.",
+    },
+  },
+} as const;
+
+const departmentLabels: Record<AdminLocale, Record<string, string>> = {
+  en: {
+    concierge: "Concierge",
+    housekeeping: "Housekeeping",
+    maintenance: "Maintenance",
+    restaurants: "Restaurants",
+    front_desk: "Front desk",
+    spa: "Spa",
+    general: "General",
+  },
+  fr: {
+    concierge: "Conciergerie",
+    housekeeping: "Menage",
+    maintenance: "Maintenance",
+    restaurants: "Restaurants",
+    front_desk: "Reception",
+    spa: "Spa",
+    general: "General",
+  },
+  es: {
+    concierge: "Conserjeria",
+    housekeeping: "Limpieza",
+    maintenance: "Mantenimiento",
+    restaurants: "Restaurantes",
+    front_desk: "Recepcion",
+    spa: "Spa",
+    general: "General",
+  },
+};
+
+const statusLabels: Record<AdminLocale, Record<string, string>> = {
+  en: { active: "Active", archived: "Archived", resolved: "Resolved" },
+  fr: { active: "Actif", archived: "Archive", resolved: "Resolue" },
+  es: { active: "Activo", archived: "Archivado", resolved: "Resuelta" },
+};
+
+function humanize(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function departmentLabel(department: string, locale: AdminLocale) {
+  return departmentLabels[locale][department.toLowerCase()] ?? humanize(department);
+}
+
+function statusLabel(status: string, locale: AdminLocale) {
+  return statusLabels[locale][status.toLowerCase()] ?? humanize(status);
+}
+
+function formatErrorMessage(value: string | null, locale: AdminLocale) {
+  if (!value) return null;
+  return inboxCopy[locale].errors[value as keyof (typeof inboxCopy)[AdminLocale]["errors"]] ?? humanize(value);
+}
 
 function buildSearchParams(current: InboxPageProps["searchParams"], patch: Record<string, string | null | undefined>) {
   const next = new URLSearchParams();
@@ -166,6 +315,8 @@ function preview(text: string | null, maxLen = 80) {
 
 export default async function InboxPage({ searchParams }: InboxPageProps) {
   const token = requireStaffToken();
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = inboxCopy[locale];
 
   const tab = (searchParams?.tab ?? "messages").trim() || "messages";
   const stayId = (searchParams?.stayId ?? "").trim();
@@ -187,7 +338,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
   try {
     data = await getConversations(token, query);
   } catch {
-    error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
+    error = t.backendUnreachable;
   }
 
   const allConversations = data?.items ?? [];
@@ -343,12 +494,12 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
       <LiveInboxRefresh />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
-          <h1 className="text-2xl font-semibold">Inbox</h1>
-          <p className="text-sm text-muted-foreground">Unified guest conversations (messages, archive, ratings).</p>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
+          <h1 className="text-2xl font-semibold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <Badge variant="secondary">
-          {total} conversation{total === 1 ? "" : "s"}
+          {total} {total === 1 ? t.conversation : t.conversations}
         </Badge>
       </header>
 
@@ -366,7 +517,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                   isSelectedTab("messages") ? "bg-muted" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 )}
               >
-                Messages
+                {t.tabs.messages}
               </Link>
               <Link
                 href={tabHref("archived")}
@@ -375,7 +526,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                   isSelectedTab("archived") ? "bg-muted" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 )}
               >
-                Archive
+                {t.tabs.archived}
               </Link>
               <Link
                 href={tabHref("ratings")}
@@ -384,7 +535,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                   isSelectedTab("ratings") ? "bg-muted" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 )}
               >
-                Ratings
+                {t.tabs.ratings}
               </Link>
             </div>
 
@@ -396,8 +547,16 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                   stayId={stayId}
                 </Badge>
               ) : null}
-              {dept ? <Badge variant="outline" className={DEPARTMENT_COLORS[dept.toLowerCase()] ?? DEFAULT_BADGE}>{dept}</Badge> : null}
-              {statusFilter ? <Badge variant="outline" className={STATUS_COLORS[statusFilter] ?? DEFAULT_BADGE}>{statusFilter.replace("_", " ")}</Badge> : null}
+              {dept ? (
+                <Badge variant="outline" className={DEPARTMENT_COLORS[dept.toLowerCase()] ?? DEFAULT_BADGE}>
+                  {departmentLabel(dept, locale)}
+                </Badge>
+              ) : null}
+              {statusFilter ? (
+                <Badge variant="outline" className={STATUS_COLORS[statusFilter] ?? DEFAULT_BADGE}>
+                  {statusLabel(statusFilter, locale)}
+                </Badge>
+              ) : null}
             </div>
           </div>
           <Separator />
@@ -405,9 +564,9 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
             <ul className="divide-y">
               {conversations.map((conversation) => {
                 const isSelected = selectedConversation?.id === conversation.id;
-                const guestName = (conversation.guestName ?? "").trim() || "Unlinked guest";
-                const roomLabel = conversation.roomNumber ? `Room ${conversation.roomNumber}` : "Room —";
-                const timestamp = new Date(conversation.lastMessageAt ?? conversation.updatedAt).toLocaleString();
+                const guestName = (conversation.guestName ?? "").trim() || t.unlinkedGuest;
+                const roomLabel = conversation.roomNumber ? `${t.room} ${conversation.roomNumber}` : `${t.room} —`;
+                const timestamp = new Date(conversation.lastMessageAt ?? conversation.updatedAt).toLocaleString(locale);
                 return (
                   <li key={conversation.id}>
                     <Link
@@ -421,12 +580,12 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{guestName}</p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {roomLabel}
+                          {roomLabel}
                             {conversation.lastMessage ? <span> · {preview(conversation.lastMessage)}</span> : null}
                           </p>
                           {conversation.department ? (
                             <Badge variant="outline" className={`mt-1 text-[10px] px-1.5 py-0 leading-4 ${DEPARTMENT_COLORS[conversation.department.toLowerCase()] ?? DEFAULT_BADGE}`}>
-                              {conversation.department}
+                              {departmentLabel(conversation.department, locale)}
                             </Badge>
                           ) : null}
                         </div>
@@ -437,7 +596,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                 );
               })}
               {conversations.length === 0 ? (
-                <li className="px-4 py-6 text-center text-sm text-muted-foreground">No conversations found.</li>
+                <li className="px-4 py-6 text-center text-sm text-muted-foreground">{t.noConversationsFound}</li>
               ) : null}
             </ul>
           </div>
@@ -452,17 +611,17 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                     {(selectedConversation.guestName ?? "").trim() || selectedConversation.title}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {selectedConversation.roomNumber ? `Room ${selectedConversation.roomNumber}` : "Room —"}
+                    {selectedConversation.roomNumber ? `${t.room} ${selectedConversation.roomNumber}` : `${t.room} —`}
                     {selectedConversation.confirmationNumber ? (
                       <span className="font-mono"> · {selectedConversation.confirmationNumber}</span>
                     ) : null}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className={DEPARTMENT_COLORS[selectedConversation.department?.toLowerCase()] ?? DEFAULT_BADGE}>
-                      {selectedConversation.department}
+                      {departmentLabel(selectedConversation.department, locale)}
                     </Badge>
                     <Badge variant="outline" className={STATUS_COLORS[selectedConversation.status] ?? DEFAULT_BADGE}>
-                      {selectedConversation.status.replace("_", " ")}
+                      {statusLabel(selectedConversation.status, locale)}
                     </Badge>
                     {selectedConversation.guestEmail ? (
                       <Badge variant="secondary">{selectedConversation.guestEmail}</Badge>
@@ -477,7 +636,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
                   <form action={archiveConversation}>
                     <input type="hidden" name="conversationId" value={selectedConversation.id} />
                     <Button type="submit" variant="outline">
-                      Archive conversation
+                      {t.archiveConversation}
                     </Button>
                   </form>
                 ) : null}
@@ -485,7 +644,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
               {errorParam ? (
                 <div className="flex-shrink-0 border-b bg-destructive/5 px-4 py-2 text-sm text-destructive">
-                  {errorParam.replaceAll("_", " ")}
+                  {formatErrorMessage(errorParam, locale)}
                 </div>
               ) : null}
 
@@ -501,22 +660,22 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
               <div className="flex-shrink-0 border-t p-4">
                 {selectedConversation.status === "archived" ? (
-                  <p className="text-sm text-muted-foreground">Archived conversations are read-only.</p>
+                  <p className="text-sm text-muted-foreground">{t.archivedReadOnly}</p>
                 ) : (
                   <form action={sendMessage} className="space-y-3">
                     <input type="hidden" name="conversationId" value={selectedConversation.id} />
                     <Textarea
                       key={`composer:${selectedConversation.id}:${selectedConversation.lastMessageAt ?? selectedConversation.updatedAt}:${searchParams?.sent ?? ""}`}
                       name="bodyText"
-                      placeholder="Write a message"
+                      placeholder={t.composerPlaceholder}
                     />
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs text-muted-foreground">Case resolved? Archive it now.</p>
+                      <p className="text-xs text-muted-foreground">{t.caseResolvedHint}</p>
                       <div className="flex items-center gap-2">
                         <Button type="submit" variant="ghost" formAction={archiveConversation}>
-                          Archive it now
+                          {t.archiveNow}
                         </Button>
-                        <Button type="submit">Send</Button>
+                        <Button type="submit">{t.send}</Button>
                       </div>
                     </div>
                   </form>
@@ -526,10 +685,10 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           ) : emptyStayComposer ? (
             <>
               <div className="border-b p-4">
-                <p className="text-lg font-semibold">New conversation</p>
+                <p className="text-lg font-semibold">{t.newConversation}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {stayContext?.guestName ? stayContext.guestName : `stayId=${stayId}`}
-                  {stayContext?.roomNumber ? <span> · Room {stayContext.roomNumber}</span> : null}
+                  {stayContext?.roomNumber ? <span> · {t.room} {stayContext.roomNumber}</span> : null}
                   {stayContext?.confirmationNumber ? <span className="font-mono"> · {stayContext.confirmationNumber}</span> : null}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -540,24 +699,24 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
               {errorParam ? (
                 <div className="border-b bg-destructive/5 px-4 py-2 text-sm text-destructive">
-                  {errorParam.replaceAll("_", " ")}
+                  {formatErrorMessage(errorParam, locale)}
                 </div>
               ) : null}
 
               <div className="flex-1 p-4">
-                <p className="mb-3 text-sm text-muted-foreground">No conversation exists for this stay yet. Send the first message to start one.</p>
+                <p className="mb-3 text-sm text-muted-foreground">{t.noConversationForStay}</p>
                 <form action={startConversationAndSendMessage} className="space-y-3">
                   <input type="hidden" name="stayId" value={stayId} />
-                  <Textarea key={`composer:new:${stayId}:${searchParams?.sent ?? ""}`} name="bodyText" placeholder="Write a message" />
+                  <Textarea key={`composer:new:${stayId}:${searchParams?.sent ?? ""}`} name="bodyText" placeholder={t.composerPlaceholder} />
                   <div className="flex justify-end">
-                    <Button type="submit">Send</Button>
+                    <Button type="submit">{t.send}</Button>
                   </div>
                 </form>
               </div>
             </>
           ) : (
             <div className="flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground">
-              Select a conversation to view the chat thread.
+              {t.selectConversation}
             </div>
           )}
         </Card>

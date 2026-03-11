@@ -7,16 +7,22 @@ export function isValidEmail(value: string) {
 
 /**
  * Validate a phone number against its ISO country code using libphonenumber-js.
- * Accepts numbers entered without the trunk prefix (e.g. "663667397" for FR)
+ * Accepts numbers entered without the trunk prefix (e.g. "634680158" for FR)
  * by attempting international format validation as a fallback.
  */
 export function isPhoneValid(phone: string, countryIso: string): boolean {
   const trimmed = phone.trim();
   if (!trimmed) return false;
+  if (!countryIso) return false;
   try {
     if (isValidPhoneNumber(trimmed, countryIso as CountryCode)) return true;
     const callingCode = getCountryCallingCode(countryIso as CountryCode);
-    return isValidPhoneNumber(`+${callingCode}${trimmed}`);
+    if (isValidPhoneNumber(`+${callingCode}${trimmed}`)) return true;
+    const withoutLeadingZero = trimmed.replace(/^0+/, "");
+    if (withoutLeadingZero !== trimmed) {
+      return isValidPhoneNumber(`+${callingCode}${withoutLeadingZero}`);
+    }
+    return false;
   } catch {
     return false;
   }

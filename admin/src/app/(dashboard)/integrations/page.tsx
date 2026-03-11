@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 import { getStaffPrincipal } from "@/lib/staff-token";
-import { cn } from "@/lib/utils";
 
 type Hotel = {
   id: string;
@@ -90,6 +91,141 @@ type IntegrationsPageProps = {
 };
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+const integrationsCopy = {
+  en: {
+    appName: "MyStay Admin",
+    title: "Integrations",
+    subtitle: "Configure PMS, spa, and digital key providers per hotel.",
+    subtitleFallback: "Configure PMS, spa, and digital key providers per hotel (start the backend first).",
+    fallbackDescriptionPrefix: "Backend unreachable, no hotels seeded, or insufficient permissions. Run",
+    thenRun: "then",
+    andRefresh: "and refresh.",
+    saveFailed: "Save failed",
+    updated: "Updated",
+    hotel: "Hotel",
+    hotels: "Hotels",
+    selectHotel: "Select the hotel to configure.",
+    provider: "Provider",
+    configJson: "Config (JSON)",
+    template: "Template",
+    pmsTitle: "PMS",
+    pmsDescription: "Drives reservations, folios, and room lifecycle.",
+    savePms: "Save PMS settings",
+    digitalKeyTitle: "Digital key",
+    digitalKeyDescription: "Issues wallet keys after check-in validation.",
+    saveDigitalKey: "Save digital key settings",
+    spaTitle: "Spa",
+    spaDescription: "Catalog, availability, and booking integration.",
+    saveSpa: "Save spa settings",
+    notificationsTitle: "Notifications",
+    notificationsDescription: "Email, SMS, and push providers used for invites and updates.",
+    email: "Email",
+    sms: "SMS",
+    push: "Push",
+    saveEmail: "Save email",
+    saveSms: "Save SMS",
+    savePush: "Save push",
+    testNotificationsTitle: "Test notifications",
+    testNotificationsDescription: "Enqueues an outbox item for the selected hotel. Use real provider credentials via env vars when needed.",
+    channel: "Channel",
+    toAddress: "To address",
+    subjectOptional: "Subject (optional)",
+    body: "Body",
+    queueTestNotification: "Queue test notification",
+    toAddressPlaceholder: "email / phone / device token",
+    subjectPlaceholder: "MyStay test notification",
+    bodyDefault: "Hello from MyStay",
+  },
+  fr: {
+    appName: "MyStay Admin",
+    title: "Integrations",
+    subtitle: "Configurer les fournisseurs PMS, spa et cle numerique par hotel.",
+    subtitleFallback: "Configurer PMS, spa et cle numerique par hotel (demarrez d'abord le backend).",
+    fallbackDescriptionPrefix: "Backend inaccessible, aucun hotel initialise ou permissions insuffisantes. Lancez",
+    thenRun: "puis",
+    andRefresh: "et actualisez.",
+    saveFailed: "Echec de sauvegarde",
+    updated: "Mis a jour",
+    hotel: "Hotel",
+    hotels: "Hotels",
+    selectHotel: "Selectionnez l'hotel a configurer.",
+    provider: "Fournisseur",
+    configJson: "Config (JSON)",
+    template: "Modele",
+    pmsTitle: "PMS",
+    pmsDescription: "Gere reservations, folios et cycle de vie des chambres.",
+    savePms: "Enregistrer parametres PMS",
+    digitalKeyTitle: "Cle numerique",
+    digitalKeyDescription: "Emet des cles wallet apres validation du check-in.",
+    saveDigitalKey: "Enregistrer parametres cle numerique",
+    spaTitle: "Spa",
+    spaDescription: "Catalogue, disponibilite et integration de reservation.",
+    saveSpa: "Enregistrer parametres spa",
+    notificationsTitle: "Notifications",
+    notificationsDescription: "Fournisseurs Email, SMS et push utilises pour invitations et mises a jour.",
+    email: "Email",
+    sms: "SMS",
+    push: "Push",
+    saveEmail: "Enregistrer email",
+    saveSms: "Enregistrer SMS",
+    savePush: "Enregistrer push",
+    testNotificationsTitle: "Tester les notifications",
+    testNotificationsDescription: "Ajoute un element dans l'outbox pour l'hotel selectionne. Utilisez de vraies informations fournisseur via variables d'environnement si besoin.",
+    channel: "Canal",
+    toAddress: "Adresse destinataire",
+    subjectOptional: "Objet (optionnel)",
+    body: "Corps",
+    queueTestNotification: "Mettre en file une notification test",
+    toAddressPlaceholder: "email / telephone / token appareil",
+    subjectPlaceholder: "Notification test MyStay",
+    bodyDefault: "Bonjour de MyStay",
+  },
+  es: {
+    appName: "MyStay Admin",
+    title: "Integraciones",
+    subtitle: "Configura proveedores PMS, spa y llave digital por hotel.",
+    subtitleFallback: "Configura PMS, spa y llave digital por hotel (inicia primero el backend).",
+    fallbackDescriptionPrefix: "Backend no disponible, sin hoteles cargados o permisos insuficientes. Ejecuta",
+    thenRun: "luego",
+    andRefresh: "y recarga.",
+    saveFailed: "Error al guardar",
+    updated: "Actualizado",
+    hotel: "Hotel",
+    hotels: "Hoteles",
+    selectHotel: "Selecciona el hotel a configurar.",
+    provider: "Proveedor",
+    configJson: "Config (JSON)",
+    template: "Plantilla",
+    pmsTitle: "PMS",
+    pmsDescription: "Gestiona reservas, folios y ciclo de vida de habitaciones.",
+    savePms: "Guardar ajustes PMS",
+    digitalKeyTitle: "Llave digital",
+    digitalKeyDescription: "Emite llaves wallet despues de validar check-in.",
+    saveDigitalKey: "Guardar ajustes de llave digital",
+    spaTitle: "Spa",
+    spaDescription: "Catalogo, disponibilidad e integracion de reservas.",
+    saveSpa: "Guardar ajustes de spa",
+    notificationsTitle: "Notificaciones",
+    notificationsDescription: "Proveedores de email, SMS y push para invitaciones y actualizaciones.",
+    email: "Correo",
+    sms: "SMS",
+    push: "Push",
+    saveEmail: "Guardar correo",
+    saveSms: "Guardar SMS",
+    savePush: "Guardar push",
+    testNotificationsTitle: "Probar notificaciones",
+    testNotificationsDescription: "Encola un elemento de outbox para el hotel seleccionado. Usa credenciales reales del proveedor por variables de entorno si hace falta.",
+    channel: "Canal",
+    toAddress: "Direccion destino",
+    subjectOptional: "Asunto (opcional)",
+    body: "Cuerpo",
+    queueTestNotification: "Encolar notificacion de prueba",
+    toAddressPlaceholder: "correo / telefono / token de dispositivo",
+    subjectPlaceholder: "Notificacion de prueba MyStay",
+    bodyDefault: "Hola desde MyStay",
+  },
+} as const;
 
 async function getHotels(token: string): Promise<Hotel[]> {
   const response = await fetch(`${backendUrl}/api/v1/hotels`, {
@@ -189,6 +325,8 @@ async function updateNotificationChannel({
 }
 
 export default async function IntegrationsPage({ searchParams }: IntegrationsPageProps) {
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = integrationsCopy[locale];
   const principal = getStaffPrincipal();
   const role = principal?.role ?? "staff";
   if (role !== "admin" && role !== "manager") {
@@ -406,19 +544,19 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-2">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">MyStay Admin</p>
-            <h1 className="text-2xl font-semibold">Integrations</h1>
+            <p className="text-sm text-muted-foreground">{t.appName}</p>
+            <h1 className="text-2xl font-semibold">{t.title}</h1>
             <p className="text-sm text-muted-foreground">
-              Configure PMS, spa, and digital key providers per hotel (start the backend first).
+              {t.subtitleFallback}
             </p>
           </div>
         </header>
 
         <Card>
           <CardContent className="p-4 text-sm text-muted-foreground">
-            Backend unreachable, no hotels seeded, or insufficient permissions. Run{" "}
-            <code className="font-mono">npm run db:reset</code> then{" "}
-            <code className="font-mono">npm run dev:backend</code> and refresh.
+            {t.fallbackDescriptionPrefix}{" "}
+            <code className="font-mono">npm run db:reset</code> {t.thenRun}{" "}
+            <code className="font-mono">npm run dev:backend</code> {t.andRefresh}
           </CardContent>
         </Card>
       </div>
@@ -431,63 +569,36 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="space-y-2">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
-          <h1 className="text-2xl font-semibold">Integrations</h1>
-          <p className="text-sm text-muted-foreground">Configure PMS, spa, and digital key providers per hotel.</p>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
+          <h1 className="text-2xl font-semibold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
       </header>
 
       {error ? (
         <Card>
           <CardContent className="p-4 text-sm text-destructive">
-            Save failed: <span className="font-mono">{error}</span>
+            {t.saveFailed}: <span className="font-mono">{error}</span>
           </CardContent>
         </Card>
       ) : null}
 
       <section className="grid gap-4">
-        {/* <aside>
-           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Hotels</CardTitle>
-              <CardDescription>Select the hotel to configure.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              {hotels.map((hotel) => {
-                const active = hotel.id === selectedHotel.id;
-                return (
-                  <Button
-                    key={hotel.id}
-                    asChild
-                    variant={active ? "secondary" : "ghost"}
-                    className={cn("w-full justify-start", active && "font-semibold")}
-                  >
-                    <Link href={`/integrations?hotel=${encodeURIComponent(hotel.id)}`}>
-                      <span className="truncate">{hotel.name}</span>
-                      <span className="ml-2 truncate text-xs text-muted-foreground">{hotel.id}</span>
-                    </Link>
-                  </Button>
-                );
-              })}
-            </CardContent>
-          </Card> 
-        </aside> */}
-
         <div className="space-y-4">
           <Card>
             <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <CardTitle className="text-base">PMS</CardTitle>
-                <CardDescription>Drives reservations, folios, and room lifecycle.</CardDescription>
+                <CardTitle className="text-base">{t.pmsTitle}</CardTitle>
+                <CardDescription>{t.pmsDescription}</CardDescription>
               </div>
-              <Badge variant="outline">Updated {new Date(integrations.updatedAt).toLocaleString()}</Badge>
+              <Badge variant="outline">{t.updated} {new Date(integrations.updatedAt).toLocaleString()}</Badge>
             </CardHeader>
 
             <CardContent>
               <form action={updatePms} className="space-y-4">
                 <input type="hidden" name="hotelId" value={selectedHotel.id} />
                 <div className="space-y-2">
-                  <Label htmlFor="pms-provider">Provider</Label>
+                  <Label htmlFor="pms-provider">{t.provider}</Label>
                   <select id="pms-provider" name="provider" defaultValue={integrations.pms.provider} className={nativeSelectClassName}>
                     {options.pms.providers.map((provider) => (
                       <option key={provider} value={provider}>
@@ -498,7 +609,7 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pms-config">Config (JSON)</Label>
+                  <Label htmlFor="pms-config">{t.configJson}</Label>
                   <Textarea
                     id="pms-config"
                     name="configJson"
@@ -509,13 +620,13 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                 </div>
 
                 <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer font-semibold">Template</summary>
+                  <summary className="cursor-pointer font-semibold">{t.template}</summary>
                   <pre className="mt-2 overflow-auto whitespace-pre-wrap font-mono">
                     {safeJsonStringify(options.pms.configTemplates[integrations.pms.provider] ?? {})}
                   </pre>
                 </details>
 
-                <Button type="submit">Save PMS settings</Button>
+                <Button type="submit">{t.savePms}</Button>
               </form>
             </CardContent>
           </Card>
@@ -523,17 +634,17 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
           <Card>
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <CardTitle className="text-base">Digital key</CardTitle>
-                <CardDescription>Issues wallet keys after check-in validation.</CardDescription>
+                <CardTitle className="text-base">{t.digitalKeyTitle}</CardTitle>
+                <CardDescription>{t.digitalKeyDescription}</CardDescription>
               </div>
-              <Badge variant="outline">Hotel {selectedHotel.id}</Badge>
+              <Badge variant="outline">{t.hotel} {selectedHotel.id}</Badge>
             </CardHeader>
 
             <CardContent>
               <form action={updateDigitalKey} className="space-y-4">
                 <input type="hidden" name="hotelId" value={selectedHotel.id} />
                 <div className="space-y-2">
-                  <Label htmlFor="digital-key-provider">Provider</Label>
+                  <Label htmlFor="digital-key-provider">{t.provider}</Label>
                   <select
                     id="digital-key-provider"
                     name="provider"
@@ -549,7 +660,7 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="digital-key-config">Config (JSON)</Label>
+                  <Label htmlFor="digital-key-config">{t.configJson}</Label>
                   <Textarea
                     id="digital-key-config"
                     name="configJson"
@@ -560,13 +671,13 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                 </div>
 
                 <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer font-semibold">Template</summary>
+                  <summary className="cursor-pointer font-semibold">{t.template}</summary>
                   <pre className="mt-2 overflow-auto whitespace-pre-wrap font-mono">
                     {safeJsonStringify(options.digitalKey.configTemplates[integrations.digitalKey.provider] ?? {})}
                   </pre>
                 </details>
 
-                <Button type="submit">Save digital key settings</Button>
+                <Button type="submit">{t.saveDigitalKey}</Button>
               </form>
             </CardContent>
           </Card>
@@ -574,17 +685,17 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
           <Card>
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <CardTitle className="text-base">Spa</CardTitle>
-                <CardDescription>Catalog, availability, and booking integration.</CardDescription>
+                <CardTitle className="text-base">{t.spaTitle}</CardTitle>
+                <CardDescription>{t.spaDescription}</CardDescription>
               </div>
-              <Badge variant="outline">Hotel {selectedHotel.id}</Badge>
+              <Badge variant="outline">{t.hotel} {selectedHotel.id}</Badge>
             </CardHeader>
 
             <CardContent>
               <form action={updateSpa} className="space-y-4">
                 <input type="hidden" name="hotelId" value={selectedHotel.id} />
                 <div className="space-y-2">
-                  <Label htmlFor="spa-provider">Provider</Label>
+                  <Label htmlFor="spa-provider">{t.provider}</Label>
                   <select
                     id="spa-provider"
                     name="provider"
@@ -600,7 +711,7 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="spa-config">Config (JSON)</Label>
+                  <Label htmlFor="spa-config">{t.configJson}</Label>
                   <Textarea
                     id="spa-config"
                     name="configJson"
@@ -611,13 +722,13 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                 </div>
 
                 <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer font-semibold">Template</summary>
+                  <summary className="cursor-pointer font-semibold">{t.template}</summary>
                   <pre className="mt-2 overflow-auto whitespace-pre-wrap font-mono">
                     {safeJsonStringify(options.spa.configTemplates[integrations.spa.provider] ?? {})}
                   </pre>
                 </details>
 
-                <Button type="submit">Save spa settings</Button>
+                <Button type="submit">{t.saveSpa}</Button>
               </form>
             </CardContent>
           </Card>
@@ -625,20 +736,20 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
           <Card>
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <CardTitle className="text-base">Notifications</CardTitle>
-                <CardDescription>Email, SMS, and push providers used for invites and updates.</CardDescription>
+                <CardTitle className="text-base">{t.notificationsTitle}</CardTitle>
+                <CardDescription>{t.notificationsDescription}</CardDescription>
               </div>
-              <Badge variant="outline">Updated {new Date(notifications.updatedAt).toLocaleString()}</Badge>
+              <Badge variant="outline">{t.updated} {new Date(notifications.updatedAt).toLocaleString()}</Badge>
             </CardHeader>
 
             <CardContent>
               <div className="grid gap-4 lg:grid-cols-3">
                 <form action={updateEmail} className="space-y-3 rounded-lg border bg-muted/10 p-4">
                   <input type="hidden" name="hotelId" value={selectedHotel.id} />
-                  <p className="text-sm font-semibold">Email</p>
+                  <p className="text-sm font-semibold">{t.email}</p>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email-provider">Provider</Label>
+                    <Label htmlFor="email-provider">{t.provider}</Label>
                     <select
                       id="email-provider"
                       name="provider"
@@ -654,7 +765,7 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email-config">Config (JSON)</Label>
+                    <Label htmlFor="email-config">{t.configJson}</Label>
                     <Textarea
                       id="email-config"
                       name="configJson"
@@ -665,22 +776,22 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                   </div>
 
                   <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                    <summary className="cursor-pointer font-semibold">Template</summary>
+                    <summary className="cursor-pointer font-semibold">{t.template}</summary>
                     <pre className="mt-2 overflow-auto whitespace-pre-wrap font-mono">
                       {safeJsonStringify(options.notifications.email.configTemplates[notifications.email.provider] ?? {})}
                     </pre>
                   </details>
                   <Button type="submit" size="sm">
-                    Save email
+                    {t.saveEmail}
                   </Button>
                 </form>
 
                 <form action={updateSms} className="space-y-3 rounded-lg border bg-muted/10 p-4">
                   <input type="hidden" name="hotelId" value={selectedHotel.id} />
-                  <p className="text-sm font-semibold">SMS</p>
+                  <p className="text-sm font-semibold">{t.sms}</p>
 
                   <div className="space-y-2">
-                    <Label htmlFor="sms-provider">Provider</Label>
+                    <Label htmlFor="sms-provider">{t.provider}</Label>
                     <select
                       id="sms-provider"
                       name="provider"
@@ -696,7 +807,7 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="sms-config">Config (JSON)</Label>
+                    <Label htmlFor="sms-config">{t.configJson}</Label>
                     <Textarea
                       id="sms-config"
                       name="configJson"
@@ -707,22 +818,22 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                   </div>
 
                   <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                    <summary className="cursor-pointer font-semibold">Template</summary>
+                    <summary className="cursor-pointer font-semibold">{t.template}</summary>
                     <pre className="mt-2 overflow-auto whitespace-pre-wrap font-mono">
                       {safeJsonStringify(options.notifications.sms.configTemplates[notifications.sms.provider] ?? {})}
                     </pre>
                   </details>
                   <Button type="submit" size="sm">
-                    Save SMS
+                    {t.saveSms}
                   </Button>
                 </form>
 
                 <form action={updatePush} className="space-y-3 rounded-lg border bg-muted/10 p-4">
                   <input type="hidden" name="hotelId" value={selectedHotel.id} />
-                  <p className="text-sm font-semibold">Push</p>
+                  <p className="text-sm font-semibold">{t.push}</p>
 
                   <div className="space-y-2">
-                    <Label htmlFor="push-provider">Provider</Label>
+                    <Label htmlFor="push-provider">{t.provider}</Label>
                     <select
                       id="push-provider"
                       name="provider"
@@ -738,7 +849,7 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="push-config">Config (JSON)</Label>
+                    <Label htmlFor="push-config">{t.configJson}</Label>
                     <Textarea
                       id="push-config"
                       name="configJson"
@@ -749,13 +860,13 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
                   </div>
 
                   <details className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                    <summary className="cursor-pointer font-semibold">Template</summary>
+                    <summary className="cursor-pointer font-semibold">{t.template}</summary>
                     <pre className="mt-2 overflow-auto whitespace-pre-wrap font-mono">
                       {safeJsonStringify(options.notifications.push.configTemplates[notifications.push.provider] ?? {})}
                     </pre>
                   </details>
                   <Button type="submit" size="sm">
-                    Save push
+                    {t.savePush}
                   </Button>
                 </form>
               </div>
@@ -764,9 +875,9 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Test notifications</CardTitle>
+              <CardTitle className="text-base">{t.testNotificationsTitle}</CardTitle>
               <CardDescription>
-                Enqueues an outbox item for the selected hotel. Use real provider credentials via env vars when needed.
+                {t.testNotificationsDescription}
               </CardDescription>
             </CardHeader>
 
@@ -774,27 +885,27 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
               <form action={sendTestNotification} className="grid gap-3 sm:grid-cols-2">
                 <input type="hidden" name="hotelId" value={selectedHotel.id} />
                 <div className="space-y-2">
-                  <Label htmlFor="test-channel">Channel</Label>
+                  <Label htmlFor="test-channel">{t.channel}</Label>
                   <select id="test-channel" name="channel" className={nativeSelectClassName}>
-                    <option value="email">email</option>
-                    <option value="sms">sms</option>
-                    <option value="push">push</option>
+                    <option value="email">{t.email}</option>
+                    <option value="sms">{t.sms}</option>
+                    <option value="push">{t.push}</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="test-to">To address</Label>
-                  <Input id="test-to" name="toAddress" placeholder="email / phone / device token" />
+                  <Label htmlFor="test-to">{t.toAddress}</Label>
+                  <Input id="test-to" name="toAddress" placeholder={t.toAddressPlaceholder} />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="test-subject">Subject (optional)</Label>
-                  <Input id="test-subject" name="subject" placeholder="MyStay test notification" />
+                  <Label htmlFor="test-subject">{t.subjectOptional}</Label>
+                  <Input id="test-subject" name="subject" placeholder={t.subjectPlaceholder} />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="test-body">Body</Label>
-                  <Textarea id="test-body" name="bodyText" rows={4} defaultValue="Hello from MyStay" />
+                  <Label htmlFor="test-body">{t.body}</Label>
+                  <Textarea id="test-body" name="bodyText" rows={4} defaultValue={t.bodyDefault} />
                 </div>
                 <div className="sm:col-span-2">
-                  <Button type="submit">Queue test notification</Button>
+                  <Button type="submit">{t.queueTestNotification}</Button>
                 </div>
               </form>
             </CardContent>

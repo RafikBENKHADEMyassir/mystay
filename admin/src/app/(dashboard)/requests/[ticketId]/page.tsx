@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { LiveInboxRefresh } from "@/components/live-inbox-refresh";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 
 type StaffPrincipal = {
@@ -59,6 +61,120 @@ type TicketDetailPageProps = {
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 const statusOptions = ["pending", "in_progress", "resolved"];
 
+const ticketDetailCopy = {
+  en: {
+    appName: "MyStay Admin",
+    ticket: "Ticket",
+    backToRequests: "Back to requests",
+    ticketNotAvailable: "Ticket not available",
+    ticketNotAvailableDescription: "It may have been deleted or you do not have access.",
+    unassigned: "Unassigned",
+    detailsTitle: "Details",
+    detailsDescription: "Room, stay, and last update timestamp.",
+    room: "Room",
+    stay: "Stay",
+    created: "Created",
+    updated: "Updated",
+    assignee: "Assignee",
+    assignToMe: "Assign to me",
+    unassign: "Unassign",
+    assignToStaff: "Assign to staff",
+    selectStaff: "Select staff",
+    assign: "Assign",
+    updateStatus: "Update status",
+    updateStatusDescription: "Staff can move tickets through their lifecycle.",
+    status: "Status",
+    save: "Save",
+    internalNotes: "Internal notes",
+    internalNotesDescription: "Staff-only context and handover details.",
+    noInternalNotes: "No internal notes yet.",
+    addInternalNote: "Add an internal note...",
+    visibleToStaffOnly: "Visible to staff only.",
+    addNote: "Add note",
+    payloadTitle: "Payload",
+    payloadDescription: "Structured data provided by the guest journey.",
+    statusLabels: {
+      pending: "Pending",
+      in_progress: "In progress",
+      resolved: "Resolved",
+    },
+  },
+  fr: {
+    appName: "MyStay Admin",
+    ticket: "Ticket",
+    backToRequests: "Retour aux demandes",
+    ticketNotAvailable: "Ticket indisponible",
+    ticketNotAvailableDescription: "Il a peut-etre ete supprime ou vous n'avez pas acces.",
+    unassigned: "Non assigne",
+    detailsTitle: "Details",
+    detailsDescription: "Chambre, sejour et date de derniere mise a jour.",
+    room: "Chambre",
+    stay: "Sejour",
+    created: "Cree",
+    updated: "Mis a jour",
+    assignee: "Assigne",
+    assignToMe: "M'assigner",
+    unassign: "Retirer l'assignation",
+    assignToStaff: "Assigner au personnel",
+    selectStaff: "Selectionner un membre",
+    assign: "Assigner",
+    updateStatus: "Mettre a jour le statut",
+    updateStatusDescription: "Le personnel peut faire avancer le cycle de vie des tickets.",
+    status: "Statut",
+    save: "Enregistrer",
+    internalNotes: "Notes internes",
+    internalNotesDescription: "Contexte interne et details de passation.",
+    noInternalNotes: "Aucune note interne pour le moment.",
+    addInternalNote: "Ajouter une note interne...",
+    visibleToStaffOnly: "Visible uniquement par le personnel.",
+    addNote: "Ajouter note",
+    payloadTitle: "Payload",
+    payloadDescription: "Donnees structurees fournies par le parcours client.",
+    statusLabels: {
+      pending: "En attente",
+      in_progress: "En cours",
+      resolved: "Resolue",
+    },
+  },
+  es: {
+    appName: "MyStay Admin",
+    ticket: "Ticket",
+    backToRequests: "Volver a solicitudes",
+    ticketNotAvailable: "Ticket no disponible",
+    ticketNotAvailableDescription: "Puede haber sido eliminado o no tienes acceso.",
+    unassigned: "Sin asignar",
+    detailsTitle: "Detalles",
+    detailsDescription: "Habitacion, estancia y fecha de ultima actualizacion.",
+    room: "Habitacion",
+    stay: "Estancia",
+    created: "Creado",
+    updated: "Actualizado",
+    assignee: "Asignado",
+    assignToMe: "Asignarme",
+    unassign: "Desasignar",
+    assignToStaff: "Asignar al personal",
+    selectStaff: "Seleccionar personal",
+    assign: "Asignar",
+    updateStatus: "Actualizar estado",
+    updateStatusDescription: "El personal puede mover tickets por su ciclo de vida.",
+    status: "Estado",
+    save: "Guardar",
+    internalNotes: "Notas internas",
+    internalNotesDescription: "Contexto interno y detalles de traspaso.",
+    noInternalNotes: "Aun no hay notas internas.",
+    addInternalNote: "Agregar nota interna...",
+    visibleToStaffOnly: "Visible solo para el personal.",
+    addNote: "Agregar nota",
+    payloadTitle: "Payload",
+    payloadDescription: "Datos estructurados proporcionados por el recorrido del huesped.",
+    statusLabels: {
+      pending: "Pendiente",
+      in_progress: "En curso",
+      resolved: "Resuelto",
+    },
+  },
+} as const;
+
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300 dark:border-amber-700",
   in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300 dark:border-blue-700",
@@ -82,6 +198,11 @@ function safeJsonStringify(value: unknown): string {
   } catch {
     return "{}";
   }
+}
+
+function statusLabel(status: string, t: (typeof ticketDetailCopy)[keyof typeof ticketDetailCopy]) {
+  const normalized = status.trim().toLowerCase() as keyof (typeof ticketDetailCopy)[keyof typeof ticketDetailCopy]["statusLabels"];
+  return t.statusLabels[normalized] ?? status.replace("_", " ");
 }
 
 async function getTicket(token: string, ticketId: string): Promise<TicketDetail | null> {
@@ -133,6 +254,8 @@ async function getTicketNotes(token: string, ticketId: string): Promise<Internal
 }
 
 export default async function TicketDetailPage({ params }: TicketDetailPageProps) {
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = ticketDetailCopy[locale];
   const token = requireStaffToken();
   const ticketId = params.ticketId;
 
@@ -255,18 +378,18 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
       <div className="mx-auto max-w-3xl space-y-6">
         <header className="flex items-center justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">MyStay Admin</p>
-            <h1 className="text-2xl font-semibold">Ticket</h1>
+            <p className="text-sm text-muted-foreground">{t.appName}</p>
+            <h1 className="text-2xl font-semibold">{t.ticket}</h1>
           </div>
           <Button variant="outline" asChild>
-            <Link href="/requests">Back to requests</Link>
+            <Link href="/requests">{t.backToRequests}</Link>
           </Button>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Ticket not available</CardTitle>
-            <CardDescription>It may have been deleted or you do not have access.</CardDescription>
+            <CardTitle className="text-base">{t.ticketNotAvailable}</CardTitle>
+            <CardDescription>{t.ticketNotAvailableDescription}</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -282,7 +405,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
       <LiveInboxRefresh />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
           <h1 className="text-2xl font-semibold">{ticket.title}</h1>
           <p className="text-sm text-muted-foreground">
             <span className="font-mono">{ticket.id}</span>
@@ -290,57 +413,57 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Badge variant="outline" className={DEPARTMENT_COLORS[ticket.department.toLowerCase()] ?? DEFAULT_BADGE}>{ticket.department}</Badge>
-          <Badge variant="outline" className={STATUS_COLORS[ticket.status] ?? DEFAULT_BADGE}>{ticket.status.replace("_", " ")}</Badge>
+          <Badge variant="outline" className={STATUS_COLORS[ticket.status] ?? DEFAULT_BADGE}>{statusLabel(ticket.status, t)}</Badge>
           {ticket.assignedStaffUser ? (
             <Badge variant="secondary">{ticket.assignedStaffUser.displayName ?? ticket.assignedStaffUser.id}</Badge>
           ) : (
-            <Badge variant="outline">Unassigned</Badge>
+            <Badge variant="outline">{t.unassigned}</Badge>
           )}
           <Button variant="outline" asChild>
-            <Link href="/requests">Back to requests</Link>
+            <Link href="/requests">{t.backToRequests}</Link>
           </Button>
         </div>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Details</CardTitle>
-          <CardDescription>Room, stay, and last update timestamp.</CardDescription>
+          <CardTitle className="text-base">{t.detailsTitle}</CardTitle>
+          <CardDescription>{t.detailsDescription}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
-            <p className="text-xs font-semibold text-muted-foreground">Room</p>
+            <p className="text-xs font-semibold text-muted-foreground">{t.room}</p>
             <p className="text-sm">{ticket.roomNumber || "—"}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-muted-foreground">Stay</p>
+            <p className="text-xs font-semibold text-muted-foreground">{t.stay}</p>
             <p className="text-sm font-mono">{ticket.stayId || "—"}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-muted-foreground">Created</p>
+            <p className="text-xs font-semibold text-muted-foreground">{t.created}</p>
             <p className="text-sm">{new Date(ticket.createdAt).toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-muted-foreground">Updated</p>
+            <p className="text-xs font-semibold text-muted-foreground">{t.updated}</p>
             <p className="text-sm">{new Date(ticket.updatedAt).toLocaleString()}</p>
           </div>
           <div className="sm:col-span-2">
-            <p className="text-xs font-semibold text-muted-foreground">Assignee</p>
+            <p className="text-xs font-semibold text-muted-foreground">{t.assignee}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <p className="text-sm">
-                {ticket.assignedStaffUser ? ticket.assignedStaffUser.displayName ?? ticket.assignedStaffUser.id : "Unassigned"}
+                {ticket.assignedStaffUser ? ticket.assignedStaffUser.displayName ?? ticket.assignedStaffUser.id : t.unassigned}
               </p>
               {isUnassigned || !isAssignedToMe ? (
                 <form action={takeOwnership}>
                   <Button type="submit" size="sm" variant="outline">
-                    Assign to me
+                    {t.assignToMe}
                   </Button>
                 </form>
               ) : null}
               {ticket.assignedStaffUser && (isAssignedToMe || isAdmin) ? (
                 <form action={unassign}>
                   <Button type="submit" size="sm" variant="ghost">
-                    Unassign
+                    {t.unassign}
                   </Button>
                 </form>
               ) : null}
@@ -348,14 +471,14 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
             {isAdmin && staffUsers.length > 0 ? (
               <form action={assignToStaff} className="mt-2 flex items-end gap-2">
                 <div className="w-full space-y-1 sm:max-w-xs">
-                  <Label htmlFor="assign-staff">Assign to staff</Label>
+                  <Label htmlFor="assign-staff">{t.assignToStaff}</Label>
                   <select
                     id="assign-staff"
                     name="staffUserId"
                     defaultValue={ticket.assignedStaffUser?.id ?? ""}
                     className={nativeSelectClassName}
                   >
-                    <option value="">— Select staff —</option>
+                    <option value="">— {t.selectStaff} —</option>
                     {staffUsers.map((staff) => (
                       <option key={staff.id} value={staff.id}>
                         {staff.displayName ?? staff.email} ({staff.role})
@@ -363,7 +486,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
                     ))}
                   </select>
                 </div>
-                <Button type="submit" size="sm">Assign</Button>
+                <Button type="submit" size="sm">{t.assign}</Button>
               </form>
             ) : null}
           </div>
@@ -372,30 +495,30 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Update status</CardTitle>
-          <CardDescription>Staff can move tickets through their lifecycle.</CardDescription>
+          <CardTitle className="text-base">{t.updateStatus}</CardTitle>
+          <CardDescription>{t.updateStatusDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={updateStatus} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="w-full space-y-2 sm:max-w-xs">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status">{t.status}</Label>
               <select id="status" name="status" defaultValue={ticket.status} className={nativeSelectClassName}>
                 {statusOptions.map((status) => (
                   <option key={status} value={status}>
-                    {status.replace("_", " ")}
+                    {statusLabel(status, t)}
                   </option>
                 ))}
               </select>
             </div>
-            <Button type="submit">Save</Button>
+            <Button type="submit">{t.save}</Button>
           </form>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Internal notes</CardTitle>
-          <CardDescription>Staff-only context and handover details.</CardDescription>
+          <CardTitle className="text-base">{t.internalNotes}</CardTitle>
+          <CardDescription>{t.internalNotesDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {notes.length ? (
@@ -411,14 +534,14 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No internal notes yet.</p>
+            <p className="text-sm text-muted-foreground">{t.noInternalNotes}</p>
           )}
 
           <form action={addNote} className="space-y-3 border-t pt-4">
-            <Textarea name="bodyText" placeholder="Add an internal note…" />
+            <Textarea name="bodyText" placeholder={t.addInternalNote} />
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">Visible to staff only.</p>
-              <Button type="submit">Add note</Button>
+              <p className="text-xs text-muted-foreground">{t.visibleToStaffOnly}</p>
+              <Button type="submit">{t.addNote}</Button>
             </div>
           </form>
         </CardContent>
@@ -426,8 +549,8 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Payload</CardTitle>
-          <CardDescription>Structured data provided by the guest journey.</CardDescription>
+          <CardTitle className="text-base">{t.payloadTitle}</CardTitle>
+          <CardDescription>{t.payloadDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <pre className="max-h-80 overflow-auto rounded-md border bg-muted/10 p-3 text-xs">
@@ -438,4 +561,3 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
     </div>
   );
 }
-

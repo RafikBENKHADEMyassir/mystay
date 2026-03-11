@@ -7,6 +7,60 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
+
+const paymentLinksFiltersCopy = {
+  en: {
+    from: "From",
+    to: "To",
+    search: "Search",
+    searchPlaceholder: "Search for name or reservation number",
+    status: "Status",
+    all: "All",
+    reset: "Reset",
+    statuses: {
+      created: "Created",
+      paid: "Paid",
+      failed: "Failed",
+      expired: "Expired",
+    },
+  },
+  fr: {
+    from: "De",
+    to: "A",
+    search: "Recherche",
+    searchPlaceholder: "Rechercher nom ou numero de reservation",
+    status: "Statut",
+    all: "Tous",
+    reset: "Reinitialiser",
+    statuses: {
+      created: "Cree",
+      paid: "Paye",
+      failed: "Echoue",
+      expired: "Expire",
+    },
+  },
+  es: {
+    from: "Desde",
+    to: "Hasta",
+    search: "Buscar",
+    searchPlaceholder: "Buscar nombre o numero de reserva",
+    status: "Estado",
+    all: "Todos",
+    reset: "Restablecer",
+    statuses: {
+      created: "Creado",
+      paid: "Pagado",
+      failed: "Fallido",
+      expired: "Expirado",
+    },
+  },
+} as const;
+
+function formatStatusLabel(value: string, localeCopy: (typeof paymentLinksFiltersCopy)[keyof typeof paymentLinksFiltersCopy]) {
+  const normalized = value.trim().toLowerCase() as keyof typeof localeCopy.statuses;
+  return localeCopy.statuses[normalized] ?? value.replace("_", " ");
+}
 
 function setParam(next: URLSearchParams, key: string, value: string) {
   const trimmed = value.trim();
@@ -21,6 +75,8 @@ type PaymentLinksFiltersProps = {
 export function PaymentLinksFilters({ statuses }: PaymentLinksFiltersProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "/payment-links";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = paymentLinksFiltersCopy[locale];
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams?.get("search") ?? "");
@@ -76,7 +132,7 @@ export function PaymentLinksFilters({ statuses }: PaymentLinksFiltersProps) {
   return (
     <div className="grid gap-3 md:grid-cols-[170px,170px,1fr,200px,auto] md:items-end">
       <div className="space-y-2">
-        <Label htmlFor="pl-from">From</Label>
+        <Label htmlFor="pl-from">{t.from}</Label>
         <Input
           id="pl-from"
           type="date"
@@ -86,7 +142,7 @@ export function PaymentLinksFilters({ statuses }: PaymentLinksFiltersProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="pl-to">To</Label>
+        <Label htmlFor="pl-to">{t.to}</Label>
         <Input
           id="pl-to"
           type="date"
@@ -96,36 +152,35 @@ export function PaymentLinksFilters({ statuses }: PaymentLinksFiltersProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="pl-search">Search</Label>
+        <Label htmlFor="pl-search">{t.search}</Label>
         <Input
           id="pl-search"
-          placeholder="Search for name or reservation number"
+          placeholder={t.searchPlaceholder}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="pl-status">Status</Label>
+        <Label htmlFor="pl-status">{t.status}</Label>
         <select
           id="pl-status"
           className={nativeSelectClassName}
           value={searchParams?.get("status") ?? ""}
           onChange={(event) => updateStatus(event.target.value)}
         >
-          <option value="">All</option>
+          <option value="">{t.all}</option>
           {stableStatuses.map((status) => (
             <option key={status} value={status}>
-              {status.replace("_", " ")}
+              {formatStatusLabel(status, t)}
             </option>
           ))}
         </select>
       </div>
 
       <Button type="button" variant="outline" onClick={reset}>
-        Reset
+        {t.reset}
       </Button>
     </div>
   );
 }
-

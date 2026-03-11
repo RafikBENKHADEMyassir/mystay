@@ -1,14 +1,100 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { ArrowLeft, Building2, MapPin, Star, Users, Settings, Pencil } from "lucide-react";
 
 import { getStaffToken } from "@/lib/staff-token";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+const hotelDetailCopy = {
+  en: {
+    active: "Active",
+    inactive: "Inactive",
+    propertySetup: "Property setup",
+    editHotel: "Edit Hotel",
+    hotelInformation: "Hotel Information",
+    description: "Description",
+    starRating: "Star Rating",
+    stars: "Stars",
+    currency: "Currency",
+    timezone: "Timezone",
+    phone: "Phone",
+    email: "Email",
+    website: "Website",
+    address: "Address",
+    staffMembers: "Staff Members",
+    staffAssigned: "staff member",
+    staffAssignedPlural: "staff members",
+    assignedSuffix: "assigned",
+    addStaff: "Add Staff",
+    noStaff: "No staff members assigned yet.",
+    edit: "Edit",
+    quickActions: "Quick Actions",
+    dataSync: "Data synchronization",
+    notificationCenter: "Notification center",
+    addStaffMember: "Add Staff Member",
+  },
+  fr: {
+    active: "Actif",
+    inactive: "Inactif",
+    propertySetup: "Configuration hotel",
+    editHotel: "Modifier hotel",
+    hotelInformation: "Informations hotel",
+    description: "Description",
+    starRating: "Classement etoiles",
+    stars: "Etoiles",
+    currency: "Devise",
+    timezone: "Fuseau horaire",
+    phone: "Telephone",
+    email: "Email",
+    website: "Site web",
+    address: "Adresse",
+    staffMembers: "Membres du staff",
+    staffAssigned: "membre staff",
+    staffAssignedPlural: "membres staff",
+    assignedSuffix: "assignes",
+    addStaff: "Ajouter staff",
+    noStaff: "Aucun membre staff assigne pour le moment.",
+    edit: "Modifier",
+    quickActions: "Actions rapides",
+    dataSync: "Synchronisation des donnees",
+    notificationCenter: "Centre de notifications",
+    addStaffMember: "Ajouter membre staff",
+  },
+  es: {
+    active: "Activo",
+    inactive: "Inactivo",
+    propertySetup: "Configuracion de propiedad",
+    editHotel: "Editar hotel",
+    hotelInformation: "Informacion del hotel",
+    description: "Descripcion",
+    starRating: "Calificacion por estrellas",
+    stars: "Estrellas",
+    currency: "Moneda",
+    timezone: "Zona horaria",
+    phone: "Telefono",
+    email: "Email",
+    website: "Sitio web",
+    address: "Direccion",
+    staffMembers: "Miembros del staff",
+    staffAssigned: "miembro del staff",
+    staffAssignedPlural: "miembros del staff",
+    assignedSuffix: "asignados",
+    addStaff: "Agregar staff",
+    noStaff: "Aun no hay miembros del staff asignados.",
+    edit: "Editar",
+    quickActions: "Acciones rapidas",
+    dataSync: "Sincronizacion de datos",
+    notificationCenter: "Centro de notificaciones",
+    addStaffMember: "Agregar miembro staff",
+  },
+} as const;
 
 type Hotel = {
   id: string;
@@ -75,6 +161,8 @@ export default async function HotelDetailPage({
   params: Promise<{ hotelId: string }>;
 }) {
   const { hotelId } = await params;
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = hotelDetailCopy[locale];
   const token = getStaffToken();
   
   if (!token) {
@@ -104,7 +192,7 @@ export default async function HotelDetailPage({
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight">{hotel.name}</h1>
               <Badge variant={hotel.isActive ? "default" : "secondary"}>
-                {hotel.isActive ? "Active" : "Inactive"}
+                {hotel.isActive ? t.active : t.inactive}
               </Badge>
             </div>
             {(hotel.city || hotel.country) && (
@@ -119,13 +207,13 @@ export default async function HotelDetailPage({
           <Button variant="outline" asChild>
             <Link href={`/platform/hotels/${hotelId}/setup`}>
               <Settings className="mr-2 h-4 w-4" />
-              Property setup
+              {t.propertySetup}
             </Link>
           </Button>
           <Button asChild>
             <Link href={`/platform/hotels/${hotelId}/edit`}>
               <Pencil className="mr-2 h-4 w-4" />
-              Edit Hotel
+              {t.editHotel}
             </Link>
           </Button>
         </div>
@@ -165,13 +253,13 @@ export default async function HotelDetailPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              Hotel Information
+              {t.hotelInformation}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {hotel.description && (
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Description</p>
+                <p className="text-sm font-medium text-muted-foreground">{t.description}</p>
                 <p className="mt-1">{hotel.description}</p>
               </div>
             )}
@@ -181,36 +269,36 @@ export default async function HotelDetailPage({
             <div className="grid grid-cols-2 gap-4">
               {hotel.starRating && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Star Rating</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t.starRating}</p>
                   <p className="mt-1 flex items-center gap-1">
                     <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                    {hotel.starRating} Stars
+                    {hotel.starRating} {t.stars}
                   </p>
                 </div>
               )}
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Currency</p>
+                <p className="text-sm font-medium text-muted-foreground">{t.currency}</p>
                 <p className="mt-1">{hotel.currency}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Timezone</p>
+                <p className="text-sm font-medium text-muted-foreground">{t.timezone}</p>
                 <p className="mt-1">{hotel.timezone}</p>
               </div>
               {hotel.phone && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t.phone}</p>
                   <p className="mt-1">{hotel.phone}</p>
                 </div>
               )}
               {hotel.email && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Email</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t.email}</p>
                   <p className="mt-1">{hotel.email}</p>
                 </div>
               )}
               {hotel.website && (
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Website</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t.website}</p>
                   <a href={hotel.website} target="_blank" rel="noopener noreferrer" className="mt-1 text-primary hover:underline">
                     {hotel.website}
                   </a>
@@ -222,7 +310,7 @@ export default async function HotelDetailPage({
               <>
                 <Separator />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Address</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t.address}</p>
                   <p className="mt-1">{hotel.address}</p>
                 </div>
               </>
@@ -236,22 +324,22 @@ export default async function HotelDetailPage({
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Staff Members
+                {t.staffMembers}
               </CardTitle>
               <CardDescription>
-                {staff.length} staff member{staff.length !== 1 ? "s" : ""} assigned
+                {staff.length} {staff.length === 1 ? t.staffAssigned : t.staffAssignedPlural} {t.assignedSuffix}
               </CardDescription>
             </div>
             <Button size="sm" asChild>
               <Link href={`/platform/hotels/${hotelId}/staff/new`}>
-                Add Staff
+                {t.addStaff}
               </Link>
             </Button>
           </CardHeader>
           <CardContent>
             {staff.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                No staff members assigned yet.
+                {t.noStaff}
               </p>
             ) : (
               <div className="space-y-3">
@@ -283,7 +371,7 @@ export default async function HotelDetailPage({
                     </div>
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/platform/hotels/${hotelId}/staff/${member.id}`}>
-                        Edit
+                        {t.edit}
                       </Link>
                     </Button>
                   </div>
@@ -299,23 +387,23 @@ export default async function HotelDetailPage({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Quick Actions
+            {t.quickActions}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Button variant="outline" asChild>
             <Link href={`/platform/hotels/${hotelId}/setup/sync`}>
-              Data synchronization
+              {t.dataSync}
             </Link>
           </Button>
           <Button variant="outline" asChild>
             <Link href={`/platform/hotels/${hotelId}/setup/notification-center`}>
-              Notification center
+              {t.notificationCenter}
             </Link>
           </Button>
           <Button variant="outline" asChild>
             <Link href={`/platform/hotels/${hotelId}/staff/new`}>
-              Add Staff Member
+              {t.addStaffMember}
             </Link>
           </Button>
         </CardContent>

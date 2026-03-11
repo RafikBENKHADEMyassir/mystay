@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Building2, Palette, MapPin, Globe, Star } from "lucide-react";
 
@@ -10,8 +10,165 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+
+const newHotelCopy = {
+  en: {
+    hotelNameRequired: "Hotel name is required",
+    failedToCreateHotel: "Failed to create hotel",
+    failedToCreateTryAgain: "Failed to create hotel. Please try again.",
+    title: "Add New Hotel",
+    subtitle: "Onboard a new partner hotel to the MyStay platform.",
+    basicInformation: "Basic Information",
+    essentialDetails: "Essential hotel details",
+    hotelNameRequiredLabel: "Hotel Name *",
+    description: "Description",
+    starRating: "Star Rating",
+    selectRating: "Select rating",
+    starSingular: "Star",
+    starPlural: "Stars",
+    currency: "Currency",
+    branding: "Branding",
+    visualIdentity: "Visual identity and customization",
+    logoUrl: "Logo URL",
+    coverImageUrl: "Cover Image URL",
+    primaryColor: "Primary Color",
+    secondaryColor: "Secondary Color",
+    preview: "Preview",
+    location: "Location",
+    locationDetails: "Hotel address and location details",
+    address: "Address",
+    city: "City",
+    country: "Country",
+    timezone: "Timezone",
+    contact: "Contact",
+    contactInfo: "Hotel contact information",
+    email: "Email",
+    phone: "Phone",
+    website: "Website",
+    creating: "Creating...",
+    createHotel: "Create Hotel",
+    cancel: "Cancel",
+    placeholders: {
+      hotelName: "e.g., Grand Hotel Paris",
+      description: "A brief description of the hotel...",
+      url: "https://...",
+      primaryColor: "#1a1a2e",
+      secondaryColor: "#f5a623",
+      previewHotelName: "Hotel Name",
+      address: "123 Avenue des Champs-Elysees",
+      city: "Paris",
+      country: "France",
+      email: "contact@hotel.com",
+      phone: "+33 1 23 45 67 89",
+      website: "https://www.hotel.com",
+    },
+  },
+  fr: {
+    hotelNameRequired: "Le nom de l'hotel est requis",
+    failedToCreateHotel: "Impossible de creer l'hotel",
+    failedToCreateTryAgain: "Impossible de creer l'hotel. Veuillez reessayer.",
+    title: "Ajouter un nouvel hotel",
+    subtitle: "Integrer un nouvel hotel partenaire a la plateforme MyStay.",
+    basicInformation: "Informations de base",
+    essentialDetails: "Details essentiels de l'hotel",
+    hotelNameRequiredLabel: "Nom de l'hotel *",
+    description: "Description",
+    starRating: "Classement etoiles",
+    selectRating: "Selectionner classement",
+    starSingular: "Etoile",
+    starPlural: "Etoiles",
+    currency: "Devise",
+    branding: "Identite visuelle",
+    visualIdentity: "Identite visuelle et personnalisation",
+    logoUrl: "URL du logo",
+    coverImageUrl: "URL de l'image de couverture",
+    primaryColor: "Couleur principale",
+    secondaryColor: "Couleur secondaire",
+    preview: "Apercu",
+    location: "Localisation",
+    locationDetails: "Adresse et details de localisation de l'hotel",
+    address: "Adresse",
+    city: "Ville",
+    country: "Pays",
+    timezone: "Fuseau horaire",
+    contact: "Contact",
+    contactInfo: "Informations de contact de l'hotel",
+    email: "Email",
+    phone: "Telephone",
+    website: "Site web",
+    creating: "Creation...",
+    createHotel: "Creer hotel",
+    cancel: "Annuler",
+    placeholders: {
+      hotelName: "ex: Grand Hotel Paris",
+      description: "Une breve description de l'hotel...",
+      url: "https://...",
+      primaryColor: "#1a1a2e",
+      secondaryColor: "#f5a623",
+      previewHotelName: "Nom de l'hotel",
+      address: "123 Avenue des Champs-Elysees",
+      city: "Paris",
+      country: "France",
+      email: "contact@hotel.com",
+      phone: "+33 1 23 45 67 89",
+      website: "https://www.hotel.com",
+    },
+  },
+  es: {
+    hotelNameRequired: "El nombre del hotel es obligatorio",
+    failedToCreateHotel: "No se pudo crear el hotel",
+    failedToCreateTryAgain: "No se pudo crear el hotel. Intentalo de nuevo.",
+    title: "Agregar nuevo hotel",
+    subtitle: "Incorpora un nuevo hotel socio a la plataforma MyStay.",
+    basicInformation: "Informacion basica",
+    essentialDetails: "Detalles esenciales del hotel",
+    hotelNameRequiredLabel: "Nombre del hotel *",
+    description: "Descripcion",
+    starRating: "Calificacion por estrellas",
+    selectRating: "Seleccionar calificacion",
+    starSingular: "Estrella",
+    starPlural: "Estrellas",
+    currency: "Moneda",
+    branding: "Marca",
+    visualIdentity: "Identidad visual y personalizacion",
+    logoUrl: "URL del logo",
+    coverImageUrl: "URL de imagen de portada",
+    primaryColor: "Color primario",
+    secondaryColor: "Color secundario",
+    preview: "Vista previa",
+    location: "Ubicacion",
+    locationDetails: "Direccion y detalles de ubicacion del hotel",
+    address: "Direccion",
+    city: "Ciudad",
+    country: "Pais",
+    timezone: "Zona horaria",
+    contact: "Contacto",
+    contactInfo: "Informacion de contacto del hotel",
+    email: "Correo",
+    phone: "Telefono",
+    website: "Sitio web",
+    creating: "Creando...",
+    createHotel: "Crear hotel",
+    cancel: "Cancelar",
+    placeholders: {
+      hotelName: "ej., Grand Hotel Paris",
+      description: "Breve descripcion del hotel...",
+      url: "https://...",
+      primaryColor: "#1a1a2e",
+      secondaryColor: "#f5a623",
+      previewHotelName: "Nombre del hotel",
+      address: "123 Avenue des Champs-Elysees",
+      city: "Paris",
+      country: "Francia",
+      email: "contact@hotel.com",
+      phone: "+33 1 23 45 67 89",
+      website: "https://www.hotel.com",
+    },
+  },
+} as const;
 
 type FormData = {
   name: string;
@@ -33,6 +190,9 @@ type FormData = {
 
 export default function NewHotelPage() {
   const router = useRouter();
+  const pathname = usePathname() ?? "/platform/hotels/new";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = newHotelCopy[locale];
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>({
@@ -62,7 +222,7 @@ export default function NewHotelPage() {
     if (isLoading) return;
 
     if (!form.name.trim()) {
-      setError("Hotel name is required");
+      setError(t.hotelNameRequired);
       return;
     }
 
@@ -94,14 +254,14 @@ export default function NewHotelPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        setError(data?.error ?? "Failed to create hotel");
+        setError(data?.error ?? t.failedToCreateHotel);
         return;
       }
 
       const data = await response.json();
       router.push(`/platform/hotels/${data.hotel.id}`);
     } catch {
-      setError("Failed to create hotel. Please try again.");
+      setError(t.failedToCreateTryAgain);
     } finally {
       setIsLoading(false);
     }
@@ -116,9 +276,9 @@ export default function NewHotelPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Add New Hotel</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-muted-foreground">
-            Onboard a new partner hotel to the MyStay platform.
+            {t.subtitle}
           </p>
         </div>
       </div>
@@ -135,49 +295,49 @@ export default function NewHotelPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              Basic Information
+              {t.basicInformation}
             </CardTitle>
-            <CardDescription>Essential hotel details</CardDescription>
+            <CardDescription>{t.essentialDetails}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Hotel Name *</Label>
+              <Label htmlFor="name">{t.hotelNameRequiredLabel}</Label>
               <Input
                 id="name"
                 value={form.name}
                 onChange={(e) => handleChange("name", e.target.value)}
-                placeholder="e.g., Grand Hotel Paris"
+                placeholder={t.placeholders.hotelName}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t.description}</Label>
               <Textarea
                 id="description"
                 value={form.description}
                 onChange={(e) => handleChange("description", e.target.value)}
-                placeholder="A brief description of the hotel..."
+                placeholder={t.placeholders.description}
                 rows={3}
               />
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="starRating">Star Rating</Label>
+                <Label htmlFor="starRating">{t.starRating}</Label>
                 <select
                   id="starRating"
                   value={form.starRating}
                   onChange={(e) => handleChange("starRating", e.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                 >
-                  <option value="">Select rating</option>
-                  <option value="1">1 Star</option>
-                  <option value="2">2 Stars</option>
-                  <option value="3">3 Stars</option>
-                  <option value="4">4 Stars</option>
-                  <option value="5">5 Stars</option>
+                  <option value="">{t.selectRating}</option>
+                  <option value="1">1 {t.starSingular}</option>
+                  <option value="2">2 {t.starPlural}</option>
+                  <option value="3">3 {t.starPlural}</option>
+                  <option value="4">4 {t.starPlural}</option>
+                  <option value="5">5 {t.starPlural}</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
+                <Label htmlFor="currency">{t.currency}</Label>
                 <select
                   id="currency"
                   value={form.currency}
@@ -199,34 +359,34 @@ export default function NewHotelPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Palette className="h-5 w-5" />
-              Branding
+              {t.branding}
             </CardTitle>
-            <CardDescription>Visual identity and customization</CardDescription>
+            <CardDescription>{t.visualIdentity}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo URL</Label>
+                <Label htmlFor="logoUrl">{t.logoUrl}</Label>
                 <Input
                   id="logoUrl"
                   value={form.logoUrl}
                   onChange={(e) => handleChange("logoUrl", e.target.value)}
-                  placeholder="https://..."
+                  placeholder={t.placeholders.url}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="coverImageUrl">Cover Image URL</Label>
+                <Label htmlFor="coverImageUrl">{t.coverImageUrl}</Label>
                 <Input
                   id="coverImageUrl"
                   value={form.coverImageUrl}
                   onChange={(e) => handleChange("coverImageUrl", e.target.value)}
-                  placeholder="https://..."
+                  placeholder={t.placeholders.url}
                 />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="primaryColor">Primary Color</Label>
+                <Label htmlFor="primaryColor">{t.primaryColor}</Label>
                 <div className="flex gap-2">
                   <Input
                     id="primaryColor"
@@ -238,13 +398,13 @@ export default function NewHotelPage() {
                   <Input
                     value={form.primaryColor}
                     onChange={(e) => handleChange("primaryColor", e.target.value)}
-                    placeholder="#1a1a2e"
+                    placeholder={t.placeholders.primaryColor}
                     className="flex-1"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="secondaryColor">Secondary Color</Label>
+                <Label htmlFor="secondaryColor">{t.secondaryColor}</Label>
                 <div className="flex gap-2">
                   <Input
                     id="secondaryColor"
@@ -256,7 +416,7 @@ export default function NewHotelPage() {
                   <Input
                     value={form.secondaryColor}
                     onChange={(e) => handleChange("secondaryColor", e.target.value)}
-                    placeholder="#f5a623"
+                    placeholder={t.placeholders.secondaryColor}
                     className="flex-1"
                   />
                 </div>
@@ -264,7 +424,7 @@ export default function NewHotelPage() {
             </div>
             {/* Preview */}
             <div className="space-y-2">
-              <Label>Preview</Label>
+              <Label>{t.preview}</Label>
               <div
                 className="flex h-24 items-center justify-center rounded-lg"
                 style={{ backgroundColor: form.primaryColor }}
@@ -273,7 +433,7 @@ export default function NewHotelPage() {
                   className="text-lg font-semibold"
                   style={{ color: form.secondaryColor }}
                 >
-                  {form.name || "Hotel Name"}
+                  {form.name || t.placeholders.previewHotelName}
                 </span>
               </div>
             </div>
@@ -285,42 +445,42 @@ export default function NewHotelPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Location
+              {t.location}
             </CardTitle>
-            <CardDescription>Hotel address and location details</CardDescription>
+            <CardDescription>{t.locationDetails}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">{t.address}</Label>
               <Input
                 id="address"
                 value={form.address}
                 onChange={(e) => handleChange("address", e.target.value)}
-                placeholder="123 Avenue des Champs-Élysées"
+                placeholder={t.placeholders.address}
               />
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="city">{t.city}</Label>
                 <Input
                   id="city"
                   value={form.city}
                   onChange={(e) => handleChange("city", e.target.value)}
-                  placeholder="Paris"
+                  placeholder={t.placeholders.city}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="country">{t.country}</Label>
                 <Input
                   id="country"
                   value={form.country}
                   onChange={(e) => handleChange("country", e.target.value)}
-                  placeholder="France"
+                  placeholder={t.placeholders.country}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
+              <Label htmlFor="timezone">{t.timezone}</Label>
               <select
                 id="timezone"
                 value={form.timezone}
@@ -343,39 +503,39 @@ export default function NewHotelPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5" />
-              Contact
+              {t.contact}
             </CardTitle>
-            <CardDescription>Hotel contact information</CardDescription>
+            <CardDescription>{t.contactInfo}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t.email}</Label>
                 <Input
                   id="email"
                   type="email"
                   value={form.email}
                   onChange={(e) => handleChange("email", e.target.value)}
-                  placeholder="contact@hotel.com"
+                  placeholder={t.placeholders.email}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">{t.phone}</Label>
                 <Input
                   id="phone"
                   value={form.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
-                  placeholder="+33 1 23 45 67 89"
+                  placeholder={t.placeholders.phone}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
+              <Label htmlFor="website">{t.website}</Label>
               <Input
                 id="website"
                 value={form.website}
                 onChange={(e) => handleChange("website", e.target.value)}
-                placeholder="https://www.hotel.com"
+                placeholder={t.placeholders.website}
               />
             </div>
           </CardContent>
@@ -384,10 +544,10 @@ export default function NewHotelPage() {
         {/* Actions */}
         <div className="flex gap-4">
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Creating..." : "Create Hotel"}
+            {isLoading ? t.creating : t.createHotel}
           </Button>
           <Button type="button" variant="outline" asChild>
-            <Link href="/platform/hotels">Cancel</Link>
+            <Link href="/platform/hotels">{t.cancel}</Link>
           </Button>
         </div>
       </form>

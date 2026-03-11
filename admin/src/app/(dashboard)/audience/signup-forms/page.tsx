@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 import { getStaffPrincipal } from "@/lib/staff-token";
 
@@ -39,6 +41,162 @@ type SignupFormsPageProps = {
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
+const signupFormsCopy = {
+  en: {
+    audience: "Audience",
+    signUpForms: "Sign-up forms",
+    title: "Sign-up forms",
+    subtitle: "Manage forms shown during check-in or stay.",
+    createSignUpForm: "Create sign-up form",
+    forms: "Forms",
+    formsDescription: "Click a row to view or edit the signup form.",
+    table: {
+      name: "Name",
+      channel: "Channel",
+      createdBy: "Created by",
+      lastEdited: "Last edited",
+    },
+    noForms: "No sign-up forms yet.",
+    close: "Close",
+    create: "Create",
+    edit: "Edit",
+    managerAccess: "Manager access",
+    readOnly: "Read-only",
+    newSignUpForm: "New sign-up form",
+    signUpForm: "Sign-up form",
+    saved: "Saved",
+    createFormTitle: "Create form",
+    createFormDescription: "Name, channel, and optional description.",
+    name: "Name",
+    description: "Description",
+    channel: "Channel",
+    createSignUpFormAction: "Create sign-up form",
+    readOnlyDescription: "Ask a manager to create or edit signup forms.",
+    detailsTitle: "Details",
+    detailsDescription: "Update the name, channel, and status.",
+    status: "Status",
+    active: "Active",
+    archived: "Archived",
+    saveChanges: "Save changes",
+    duplicate: "Duplicate",
+    delete: "Delete",
+    unavailableTitle: "Sign-up form not available",
+    unavailableDescription: "Refresh the list to see the latest forms.",
+    backendUnreachable: "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.",
+    placeholders: {
+      name: "10% off your next stay",
+      description: "Optional short text shown under the title",
+    },
+    channelLabels: {
+      check_in: "Check-in",
+      stay: "Stay",
+      check_out: "Check-out",
+    },
+  },
+  fr: {
+    audience: "Audience",
+    signUpForms: "Formulaires d'inscription",
+    title: "Formulaires d'inscription",
+    subtitle: "Gerer les formulaires affiches au check-in ou pendant le sejour.",
+    createSignUpForm: "Creer formulaire",
+    forms: "Formulaires",
+    formsDescription: "Cliquez une ligne pour voir ou modifier le formulaire.",
+    table: {
+      name: "Nom",
+      channel: "Canal",
+      createdBy: "Cree par",
+      lastEdited: "Derniere modification",
+    },
+    noForms: "Aucun formulaire d'inscription pour le moment.",
+    close: "Fermer",
+    create: "Creer",
+    edit: "Modifier",
+    managerAccess: "Acces manager",
+    readOnly: "Lecture seule",
+    newSignUpForm: "Nouveau formulaire",
+    signUpForm: "Formulaire d'inscription",
+    saved: "Enregistre",
+    createFormTitle: "Creer formulaire",
+    createFormDescription: "Nom, canal et description optionnelle.",
+    name: "Nom",
+    description: "Description",
+    channel: "Canal",
+    createSignUpFormAction: "Creer formulaire",
+    readOnlyDescription: "Demandez a un manager de creer ou modifier les formulaires.",
+    detailsTitle: "Details",
+    detailsDescription: "Mettre a jour nom, canal et statut.",
+    status: "Statut",
+    active: "Actif",
+    archived: "Archive",
+    saveChanges: "Enregistrer modifications",
+    duplicate: "Dupliquer",
+    delete: "Supprimer",
+    unavailableTitle: "Formulaire indisponible",
+    unavailableDescription: "Actualisez la liste pour voir les derniers formulaires.",
+    backendUnreachable: "Backend inaccessible. Lancez `npm run dev:backend` (et `npm run db:reset` une fois) puis actualisez.",
+    placeholders: {
+      name: "10% de reduction sur votre prochain sejour",
+      description: "Texte optionnel affiche sous le titre",
+    },
+    channelLabels: {
+      check_in: "Check-in",
+      stay: "Sejour",
+      check_out: "Check-out",
+    },
+  },
+  es: {
+    audience: "Audiencia",
+    signUpForms: "Formularios de registro",
+    title: "Formularios de registro",
+    subtitle: "Gestiona formularios mostrados durante check-in o estancia.",
+    createSignUpForm: "Crear formulario",
+    forms: "Formularios",
+    formsDescription: "Haz clic en una fila para ver o editar el formulario.",
+    table: {
+      name: "Nombre",
+      channel: "Canal",
+      createdBy: "Creado por",
+      lastEdited: "Ultima edicion",
+    },
+    noForms: "Aun no hay formularios de registro.",
+    close: "Cerrar",
+    create: "Crear",
+    edit: "Editar",
+    managerAccess: "Acceso manager",
+    readOnly: "Solo lectura",
+    newSignUpForm: "Nuevo formulario",
+    signUpForm: "Formulario de registro",
+    saved: "Guardado",
+    createFormTitle: "Crear formulario",
+    createFormDescription: "Nombre, canal y descripcion opcional.",
+    name: "Nombre",
+    description: "Descripcion",
+    channel: "Canal",
+    createSignUpFormAction: "Crear formulario",
+    readOnlyDescription: "Pide a un manager crear o editar formularios.",
+    detailsTitle: "Detalles",
+    detailsDescription: "Actualizar nombre, canal y estado.",
+    status: "Estado",
+    active: "Activo",
+    archived: "Archivado",
+    saveChanges: "Guardar cambios",
+    duplicate: "Duplicar",
+    delete: "Eliminar",
+    unavailableTitle: "Formulario no disponible",
+    unavailableDescription: "Actualiza la lista para ver los ultimos formularios.",
+    backendUnreachable: "Backend no disponible. Inicia `npm run dev:backend` (y `npm run db:reset` una vez) y luego recarga.",
+    placeholders: {
+      name: "10% de descuento en tu proxima estancia",
+      description: "Texto opcional mostrado bajo el titulo",
+    },
+    channelLabels: {
+      check_in: "Check-in",
+      stay: "Estancia",
+      check_out: "Check-out",
+    },
+  },
+} as const;
+
 function buildSearchParams(current: SignupFormsPageProps["searchParams"], patch: Record<string, string | null | undefined>) {
   const next = new URLSearchParams();
   for (const [key, value] of Object.entries(current ?? {})) {
@@ -63,15 +221,17 @@ async function getSignupForms(token: string): Promise<SignupFormsResponse> {
   return (await response.json()) as SignupFormsResponse;
 }
 
-function channelLabel(channel: string) {
+function channelLabel(channel: string, t: (typeof signupFormsCopy)[keyof typeof signupFormsCopy]) {
   const normalized = channel.trim().toLowerCase();
-  if (normalized === "check_in" || normalized === "check-in") return "Check-in";
-  if (normalized === "stay") return "Stay";
-  if (normalized === "check_out" || normalized === "checkout" || normalized === "check-out") return "Check-out";
+  if (normalized === "check_in" || normalized === "check-in") return t.channelLabels.check_in;
+  if (normalized === "stay") return t.channelLabels.stay;
+  if (normalized === "check_out" || normalized === "checkout" || normalized === "check-out") return t.channelLabels.check_out;
   return channel.replaceAll("_", " ");
 }
 
 export default async function SignupFormsPage({ searchParams }: SignupFormsPageProps) {
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = signupFormsCopy[locale];
   const token = requireStaffToken();
   const principal = getStaffPrincipal();
   const role = principal?.role ?? "staff";
@@ -86,7 +246,7 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
   try {
     data = await getSignupForms(token);
   } catch {
-    error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
+    error = t.backendUnreachable;
   }
 
   const items = data?.items ?? [];
@@ -242,16 +402,16 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
             <Link href="/audience" className="hover:underline">
-              Audience
+              {t.audience}
             </Link>{" "}
-            <span className="mx-1 text-muted-foreground">›</span> Sign-up forms
+            <span className="mx-1 text-muted-foreground">›</span> {t.signUpForms}
           </p>
-          <h1 className="text-2xl font-semibold">Sign-up forms</h1>
-          <p className="text-sm text-muted-foreground">Manage forms shown during check-in or stay.</p>
+          <h1 className="text-2xl font-semibold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         {canManage ? (
           <Button asChild>
-            <Link href={openNewHref}>+ Create sign-up form</Link>
+            <Link href={openNewHref}>+ {t.createSignUpForm}</Link>
           </Button>
         ) : null}
       </header>
@@ -260,15 +420,15 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
 
       <Card>
         <CardHeader className="space-y-1">
-          <CardTitle className="text-base">Forms</CardTitle>
-          <CardDescription>Click a row to view or edit the signup form.</CardDescription>
+          <CardTitle className="text-base">{t.forms}</CardTitle>
+          <CardDescription>{t.formsDescription}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="grid grid-cols-[1fr,140px,180px,190px] gap-0 border-t text-sm">
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Name</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Channel</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Created by</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Last edited</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.name}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.channel}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.createdBy}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.lastEdited}</div>
           </div>
 
           <div className="divide-y">
@@ -283,7 +443,7 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
                   <p className="truncate text-xs text-muted-foreground">{form.description ?? "—"}</p>
                 </div>
                 <div className="px-4">
-                  <Badge variant="outline">{channelLabel(form.channel)}</Badge>
+                  <Badge variant="outline">{channelLabel(form.channel, t)}</Badge>
                 </div>
                 <div className="px-4 text-sm">{form.createdBy ?? "—"}</div>
                 <div className="px-4 text-sm text-muted-foreground">{new Date(form.updatedAt).toLocaleString()}</div>
@@ -291,7 +451,7 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
             ))}
 
             {items.length === 0 ? (
-              <div className="px-4 py-10 text-center text-sm text-muted-foreground">No sign-up forms yet.</div>
+              <div className="px-4 py-10 text-center text-sm text-muted-foreground">{t.noForms}</div>
             ) : null}
           </div>
         </CardContent>
@@ -299,18 +459,18 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
 
       {wantsNew || formId ? (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <Link href={closeDrawerHref} className="absolute inset-0 bg-background/60 backdrop-blur" aria-label="Close" />
+          <Link href={closeDrawerHref} className="absolute inset-0 bg-background/60 backdrop-blur" aria-label={t.close} />
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l bg-background shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background/95 p-6">
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">
-                  {wantsNew ? "Create" : "Edit"} · {canManage ? "Manager access" : "Read-only"}
+                  {wantsNew ? t.create : t.edit} · {canManage ? t.managerAccess : t.readOnly}
                 </p>
-                <h2 className="truncate text-lg font-semibold">{wantsNew ? "New sign-up form" : selectedForm?.name ?? "Sign-up form"}</h2>
+                <h2 className="truncate text-lg font-semibold">{wantsNew ? t.newSignUpForm : selectedForm?.name ?? t.signUpForm}</h2>
                 {selectedForm ? <p className="truncate text-xs text-muted-foreground font-mono">{selectedForm.id}</p> : null}
               </div>
               <Button variant="outline" asChild>
-                <Link href={closeDrawerHref}>Close</Link>
+                <Link href={closeDrawerHref}>{t.close}</Link>
               </Button>
             </div>
 
@@ -323,7 +483,7 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
 
               {searchParams?.saved ? (
                 <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                  Saved ({searchParams.saved}).
+                  {t.saved} ({searchParams.saved}).
                 </p>
               ) : null}
 
@@ -331,32 +491,32 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
                 canManage ? (
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Create form</CardTitle>
-                      <CardDescription>Name, channel, and optional description.</CardDescription>
+                      <CardTitle className="text-base">{t.createFormTitle}</CardTitle>
+                      <CardDescription>{t.createFormDescription}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <form action={createSignupForm} className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="sf-name">Name</Label>
-                          <Input id="sf-name" name="name" placeholder="10% off your next stay" required />
+                          <Label htmlFor="sf-name">{t.name}</Label>
+                          <Input id="sf-name" name="name" placeholder={t.placeholders.name} required />
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="sf-description">Description</Label>
-                          <Input id="sf-description" name="description" placeholder="Optional short text shown under the title" />
+                          <Label htmlFor="sf-description">{t.description}</Label>
+                          <Input id="sf-description" name="description" placeholder={t.placeholders.description} />
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="sf-channel">Channel</Label>
+                          <Label htmlFor="sf-channel">{t.channel}</Label>
                           <select id="sf-channel" name="channel" className={nativeSelectClassName} defaultValue="check_in">
-                            <option value="check_in">Check-in</option>
-                            <option value="stay">Stay</option>
-                            <option value="check_out">Check-out</option>
+                            <option value="check_in">{t.channelLabels.check_in}</option>
+                            <option value="stay">{t.channelLabels.stay}</option>
+                            <option value="check_out">{t.channelLabels.check_out}</option>
                           </select>
                         </div>
 
                         <Button type="submit" className="w-full">
-                          Create sign-up form
+                          {t.createSignUpFormAction}
                         </Button>
                       </form>
                     </CardContent>
@@ -364,8 +524,8 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
                 ) : (
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Read-only</CardTitle>
-                      <CardDescription>Ask a manager to create or edit signup forms.</CardDescription>
+                      <CardTitle className="text-base">{t.readOnly}</CardTitle>
+                      <CardDescription>{t.readOnlyDescription}</CardDescription>
                     </CardHeader>
                   </Card>
                 )
@@ -373,19 +533,19 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
                 <>
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Details</CardTitle>
-                      <CardDescription>Update the name, channel, and status.</CardDescription>
+                      <CardTitle className="text-base">{t.detailsTitle}</CardTitle>
+                      <CardDescription>{t.detailsDescription}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <form action={updateSignupForm} className="space-y-4">
                         <input type="hidden" name="formId" value={selectedForm.id} />
                         <div className="space-y-2">
-                          <Label htmlFor="sf-name-edit">Name</Label>
+                          <Label htmlFor="sf-name-edit">{t.name}</Label>
                           <Input id="sf-name-edit" name="name" defaultValue={selectedForm.name} required disabled={!canManage} />
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="sf-description-edit">Description</Label>
+                          <Label htmlFor="sf-description-edit">{t.description}</Label>
                           <Input
                             id="sf-description-edit"
                             name="description"
@@ -396,7 +556,7 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
 
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <Label htmlFor="sf-channel-edit">Channel</Label>
+                            <Label htmlFor="sf-channel-edit">{t.channel}</Label>
                             <select
                               id="sf-channel-edit"
                               name="channel"
@@ -404,13 +564,13 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
                               defaultValue={selectedForm.channel}
                               disabled={!canManage}
                             >
-                              <option value="check_in">Check-in</option>
-                              <option value="stay">Stay</option>
-                              <option value="check_out">Check-out</option>
+                              <option value="check_in">{t.channelLabels.check_in}</option>
+                              <option value="stay">{t.channelLabels.stay}</option>
+                              <option value="check_out">{t.channelLabels.check_out}</option>
                             </select>
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="sf-status-edit">Status</Label>
+                            <Label htmlFor="sf-status-edit">{t.status}</Label>
                             <select
                               id="sf-status-edit"
                               name="status"
@@ -418,15 +578,15 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
                               defaultValue={selectedForm.status}
                               disabled={!canManage}
                             >
-                              <option value="active">Active</option>
-                              <option value="archived">Archived</option>
+                              <option value="active">{t.active}</option>
+                              <option value="archived">{t.archived}</option>
                             </select>
                           </div>
                         </div>
 
                         {canManage ? (
                           <Button type="submit" className="w-full">
-                            Save changes
+                            {t.saveChanges}
                           </Button>
                         ) : null}
                       </form>
@@ -442,13 +602,13 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
                         <input type="hidden" name="status" value={selectedForm.status} />
                         <input type="hidden" name="config" value={JSON.stringify(selectedForm.config ?? {})} />
                         <Button type="submit" variant="outline">
-                          Duplicate
+                          {t.duplicate}
                         </Button>
                       </form>
                       <form action={deleteSignupForm}>
                         <input type="hidden" name="formId" value={selectedForm.id} />
                         <Button type="submit" variant="destructive">
-                          Delete
+                          {t.delete}
                         </Button>
                       </form>
                     </div>
@@ -457,8 +617,8 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
               ) : (
                 <Card>
                   <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-base">Sign-up form not available</CardTitle>
-                    <CardDescription>Refresh the list to see the latest forms.</CardDescription>
+                    <CardTitle className="text-base">{t.unavailableTitle}</CardTitle>
+                    <CardDescription>{t.unavailableDescription}</CardDescription>
                   </CardHeader>
                 </Card>
               )}
@@ -469,4 +629,3 @@ export default async function SignupFormsPage({ searchParams }: SignupFormsPageP
     </div>
   );
 }
-

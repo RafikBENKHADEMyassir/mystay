@@ -1,12 +1,50 @@
 import Link from "next/link";
-import { Plus, Building2, MapPin, Star, MoreHorizontal } from "lucide-react";
+import { cookies } from "next/headers";
+import { Plus, Building2, MapPin, Star } from "lucide-react";
 
 import { getStaffToken } from "@/lib/staff-token";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+const hotelsListCopy = {
+  en: {
+    title: "Hotels",
+    subtitle: "Manage partner hotels on the MyStay platform.",
+    addHotel: "Add Hotel",
+    noHotelsTitle: "No hotels yet",
+    noHotelsDescription: "Get started by adding your first partner hotel.",
+    active: "Active",
+    inactive: "Inactive",
+    stars: "stars",
+    amenities: "amenities",
+  },
+  fr: {
+    title: "Hotels",
+    subtitle: "Gerez les hotels partenaires sur la plateforme MyStay.",
+    addHotel: "Ajouter hotel",
+    noHotelsTitle: "Aucun hotel pour le moment",
+    noHotelsDescription: "Commencez en ajoutant votre premier hotel partenaire.",
+    active: "Actif",
+    inactive: "Inactif",
+    stars: "etoiles",
+    amenities: "equipements",
+  },
+  es: {
+    title: "Hoteles",
+    subtitle: "Gestiona hoteles socios en la plataforma MyStay.",
+    addHotel: "Agregar hotel",
+    noHotelsTitle: "Aun no hay hoteles",
+    noHotelsDescription: "Comienza agregando tu primer hotel socio.",
+    active: "Activo",
+    inactive: "Inactivo",
+    stars: "estrellas",
+    amenities: "servicios",
+  },
+} as const;
 
 type Hotel = {
   id: string;
@@ -39,6 +77,8 @@ async function getHotels(token: string): Promise<Hotel[]> {
 }
 
 export default async function HotelsListPage() {
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = hotelsListCopy[locale];
   const token = getStaffToken();
   const hotels = token ? await getHotels(token) : [];
 
@@ -46,15 +86,15 @@ export default async function HotelsListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Hotels</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-muted-foreground">
-            Manage partner hotels on the MyStay platform.
+            {t.subtitle}
           </p>
         </div>
         <Button asChild>
           <Link href="/platform/hotels/new">
             <Plus className="mr-2 h-4 w-4" />
-            Add Hotel
+            {t.addHotel}
           </Link>
         </Button>
       </div>
@@ -63,14 +103,14 @@ export default async function HotelsListPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Building2 className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-semibold">No hotels yet</h3>
+            <h3 className="mb-2 text-lg font-semibold">{t.noHotelsTitle}</h3>
             <p className="mb-4 text-sm text-muted-foreground">
-              Get started by adding your first partner hotel.
+              {t.noHotelsDescription}
             </p>
             <Button asChild>
               <Link href="/platform/hotels/new">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Hotel
+                {t.addHotel}
               </Link>
             </Button>
           </CardContent>
@@ -112,7 +152,7 @@ export default async function HotelsListPage() {
                       )}
                     </div>
                     <Badge variant={hotel.isActive ? "default" : "secondary"}>
-                      {hotel.isActive ? "Active" : "Inactive"}
+                      {hotel.isActive ? t.active : t.inactive}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -121,12 +161,12 @@ export default async function HotelsListPage() {
                     {hotel.starRating && (
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        {hotel.starRating} stars
+                        {hotel.starRating} {t.stars}
                       </div>
                     )}
                     {hotel.amenities && hotel.amenities.length > 0 && (
                       <span className="text-sm text-muted-foreground">
-                        · {hotel.amenities.length} amenities
+                        · {hotel.amenities.length} {t.amenities}
                       </span>
                     )}
                   </div>

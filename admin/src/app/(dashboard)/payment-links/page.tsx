@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { CopyButton } from "@/components/copy-button";
 import { PaymentLinkCreateForm } from "@/components/payment-links/payment-link-create-form";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 
 type PaymentLinkListItem = {
@@ -84,6 +86,186 @@ type PaymentLinksPageProps = {
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
+const paymentLinksCopy = {
+  en: {
+    appName: "MyStay Admin",
+    title: "Pay by Link",
+    subtitle: "Create and track payment links shared with guests.",
+    newPaymentLink: "New payment link",
+    filtersTitle: "Filters",
+    filtersDescription: "Date window, search, and status.",
+    paymentLinksTitle: "Payment links",
+    paymentLinksDescription: "Sorted by newest first.",
+    previous: "Previous",
+    next: "Next",
+    table: {
+      created: "Created",
+      name: "Name",
+      type: "Type",
+      amount: "Amount",
+      reason: "Reason",
+      pmsStatus: "PMS status",
+      status: "Status",
+    },
+    payerTypes: {
+      guest: "Guest",
+      visitor: "Visitor",
+    },
+    noPaymentLinks: "No payment links found.",
+    drawerTitle: "Pay by Link",
+    newPaymentLinkTitle: "New payment link",
+    paymentLinkTitle: "Payment link",
+    close: "Close",
+    detailsTitle: "Details",
+    detailsDescription: "Payer, amount, and status.",
+    payer: "Payer",
+    amount: "Amount",
+    paymentStatus: "Payment status",
+    reservation: "Reservation",
+    room: "Room",
+    paymentUrlTitle: "Payment URL",
+    paymentUrlDescription: "Copy or open the secure link.",
+    copyLink: "Copy link",
+    openLink: "Open link",
+    sendViaEmail: "Send via email",
+    sendViaMessage: "Send via message",
+    unavailableTitle: "Payment link not available",
+    unavailableDescription: "It may have been removed or you do not have access.",
+    unlinkedGuest: "Unlinked guest",
+    backendUnreachable: "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.",
+    paymentBadges: {
+      paid: "Paid",
+      failed: "Failed",
+      expired: "Expired",
+      created: "Created",
+    },
+    pmsBadges: {
+      posted: "Posted",
+      configured: "Configured",
+      failed_to_post: "Failed to post",
+      default: "Not configured",
+    },
+  },
+  fr: {
+    appName: "MyStay Admin",
+    title: "Paiement par lien",
+    subtitle: "Creer et suivre les liens de paiement partages avec les clients.",
+    newPaymentLink: "Nouveau lien de paiement",
+    filtersTitle: "Filtres",
+    filtersDescription: "Periode, recherche et statut.",
+    paymentLinksTitle: "Liens de paiement",
+    paymentLinksDescription: "Tries du plus recent au plus ancien.",
+    previous: "Precedent",
+    next: "Suivant",
+    table: {
+      created: "Cree",
+      name: "Nom",
+      type: "Type",
+      amount: "Montant",
+      reason: "Motif",
+      pmsStatus: "Statut PMS",
+      status: "Statut",
+    },
+    payerTypes: {
+      guest: "Client",
+      visitor: "Visiteur",
+    },
+    noPaymentLinks: "Aucun lien de paiement trouve.",
+    drawerTitle: "Paiement par lien",
+    newPaymentLinkTitle: "Nouveau lien de paiement",
+    paymentLinkTitle: "Lien de paiement",
+    close: "Fermer",
+    detailsTitle: "Details",
+    detailsDescription: "Payeur, montant et statut.",
+    payer: "Payeur",
+    amount: "Montant",
+    paymentStatus: "Statut du paiement",
+    reservation: "Reservation",
+    room: "Chambre",
+    paymentUrlTitle: "URL de paiement",
+    paymentUrlDescription: "Copier ou ouvrir le lien securise.",
+    copyLink: "Copier le lien",
+    openLink: "Ouvrir le lien",
+    sendViaEmail: "Envoyer par email",
+    sendViaMessage: "Envoyer par message",
+    unavailableTitle: "Lien de paiement indisponible",
+    unavailableDescription: "Il a peut-etre ete supprime ou vous n'avez pas acces.",
+    unlinkedGuest: "Client non lie",
+    backendUnreachable: "Backend inaccessible. Lancez `npm run dev:backend` (et `npm run db:reset` une fois) puis actualisez.",
+    paymentBadges: {
+      paid: "Paye",
+      failed: "Echoue",
+      expired: "Expire",
+      created: "Cree",
+    },
+    pmsBadges: {
+      posted: "Publie",
+      configured: "Configure",
+      failed_to_post: "Echec d'envoi",
+      default: "Non configure",
+    },
+  },
+  es: {
+    appName: "MyStay Admin",
+    title: "Pago por enlace",
+    subtitle: "Crear y seguir enlaces de pago compartidos con huespedes.",
+    newPaymentLink: "Nuevo enlace de pago",
+    filtersTitle: "Filtros",
+    filtersDescription: "Ventana de fechas, busqueda y estado.",
+    paymentLinksTitle: "Enlaces de pago",
+    paymentLinksDescription: "Ordenados del mas reciente al mas antiguo.",
+    previous: "Anterior",
+    next: "Siguiente",
+    table: {
+      created: "Creado",
+      name: "Nombre",
+      type: "Tipo",
+      amount: "Importe",
+      reason: "Motivo",
+      pmsStatus: "Estado PMS",
+      status: "Estado",
+    },
+    payerTypes: {
+      guest: "Huesped",
+      visitor: "Visitante",
+    },
+    noPaymentLinks: "No se encontraron enlaces de pago.",
+    drawerTitle: "Pago por enlace",
+    newPaymentLinkTitle: "Nuevo enlace de pago",
+    paymentLinkTitle: "Enlace de pago",
+    close: "Cerrar",
+    detailsTitle: "Detalles",
+    detailsDescription: "Pagador, importe y estado.",
+    payer: "Pagador",
+    amount: "Importe",
+    paymentStatus: "Estado del pago",
+    reservation: "Reserva",
+    room: "Habitacion",
+    paymentUrlTitle: "URL de pago",
+    paymentUrlDescription: "Copiar o abrir el enlace seguro.",
+    copyLink: "Copiar enlace",
+    openLink: "Abrir enlace",
+    sendViaEmail: "Enviar por correo",
+    sendViaMessage: "Enviar por mensaje",
+    unavailableTitle: "Enlace de pago no disponible",
+    unavailableDescription: "Puede haber sido eliminado o no tienes acceso.",
+    unlinkedGuest: "Huesped no vinculado",
+    backendUnreachable: "Backend no disponible. Inicia `npm run dev:backend` (y `npm run db:reset` una vez) y luego recarga.",
+    paymentBadges: {
+      paid: "Pagado",
+      failed: "Fallido",
+      expired: "Expirado",
+      created: "Creado",
+    },
+    pmsBadges: {
+      posted: "Publicado",
+      configured: "Configurado",
+      failed_to_post: "Error al publicar",
+      default: "No configurado",
+    },
+  },
+} as const;
+
 function buildSearchParams(current: PaymentLinksPageProps["searchParams"], patch: Record<string, string | null | undefined>) {
   const next = new URLSearchParams();
   for (const [key, value] of Object.entries(current ?? {})) {
@@ -107,20 +289,20 @@ function formatMoney(amountCents: number, currency: string) {
   }
 }
 
-function badgeForPaymentStatus(status: string) {
+function badgeForPaymentStatus(status: string, t: (typeof paymentLinksCopy)[keyof typeof paymentLinksCopy]) {
   const normalized = status.trim().toLowerCase();
-  if (normalized === "paid") return { label: "Paid", className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-  if (normalized === "failed") return { label: "Failed", className: "border-destructive/30 bg-destructive/10 text-destructive" };
-  if (normalized === "expired") return { label: "Expired", className: "border-amber-200 bg-amber-50 text-amber-800" };
-  return { label: "Created", className: "border-violet-200 bg-violet-50 text-violet-800" };
+  if (normalized === "paid") return { label: t.paymentBadges.paid, className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
+  if (normalized === "failed") return { label: t.paymentBadges.failed, className: "border-destructive/30 bg-destructive/10 text-destructive" };
+  if (normalized === "expired") return { label: t.paymentBadges.expired, className: "border-amber-200 bg-amber-50 text-amber-800" };
+  return { label: t.paymentBadges.created, className: "border-violet-200 bg-violet-50 text-violet-800" };
 }
 
-function badgeForPmsStatus(status: string) {
+function badgeForPmsStatus(status: string, t: (typeof paymentLinksCopy)[keyof typeof paymentLinksCopy]) {
   const normalized = status.trim().toLowerCase();
-  if (normalized === "posted") return { label: "Posted", className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-  if (normalized === "configured") return { label: "Configured", className: "border-blue-200 bg-blue-50 text-blue-800" };
-  if (normalized === "failed_to_post") return { label: "Failed to post", className: "border-destructive/30 bg-destructive/10 text-destructive" };
-  return { label: "Not configured", className: "border-muted/40 bg-muted/20 text-muted-foreground" };
+  if (normalized === "posted") return { label: t.pmsBadges.posted, className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
+  if (normalized === "configured") return { label: t.pmsBadges.configured, className: "border-blue-200 bg-blue-50 text-blue-800" };
+  if (normalized === "failed_to_post") return { label: t.pmsBadges.failed_to_post, className: "border-destructive/30 bg-destructive/10 text-destructive" };
+  return { label: t.pmsBadges.default, className: "border-muted/40 bg-muted/20 text-muted-foreground" };
 }
 
 async function getPaymentLinks(token: string, query: URLSearchParams): Promise<PaymentLinksResponse> {
@@ -154,7 +336,7 @@ async function getReservation(token: string, stayId: string): Promise<Reservatio
     id: payload.stay.id,
     guestId: payload.guest?.id ?? null,
     confirmationNumber: payload.stay.confirmationNumber,
-    guestName: payload.guest?.name ?? "Unlinked guest",
+    guestName: payload.guest?.name ?? "",
     roomNumber: payload.stay.roomNumber ?? null,
     arrivalDate: payload.stay.checkIn,
     departureDate: payload.stay.checkOut,
@@ -165,6 +347,8 @@ async function getReservation(token: string, stayId: string): Promise<Reservatio
 
 export default async function PaymentLinksPage({ searchParams }: PaymentLinksPageProps) {
   const token = requireStaffToken();
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = paymentLinksCopy[locale];
   const paymentLinkId = (searchParams?.paymentLinkId ?? "").trim();
   const wantsNew = (searchParams?.new ?? "").trim() === "1";
   const prefillStayId = (searchParams?.stayId ?? "").trim();
@@ -189,7 +373,7 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
     if (paymentLinkId) detail = await getPaymentLink(token, paymentLinkId);
     if (wantsNew && prefillStayId) initialReservation = await getReservation(token, prefillStayId);
   } catch {
-    error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
+    error = t.backendUnreachable;
   }
 
   const items = data?.items ?? [];
@@ -318,19 +502,19 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
-          <h1 className="text-2xl font-semibold">Pay by Link</h1>
-          <p className="text-sm text-muted-foreground">Create and track payment links shared with guests.</p>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
+          <h1 className="text-2xl font-semibold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <Button asChild>
-          <Link href={openNewHref}>+ New payment link</Link>
+          <Link href={openNewHref}>+ {t.newPaymentLink}</Link>
         </Button>
       </header>
 
       <Card>
         <CardHeader className="space-y-1">
-          <CardTitle className="text-base">Filters</CardTitle>
-          <CardDescription>Date window, search, and status.</CardDescription>
+          <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
+          <CardDescription>{t.filtersDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <PaymentLinksFilters statuses={statuses} />
@@ -341,13 +525,13 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
       <Card>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-base">Payment links</CardTitle>
-            <CardDescription>Sorted by newest first.</CardDescription>
+            <CardTitle className="text-base">{t.paymentLinksTitle}</CardTitle>
+            <CardDescription>{t.paymentLinksDescription}</CardDescription>
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" disabled={page <= 1}>
               <Link href={`/payment-links?${buildSearchParams(searchParams, { page: String(Math.max(1, page - 1)) }).toString()}`}>
-                Previous
+                {t.previous}
               </Link>
             </Button>
             <Badge variant="outline" className="font-mono">
@@ -355,26 +539,26 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
             </Badge>
             <Button asChild variant="outline" disabled={page >= totalPages}>
               <Link href={`/payment-links?${buildSearchParams(searchParams, { page: String(Math.min(totalPages, page + 1)) }).toString()}`}>
-                Next
+                {t.next}
               </Link>
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="grid grid-cols-[110px,1.2fr,90px,120px,1.2fr,120px,120px] gap-0 border-t text-sm">
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Created</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Name</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Type</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Amount</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Reason</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">PMS status</div>
-            <div className="px-4 py-3 font-semibold text-muted-foreground">Status</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.created}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.name}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.type}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.amount}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.reason}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.pmsStatus}</div>
+            <div className="px-4 py-3 font-semibold text-muted-foreground">{t.table.status}</div>
           </div>
 
           <div className="divide-y">
             {items.map((linkItem) => {
-              const paymentBadge = badgeForPaymentStatus(linkItem.paymentStatus);
-              const pmsBadge = badgeForPmsStatus(linkItem.pmsStatus);
+              const paymentBadge = badgeForPaymentStatus(linkItem.paymentStatus, t);
+              const pmsBadge = badgeForPmsStatus(linkItem.pmsStatus, t);
 
               return (
                 <Link
@@ -389,7 +573,7 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
                       {linkItem.confirmationNumber ? linkItem.confirmationNumber : linkItem.id}
                     </p>
                   </div>
-                  <div className="px-4 capitalize">{linkItem.payerType}</div>
+                  <div className="px-4 capitalize">{t.payerTypes[linkItem.payerType]}</div>
                   <div className="px-4 font-mono">{formatMoney(linkItem.amountCents, linkItem.currency)}</div>
                   <div className="px-4 truncate">{linkItem.reasonText ?? "—"}</div>
                   <div className="px-4">
@@ -407,7 +591,7 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
             })}
 
             {items.length === 0 ? (
-              <div className="px-4 py-10 text-center text-sm text-muted-foreground">No payment links found.</div>
+              <div className="px-4 py-10 text-center text-sm text-muted-foreground">{t.noPaymentLinks}</div>
             ) : null}
           </div>
         </CardContent>
@@ -415,16 +599,16 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
 
       {wantsNew || paymentLinkId ? (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <Link href={closeDrawerHref} className="absolute inset-0 bg-background/60 backdrop-blur" aria-label="Close" />
+          <Link href={closeDrawerHref} className="absolute inset-0 bg-background/60 backdrop-blur" aria-label={t.close} />
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l bg-background shadow-xl">
             <div className="flex items-start justify-between gap-4 border-b p-6">
               <div className="min-w-0 space-y-1">
-                <p className="text-xs text-muted-foreground">Pay by Link</p>
-                <h2 className="truncate text-lg font-semibold">{wantsNew ? "New payment link" : "Payment link"}</h2>
+                <p className="text-xs text-muted-foreground">{t.drawerTitle}</p>
+                <h2 className="truncate text-lg font-semibold">{wantsNew ? t.newPaymentLinkTitle : t.paymentLinkTitle}</h2>
                 {!wantsNew && detail ? <p className="text-xs text-muted-foreground font-mono">{detail.id}</p> : null}
               </div>
               <Button variant="outline" asChild>
-                <Link href={closeDrawerHref}>Close</Link>
+                <Link href={closeDrawerHref}>{t.close}</Link>
               </Button>
             </div>
 
@@ -441,38 +625,38 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
                 <>
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Details</CardTitle>
-                      <CardDescription>Payer, amount, and status.</CardDescription>
+                      <CardTitle className="text-base">{t.detailsTitle}</CardTitle>
+                      <CardDescription>{t.detailsDescription}</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-4 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Payer</p>
+                        <p className="text-xs font-semibold text-muted-foreground">{t.payer}</p>
                         <p className="text-sm">{detail.payer.name ?? "—"}</p>
                         <p className="text-xs text-muted-foreground">{detail.payer.email ?? "—"}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Amount</p>
+                        <p className="text-xs font-semibold text-muted-foreground">{t.amount}</p>
                         <p className="text-sm font-mono">{formatMoney(detail.amountCents, detail.currency)}</p>
                         <p className="text-xs text-muted-foreground">{detail.reasonText ?? detail.reasonCategory ?? "—"}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground">PMS status</p>
-                        <Badge variant="outline" className={badgeForPmsStatus(detail.pmsStatus).className}>
-                          {badgeForPmsStatus(detail.pmsStatus).label}
+                        <p className="text-xs font-semibold text-muted-foreground">{t.table.pmsStatus}</p>
+                        <Badge variant="outline" className={badgeForPmsStatus(detail.pmsStatus, t).className}>
+                          {badgeForPmsStatus(detail.pmsStatus, t).label}
                         </Badge>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Payment status</p>
-                        <Badge variant="outline" className={badgeForPaymentStatus(detail.paymentStatus).className}>
-                          {badgeForPaymentStatus(detail.paymentStatus).label}
+                        <p className="text-xs font-semibold text-muted-foreground">{t.paymentStatus}</p>
+                        <Badge variant="outline" className={badgeForPaymentStatus(detail.paymentStatus, t).className}>
+                          {badgeForPaymentStatus(detail.paymentStatus, t).label}
                         </Badge>
                       </div>
                       {detail.stay ? (
                         <div className="sm:col-span-2">
-                          <p className="text-xs font-semibold text-muted-foreground">Reservation</p>
+                          <p className="text-xs font-semibold text-muted-foreground">{t.reservation}</p>
                           <p className="text-sm font-mono">
                             {detail.stay.confirmationNumber ?? detail.stay.id}
-                            {detail.stay.roomNumber ? ` · Room ${detail.stay.roomNumber}` : ""}
+                            {detail.stay.roomNumber ? ` · ${t.room} ${detail.stay.roomNumber}` : ""}
                           </p>
                         </div>
                       ) : null}
@@ -481,18 +665,18 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
 
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Payment URL</CardTitle>
-                      <CardDescription>Copy or open the secure link.</CardDescription>
+                      <CardTitle className="text-base">{t.paymentUrlTitle}</CardTitle>
+                      <CardDescription>{t.paymentUrlDescription}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <Input readOnly value={detail.publicUrl} className="font-mono" />
                       <div className="flex flex-wrap items-center gap-2">
                         <CopyButton value={detail.publicUrl} variant="secondary">
-                          Copy link
+                          {t.copyLink}
                         </CopyButton>
                         <Button asChild variant="outline">
                           <a href={detail.publicUrl} target="_blank" rel="noreferrer">
-                            Open link
+                            {t.openLink}
                           </a>
                         </Button>
                       </div>
@@ -503,13 +687,13 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
                     <form action={sendPaymentLinkEmail}>
                       <input type="hidden" name="paymentLinkId" value={detail.id} />
                       <Button type="submit" variant="outline">
-                        Send via email
+                        {t.sendViaEmail}
                       </Button>
                     </form>
                     <form action={sendPaymentLinkMessage}>
                       <input type="hidden" name="paymentLinkId" value={detail.id} />
                       <Button type="submit" disabled={!detail.stay}>
-                        Send via message
+                        {t.sendViaMessage}
                       </Button>
                     </form>
                   </div>
@@ -517,8 +701,8 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
               ) : (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Payment link not available</CardTitle>
-                    <CardDescription>It may have been removed or you do not have access.</CardDescription>
+                    <CardTitle className="text-base">{t.unavailableTitle}</CardTitle>
+                    <CardDescription>{t.unavailableDescription}</CardDescription>
                   </CardHeader>
                 </Card>
               )}
@@ -529,4 +713,3 @@ export default async function PaymentLinksPage({ searchParams }: PaymentLinksPag
     </div>
   );
 }
-

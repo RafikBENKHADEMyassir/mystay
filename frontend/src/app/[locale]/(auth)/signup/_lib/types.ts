@@ -31,7 +31,7 @@ export const INITIAL_FORM: SignupFormState = {
   firstName: "",
   lastName: "",
   email: "",
-  phoneCountry: "",
+  phoneCountry: "FR",
   phoneNumber: "",
   password: "",
   confirmPassword: "",

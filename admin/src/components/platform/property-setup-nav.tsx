@@ -4,25 +4,61 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ClipboardList, CreditCard, FileText, HandCoins, PlugZap, RefreshCw, UtensilsCrossed } from "lucide-react";
 
-import { stripAdminLocaleFromPathname } from "@/lib/admin-locale";
+import { defaultAdminLocale, getAdminLocaleFromPathname, stripAdminLocaleFromPathname } from "@/lib/admin-locale";
 import { cn } from "@/lib/utils";
 
 type SetupItem = {
   slug: string;
-  title: string;
+  titleKey: string;
   icon: React.ComponentType<{ className?: string }>;
 };
 
+const setupNavCopy = {
+  en: {
+    menuSetup: "Menu setup",
+    payments: "Payments",
+    roomService: "Room service",
+    minibar: "Minibar",
+    upselling: "Upselling",
+    checkinOut: "Check-in/out config",
+    hotelRules: "Hotel rules",
+    sync: "Data synchronization",
+    notificationCenter: "Notification center",
+  },
+  fr: {
+    menuSetup: "Configuration menu",
+    payments: "Paiements",
+    roomService: "Room service",
+    minibar: "Minibar",
+    upselling: "Upselling",
+    checkinOut: "Config check-in/out",
+    hotelRules: "Regles hotel",
+    sync: "Synchronisation des donnees",
+    notificationCenter: "Centre de notifications",
+  },
+  es: {
+    menuSetup: "Configuracion de menu",
+    payments: "Pagos",
+    roomService: "Room service",
+    minibar: "Minibar",
+    upselling: "Upselling",
+    checkinOut: "Config check-in/out",
+    hotelRules: "Reglas del hotel",
+    sync: "Sincronizacion de datos",
+    notificationCenter: "Centro de notificaciones",
+  },
+} as const;
+
 const items: SetupItem[] = [
-  { slug: "menu-setup", title: "Menu setup", icon: UtensilsCrossed },
-  { slug: "payments", title: "Payments", icon: CreditCard },
-  { slug: "room-service", title: "Room service", icon: ClipboardList },
-  { slug: "minibar", title: "Minibar", icon: HandCoins },
-  { slug: "upselling", title: "Upselling", icon: PlugZap },
-  { slug: "checkin-out", title: "Check-in/out config", icon: FileText },
-  { slug: "hotel-rules", title: "Hotel rules", icon: FileText },
-  { slug: "sync", title: "Data synchronization", icon: RefreshCw },
-  { slug: "notification-center", title: "Notification center", icon: Bell }
+  { slug: "menu-setup", titleKey: "menuSetup", icon: UtensilsCrossed },
+  { slug: "payments", titleKey: "payments", icon: CreditCard },
+  { slug: "room-service", titleKey: "roomService", icon: ClipboardList },
+  { slug: "minibar", titleKey: "minibar", icon: HandCoins },
+  { slug: "upselling", titleKey: "upselling", icon: PlugZap },
+  { slug: "checkin-out", titleKey: "checkinOut", icon: FileText },
+  { slug: "hotel-rules", titleKey: "hotelRules", icon: FileText },
+  { slug: "sync", titleKey: "sync", icon: RefreshCw },
+  { slug: "notification-center", titleKey: "notificationCenter", icon: Bell }
 ];
 
 type PropertySetupNavProps = {
@@ -30,7 +66,10 @@ type PropertySetupNavProps = {
 };
 
 export function PropertySetupNav({ hotelId }: PropertySetupNavProps) {
-  const pathname = stripAdminLocaleFromPathname(usePathname() ?? "");
+  const rawPathname = usePathname() ?? "";
+  const pathname = stripAdminLocaleFromPathname(rawPathname);
+  const locale = getAdminLocaleFromPathname(rawPathname) ?? defaultAdminLocale;
+  const t = setupNavCopy[locale];
 
   return (
     <nav className="space-y-1">
@@ -49,7 +88,7 @@ export function PropertySetupNav({ hotelId }: PropertySetupNavProps) {
             )}
           >
             <Icon className="h-4 w-4" />
-            {item.title}
+            {t[item.titleKey as keyof typeof t]}
           </Link>
         );
       })}

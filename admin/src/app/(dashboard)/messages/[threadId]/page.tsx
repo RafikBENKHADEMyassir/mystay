@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { LiveThreadRefresh } from "@/components/live-thread-refresh";
@@ -6,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { adminLocaleCookieName, resolveAdminLocale, type AdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +67,144 @@ type MessageThreadPageProps = {
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
+const messageThreadCopy = {
+  en: {
+    appName: "MyStay Admin",
+    pageTitle: "Messages",
+    backToMessages: "Back to messages",
+    threadNotAvailable: "Thread not available",
+    threadUnavailableDescription: "It may have been deleted or you do not have access.",
+    backendUnreachable: "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.",
+    backendErrorTitle: "Backend error",
+    unassigned: "Unassigned",
+    assignmentTitle: "Assignment",
+    assignmentDescription: "Owner for this guest conversation.",
+    assignee: "Assignee:",
+    assignToMe: "Assign to me",
+    takeOwnership: "Take ownership",
+    unassign: "Unassign",
+    conversationTitle: "Conversation",
+    conversationDescription: "Live messages between guest and staff.",
+    conversationEmpty: "No messages yet.",
+    viewRequest: "View request",
+    replyPlaceholder: "Write a reply...",
+    sendAsStaff: "Sends as your staff identity.",
+    send: "Send",
+    internalNotesTitle: "Internal notes",
+    internalNotesDescription: "Staff-only context for shift handovers.",
+    noInternalNotes: "No internal notes yet.",
+    notePlaceholder: "Add an internal note...",
+    noteVisibleToStaff: "Visible to staff only.",
+    addNote: "Add note",
+  },
+  fr: {
+    appName: "MyStay Admin",
+    pageTitle: "Messages",
+    backToMessages: "Retour aux messages",
+    threadNotAvailable: "Conversation indisponible",
+    threadUnavailableDescription: "Elle a peut-etre ete supprimee ou vous n'avez pas acces.",
+    backendUnreachable: "Backend inaccessible. Lancez `npm run dev:backend` (et `npm run db:reset` une fois) puis actualisez.",
+    backendErrorTitle: "Erreur backend",
+    unassigned: "Non assigne",
+    assignmentTitle: "Attribution",
+    assignmentDescription: "Responsable de cette conversation client.",
+    assignee: "Assigne:",
+    assignToMe: "M'assigner",
+    takeOwnership: "Prendre en charge",
+    unassign: "Retirer l'attribution",
+    conversationTitle: "Conversation",
+    conversationDescription: "Messages en direct entre client et personnel.",
+    conversationEmpty: "Aucun message pour le moment.",
+    viewRequest: "Voir la demande",
+    replyPlaceholder: "Ecrire une reponse...",
+    sendAsStaff: "Envoi avec votre identite staff.",
+    send: "Envoyer",
+    internalNotesTitle: "Notes internes",
+    internalNotesDescription: "Contexte reserve au staff pour les passations.",
+    noInternalNotes: "Aucune note interne pour le moment.",
+    notePlaceholder: "Ajouter une note interne...",
+    noteVisibleToStaff: "Visible uniquement par le staff.",
+    addNote: "Ajouter une note",
+  },
+  es: {
+    appName: "MyStay Admin",
+    pageTitle: "Mensajes",
+    backToMessages: "Volver a mensajes",
+    threadNotAvailable: "Conversacion no disponible",
+    threadUnavailableDescription: "Puede haber sido eliminada o no tienes acceso.",
+    backendUnreachable: "Backend inaccesible. Inicia `npm run dev:backend` (y `npm run db:reset` una vez) y actualiza.",
+    backendErrorTitle: "Error del backend",
+    unassigned: "Sin asignar",
+    assignmentTitle: "Asignacion",
+    assignmentDescription: "Responsable de esta conversacion del huesped.",
+    assignee: "Asignado:",
+    assignToMe: "Asignarme",
+    takeOwnership: "Tomar propiedad",
+    unassign: "Quitar asignacion",
+    conversationTitle: "Conversacion",
+    conversationDescription: "Mensajes en vivo entre huesped y personal.",
+    conversationEmpty: "Aun no hay mensajes.",
+    viewRequest: "Ver solicitud",
+    replyPlaceholder: "Escribe una respuesta...",
+    sendAsStaff: "Se envia con tu identidad de personal.",
+    send: "Enviar",
+    internalNotesTitle: "Notas internas",
+    internalNotesDescription: "Contexto solo para personal en cambios de turno.",
+    noInternalNotes: "Aun no hay notas internas.",
+    notePlaceholder: "Agregar una nota interna...",
+    noteVisibleToStaff: "Visible solo para el personal.",
+    addNote: "Agregar nota",
+  },
+} as const;
+
+const departmentLabels: Record<AdminLocale, Record<string, string>> = {
+  en: {
+    concierge: "Concierge",
+    housekeeping: "Housekeeping",
+    maintenance: "Maintenance",
+    restaurants: "Restaurants",
+    front_desk: "Front desk",
+    spa: "Spa",
+    general: "General",
+  },
+  fr: {
+    concierge: "Conciergerie",
+    housekeeping: "Menage",
+    maintenance: "Maintenance",
+    restaurants: "Restaurants",
+    front_desk: "Reception",
+    spa: "Spa",
+    general: "General",
+  },
+  es: {
+    concierge: "Conserjeria",
+    housekeeping: "Limpieza",
+    maintenance: "Mantenimiento",
+    restaurants: "Restaurantes",
+    front_desk: "Recepcion",
+    spa: "Spa",
+    general: "General",
+  },
+};
+
+const statusLabels: Record<AdminLocale, Record<string, string>> = {
+  en: { active: "Active", archived: "Archived", resolved: "Resolved" },
+  fr: { active: "Actif", archived: "Archive", resolved: "Resolue" },
+  es: { active: "Activo", archived: "Archivado", resolved: "Resuelta" },
+};
+
+function humanize(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function departmentLabel(department: string, locale: AdminLocale) {
+  return departmentLabels[locale][department.toLowerCase()] ?? humanize(department);
+}
+
+function statusLabel(status: string, locale: AdminLocale) {
+  return statusLabels[locale][status.toLowerCase()] ?? humanize(status);
+}
+
 async function getThread(token: string, threadId: string): Promise<ThreadDetail | null> {
   const response = await fetch(`${backendUrl}/api/v1/threads/${encodeURIComponent(threadId)}`, {
     cache: "no-store",
@@ -108,6 +248,8 @@ async function getThreadNotes(token: string, threadId: string): Promise<Internal
 export default async function MessageThreadPage({ params }: MessageThreadPageProps) {
   const token = requireStaffToken();
   const threadId = params.threadId;
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = messageThreadCopy[locale];
 
   let thread: ThreadDetail | null = null;
   let messages: Message[] = [];
@@ -121,7 +263,7 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
       [messages, notes] = await Promise.all([getMessages(token, threadId), getThreadNotes(token, threadId)]);
     }
   } catch {
-    error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
+    error = t.backendUnreachable;
   }
 
   async function sendMessage(formData: FormData) {
@@ -217,18 +359,18 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
       <div className="mx-auto max-w-3xl space-y-6">
         <header className="flex items-center justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">MyStay Admin</p>
-            <h1 className="text-2xl font-semibold">Messages</h1>
+            <p className="text-sm text-muted-foreground">{t.appName}</p>
+            <h1 className="text-2xl font-semibold">{t.pageTitle}</h1>
           </div>
           <Button variant="outline" asChild>
-            <Link href="/messages">Back to messages</Link>
+            <Link href="/messages">{t.backToMessages}</Link>
           </Button>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Thread not available</CardTitle>
-            <CardDescription>{error ?? "It may have been deleted or you do not have access."}</CardDescription>
+            <CardTitle className="text-base">{t.threadNotAvailable}</CardTitle>
+            <CardDescription>{error ?? t.threadUnavailableDescription}</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -244,22 +386,22 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
       <LiveThreadRefresh threadId={threadId} />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
           <h1 className="text-2xl font-semibold">{thread.title}</h1>
           <p className="text-sm text-muted-foreground">
             <span className="font-mono">{thread.id}</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Badge variant="outline">{thread.department}</Badge>
-          <Badge variant={thread.status === "resolved" ? "secondary" : "outline"}>{thread.status.replace("_", " ")}</Badge>
+          <Badge variant="outline">{departmentLabel(thread.department, locale)}</Badge>
+          <Badge variant={thread.status === "resolved" ? "secondary" : "outline"}>{statusLabel(thread.status, locale)}</Badge>
           {thread.assignedStaffUser ? (
             <Badge variant="secondary">{thread.assignedStaffUser.displayName ?? thread.assignedStaffUser.id}</Badge>
           ) : (
-            <Badge variant="outline">Unassigned</Badge>
+            <Badge variant="outline">{t.unassigned}</Badge>
           )}
           <Button variant="outline" asChild>
-            <Link href="/messages">Back to messages</Link>
+            <Link href="/messages">{t.backToMessages}</Link>
           </Button>
         </div>
       </header>
@@ -267,7 +409,7 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
       {error ? (
         <Card className="border-destructive/40 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="text-base text-destructive">Backend error</CardTitle>
+            <CardTitle className="text-base text-destructive">{t.backendErrorTitle}</CardTitle>
             <CardDescription>{error}</CardDescription>
           </CardHeader>
         </Card>
@@ -275,26 +417,26 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Assignment</CardTitle>
-          <CardDescription>Owner for this guest conversation.</CardDescription>
+          <CardTitle className="text-base">{t.assignmentTitle}</CardTitle>
+          <CardDescription>{t.assignmentDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Assignee:</span>
+            <span className="text-muted-foreground">{t.assignee}</span>
             <span className="font-semibold">
-              {thread.assignedStaffUser ? thread.assignedStaffUser.displayName ?? thread.assignedStaffUser.id : "Unassigned"}
+              {thread.assignedStaffUser ? thread.assignedStaffUser.displayName ?? thread.assignedStaffUser.id : t.unassigned}
             </span>
             {isUnassigned || isAdmin ? (
               <form action={takeOwnership}>
                 <Button type="submit" size="sm" variant="outline">
-                  {thread.assignedStaffUser && isAdmin ? "Assign to me" : "Take ownership"}
+                  {thread.assignedStaffUser && isAdmin ? t.assignToMe : t.takeOwnership}
                 </Button>
               </form>
             ) : null}
             {thread.assignedStaffUser && (isAssignedToMe || isAdmin) ? (
               <form action={unassign}>
                 <Button type="submit" size="sm" variant="ghost">
-                  Unassign
+                  {t.unassign}
                 </Button>
               </form>
             ) : null}
@@ -304,8 +446,8 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Conversation</CardTitle>
-          <CardDescription>{messages.length ? "Live messages between guest and staff." : "No messages yet."}</CardDescription>
+          <CardTitle className="text-base">{t.conversationTitle}</CardTitle>
+          <CardDescription>{messages.length ? t.conversationDescription : t.conversationEmpty}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <ul className="max-h-[60vh] space-y-3 overflow-y-auto">
@@ -324,7 +466,7 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
                   >
                     <div className={cn("flex items-center justify-between gap-3 text-xs", isStaff ? "text-background/70" : "text-muted-foreground")}>
                       <span className="font-semibold">{message.senderName}</span>
-                      <span className="whitespace-nowrap">{new Date(message.createdAt).toLocaleTimeString()}</span>
+                      <span className="whitespace-nowrap">{new Date(message.createdAt).toLocaleTimeString(locale)}</span>
                     </div>
                     <p className={cn("whitespace-pre-wrap leading-relaxed", isStaff ? "text-background" : "text-foreground")}>
                       {message.bodyText}
@@ -340,7 +482,7 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
                               : "bg-primary/10 text-primary hover:bg-primary/20"
                           )}
                         >
-                          📋 View request {payload.ticketId}
+                          📋 {t.viewRequest} {payload.ticketId}
                         </Link>
                       </div>
                     )}
@@ -351,10 +493,10 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
           </ul>
 
           <form action={sendMessage} className="space-y-3 border-t pt-4">
-            <Textarea name="bodyText" placeholder="Write a reply…" />
+            <Textarea name="bodyText" placeholder={t.replyPlaceholder} />
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">Sends as your staff identity.</p>
-              <Button type="submit">Send</Button>
+              <p className="text-xs text-muted-foreground">{t.sendAsStaff}</p>
+              <Button type="submit">{t.send}</Button>
             </div>
           </form>
         </CardContent>
@@ -362,8 +504,8 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Internal notes</CardTitle>
-          <CardDescription>Staff-only context for shift handovers.</CardDescription>
+          <CardTitle className="text-base">{t.internalNotesTitle}</CardTitle>
+          <CardDescription>{t.internalNotesDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {notes.length ? (
@@ -372,21 +514,21 @@ export default async function MessageThreadPage({ params }: MessageThreadPagePro
                 <li key={note.id} className="rounded-xl border bg-muted/10 p-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span className="font-semibold text-foreground">{note.authorName}</span>
-                    <span className="font-mono">{new Date(note.createdAt).toLocaleString()}</span>
+                    <span className="font-mono">{new Date(note.createdAt).toLocaleString(locale)}</span>
                   </div>
                   <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{note.bodyText}</p>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No internal notes yet.</p>
+            <p className="text-sm text-muted-foreground">{t.noInternalNotes}</p>
           )}
 
           <form action={addNote} className="space-y-3 border-t pt-4">
-            <Textarea name="bodyText" placeholder="Add an internal note…" />
+            <Textarea name="bodyText" placeholder={t.notePlaceholder} />
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">Visible to staff only.</p>
-              <Button type="submit">Add note</Button>
+              <p className="text-xs text-muted-foreground">{t.noteVisibleToStaff}</p>
+              <Button type="submit">{t.addNote}</Button>
             </div>
           </form>
         </CardContent>

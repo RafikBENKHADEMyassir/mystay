@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { MessageTemplatesFilters } from "@/components/message-templates/message-templates-filters";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { nativeSelectClassName } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 import { getStaffPrincipal } from "@/lib/staff-token";
 
@@ -51,6 +53,201 @@ type TemplateLocaleContent = { subject?: string; bodyText?: string };
 type TemplateContent = { defaultLocale?: string; locales?: Record<string, TemplateLocaleContent> };
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+const messageTemplatesCopy = {
+  en: {
+    appName: "MyStay Admin",
+    title: "Message templates",
+    subtitle: "Reusable templates for automations and manual messages.",
+    createMessage: "Create message",
+    filtersTitle: "Filters",
+    filtersDescription: "Search, channel, and status.",
+    templatesTitle: "Templates",
+    templatesDescription: "Sorted by last updated.",
+    previous: "Previous",
+    next: "Next",
+    template: "template",
+    templates: "templates",
+    updated: "Updated",
+    noTemplates: "No templates found.",
+    close: "Close",
+    createLabel: "Create message template",
+    editLabel: "Edit message template",
+    newMessage: "New message",
+    messageTemplate: "Message template",
+    saved: "Saved",
+    createTemplateTitle: "Create template",
+    createTemplateDescription: "Channel, status, and multilingual content.",
+    name: "Name",
+    description: "Description",
+    channel: "Channel",
+    status: "Status",
+    defaultLanguage: "Default language",
+    english: "English",
+    french: "French",
+    subject: "Subject",
+    body: "Body",
+    subjectAndMessage: "Subject and message.",
+    previewAndEdit: "Preview and edit.",
+    writeMessage: "Write a message...",
+    writeMessageFr: "Write a message in French...",
+    createTemplateAction: "Create template",
+    readOnly: "Read-only",
+    readOnlyDescription: "Ask a manager to create or edit message templates.",
+    detailsTitle: "Details",
+    detailsDescription: "Edit fields, languages, and status.",
+    saveChanges: "Save changes",
+    duplicate: "Duplicate",
+    archive: "Archive",
+    unavailableTitle: "Template not available",
+    unavailableDescription: "Refresh to see latest templates.",
+    backendUnreachable: "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.",
+    placeholders: {
+      name: "Check in now",
+      description: "Optional description",
+      subjectEn: "Check in now",
+      subjectFr: "Check in now",
+    },
+    channelLabels: {
+      email: "Email",
+      sms: "SMS",
+      app: "App",
+    },
+    statusLabels: {
+      draft: "Draft",
+      published: "Published",
+      archived: "Archived",
+    },
+  },
+  fr: {
+    appName: "MyStay Admin",
+    title: "Modeles de messages",
+    subtitle: "Modeles reutilisables pour automatisations et messages manuels.",
+    createMessage: "Creer message",
+    filtersTitle: "Filtres",
+    filtersDescription: "Recherche, canal et statut.",
+    templatesTitle: "Modeles",
+    templatesDescription: "Tries par derniere mise a jour.",
+    previous: "Precedent",
+    next: "Suivant",
+    template: "modele",
+    templates: "modeles",
+    updated: "Mis a jour",
+    noTemplates: "Aucun modele trouve.",
+    close: "Fermer",
+    createLabel: "Creer modele de message",
+    editLabel: "Modifier modele de message",
+    newMessage: "Nouveau message",
+    messageTemplate: "Modele de message",
+    saved: "Enregistre",
+    createTemplateTitle: "Creer modele",
+    createTemplateDescription: "Canal, statut et contenu multilingue.",
+    name: "Nom",
+    description: "Description",
+    channel: "Canal",
+    status: "Statut",
+    defaultLanguage: "Langue par defaut",
+    english: "Anglais",
+    french: "Francais",
+    subject: "Objet",
+    body: "Corps",
+    subjectAndMessage: "Objet et message.",
+    previewAndEdit: "Previsualiser et modifier.",
+    writeMessage: "Ecrivez un message...",
+    writeMessageFr: "Ecrivez un message en francais...",
+    createTemplateAction: "Creer modele",
+    readOnly: "Lecture seule",
+    readOnlyDescription: "Demandez a un manager de creer ou modifier des modeles.",
+    detailsTitle: "Details",
+    detailsDescription: "Modifier les champs, langues et statut.",
+    saveChanges: "Enregistrer modifications",
+    duplicate: "Dupliquer",
+    archive: "Archiver",
+    unavailableTitle: "Modele indisponible",
+    unavailableDescription: "Actualisez pour voir les derniers modeles.",
+    backendUnreachable: "Backend inaccessible. Lancez `npm run dev:backend` (et `npm run db:reset` une fois) puis actualisez.",
+    placeholders: {
+      name: "Check-in maintenant",
+      description: "Description optionnelle",
+      subjectEn: "Check-in now",
+      subjectFr: "Check-in maintenant",
+    },
+    channelLabels: {
+      email: "Email",
+      sms: "SMS",
+      app: "Application",
+    },
+    statusLabels: {
+      draft: "Brouillon",
+      published: "Publie",
+      archived: "Archive",
+    },
+  },
+  es: {
+    appName: "MyStay Admin",
+    title: "Plantillas de mensajes",
+    subtitle: "Plantillas reutilizables para automatizaciones y mensajes manuales.",
+    createMessage: "Crear mensaje",
+    filtersTitle: "Filtros",
+    filtersDescription: "Busqueda, canal y estado.",
+    templatesTitle: "Plantillas",
+    templatesDescription: "Ordenadas por ultima actualizacion.",
+    previous: "Anterior",
+    next: "Siguiente",
+    template: "plantilla",
+    templates: "plantillas",
+    updated: "Actualizado",
+    noTemplates: "No se encontraron plantillas.",
+    close: "Cerrar",
+    createLabel: "Crear plantilla de mensaje",
+    editLabel: "Editar plantilla de mensaje",
+    newMessage: "Nuevo mensaje",
+    messageTemplate: "Plantilla de mensaje",
+    saved: "Guardado",
+    createTemplateTitle: "Crear plantilla",
+    createTemplateDescription: "Canal, estado y contenido multilingue.",
+    name: "Nombre",
+    description: "Descripcion",
+    channel: "Canal",
+    status: "Estado",
+    defaultLanguage: "Idioma predeterminado",
+    english: "Ingles",
+    french: "Frances",
+    subject: "Asunto",
+    body: "Cuerpo",
+    subjectAndMessage: "Asunto y mensaje.",
+    previewAndEdit: "Previsualizar y editar.",
+    writeMessage: "Escribe un mensaje...",
+    writeMessageFr: "Escribe un mensaje en frances...",
+    createTemplateAction: "Crear plantilla",
+    readOnly: "Solo lectura",
+    readOnlyDescription: "Pide a un manager crear o editar plantillas de mensajes.",
+    detailsTitle: "Detalles",
+    detailsDescription: "Editar campos, idiomas y estado.",
+    saveChanges: "Guardar cambios",
+    duplicate: "Duplicar",
+    archive: "Archivar",
+    unavailableTitle: "Plantilla no disponible",
+    unavailableDescription: "Actualiza para ver las ultimas plantillas.",
+    backendUnreachable: "Backend no disponible. Inicia `npm run dev:backend` (y `npm run db:reset` una vez) y luego recarga.",
+    placeholders: {
+      name: "Check-in ahora",
+      description: "Descripcion opcional",
+      subjectEn: "Check in now",
+      subjectFr: "Check-in ahora",
+    },
+    channelLabels: {
+      email: "Correo",
+      sms: "SMS",
+      app: "App",
+    },
+    statusLabels: {
+      draft: "Borrador",
+      published: "Publicado",
+      archived: "Archivado",
+    },
+  },
+} as const;
 
 function buildSearchParams(current: MessageTemplatesPageProps["searchParams"], patch: Record<string, string | null | undefined>) {
   const next = new URLSearchParams();
@@ -108,18 +305,28 @@ function normalizeContent(raw: unknown): Required<TemplateContent> {
   return { defaultLocale, locales };
 }
 
-function statusBadge(status: string) {
+function statusBadge(status: string, t: (typeof messageTemplatesCopy)[keyof typeof messageTemplatesCopy]) {
   const normalized = status.trim().toLowerCase();
-  if (normalized === "published") return { label: "Published", className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-  if (normalized === "archived") return { label: "Archived", className: "border-muted/40 bg-muted/20 text-muted-foreground" };
-  return { label: "Draft", className: "border-amber-200 bg-amber-50 text-amber-800" };
+  if (normalized === "published") return { label: t.statusLabels.published, className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
+  if (normalized === "archived") return { label: t.statusLabels.archived, className: "border-muted/40 bg-muted/20 text-muted-foreground" };
+  return { label: t.statusLabels.draft, className: "border-amber-200 bg-amber-50 text-amber-800" };
 }
 
-function channelBadge(channel: string) {
+function channelBadge(channel: string, t: (typeof messageTemplatesCopy)[keyof typeof messageTemplatesCopy]) {
   const normalized = channel.trim().toLowerCase();
-  if (normalized === "email") return { label: "Email", className: "border-blue-200 bg-blue-50 text-blue-800" };
-  if (normalized === "sms") return { label: "SMS", className: "border-violet-200 bg-violet-50 text-violet-800" };
-  return { label: "App", className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
+  if (normalized === "email") return { label: t.channelLabels.email, className: "border-blue-200 bg-blue-50 text-blue-800" };
+  if (normalized === "sms") return { label: t.channelLabels.sms, className: "border-violet-200 bg-violet-50 text-violet-800" };
+  return { label: t.channelLabels.app, className: "border-emerald-200 bg-emerald-50 text-emerald-800" };
+}
+
+function channelLabel(channel: string, t: (typeof messageTemplatesCopy)[keyof typeof messageTemplatesCopy]) {
+  const normalized = channel.trim().toLowerCase() as keyof (typeof messageTemplatesCopy)[keyof typeof messageTemplatesCopy]["channelLabels"];
+  return t.channelLabels[normalized] ?? channel.toUpperCase();
+}
+
+function statusLabel(status: string, t: (typeof messageTemplatesCopy)[keyof typeof messageTemplatesCopy]) {
+  const normalized = status.trim().toLowerCase() as keyof (typeof messageTemplatesCopy)[keyof typeof messageTemplatesCopy]["statusLabels"];
+  return t.statusLabels[normalized] ?? status.replaceAll("_", " ");
 }
 
 function languagesFromContent(content: unknown) {
@@ -134,6 +341,8 @@ function languagesFromContent(content: unknown) {
 
 export default async function MessageTemplatesPage({ searchParams }: MessageTemplatesPageProps) {
   const token = requireStaffToken();
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = messageTemplatesCopy[locale];
   const principal = getStaffPrincipal();
   const role = principal?.role ?? "staff";
   const canManage = role === "admin" || role === "manager";
@@ -159,7 +368,7 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
     data = await getMessageTemplates(token, query);
     if (templateId) detail = await getMessageTemplate(token, templateId);
   } catch {
-    error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
+    error = t.backendUnreachable;
   }
 
   const items = data?.items ?? [];
@@ -330,21 +539,21 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
-          <h1 className="text-2xl font-semibold">Message templates</h1>
-          <p className="text-sm text-muted-foreground">Reusable templates for automations and manual messages.</p>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
+          <h1 className="text-2xl font-semibold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         {canManage ? (
           <Button asChild>
-            <Link href={openNewHref}>+ Create message</Link>
+            <Link href={openNewHref}>+ {t.createMessage}</Link>
           </Button>
         ) : null}
       </header>
 
       <Card>
         <CardHeader className="space-y-1">
-          <CardTitle className="text-base">Filters</CardTitle>
-          <CardDescription>Search, channel, and status.</CardDescription>
+          <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
+          <CardDescription>{t.filtersDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <MessageTemplatesFilters channels={channels} statuses={statuses} />
@@ -355,28 +564,32 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
       <Card>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-base">Templates</CardTitle>
-            <CardDescription>Sorted by last updated.</CardDescription>
+            <CardTitle className="text-base">{t.templatesTitle}</CardTitle>
+            <CardDescription>{t.templatesDescription}</CardDescription>
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" disabled={page <= 1}>
-              <Link href={`/message-templates?${buildSearchParams(searchParams, { page: String(Math.max(1, page - 1)) }).toString()}`}>Previous</Link>
+              <Link href={`/message-templates?${buildSearchParams(searchParams, { page: String(Math.max(1, page - 1)) }).toString()}`}>
+                {t.previous}
+              </Link>
             </Button>
             <Badge variant="outline" className="font-mono">
               {page}/{totalPages}
             </Badge>
             <Button asChild variant="outline" disabled={page >= totalPages}>
-              <Link href={`/message-templates?${buildSearchParams(searchParams, { page: String(Math.min(totalPages, page + 1)) }).toString()}`}>Next</Link>
+              <Link href={`/message-templates?${buildSearchParams(searchParams, { page: String(Math.min(totalPages, page + 1)) }).toString()}`}>
+                {t.next}
+              </Link>
             </Button>
             <Badge variant="secondary">
-              {data?.total ?? 0} template{(data?.total ?? 0) === 1 ? "" : "s"}
+              {data?.total ?? 0} {(data?.total ?? 0) === 1 ? t.template : t.templates}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {items.map((template) => {
-            const status = statusBadge(template.status);
-            const channel = channelBadge(template.channel);
+            const status = statusBadge(template.status, t);
+            const channel = channelBadge(template.channel, t);
             const langs = languagesFromContent(template.content);
 
             return (
@@ -402,7 +615,7 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                   </div>
                   <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{template.description ?? "—"}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Updated {new Date(template.updatedAt).toLocaleString()}
+                    {t.updated} {new Date(template.updatedAt).toLocaleString()}
                     {template.createdBy ? ` · ${template.createdBy}` : ""}
                   </p>
                 </Link>
@@ -410,22 +623,22 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
             );
           })}
 
-          {items.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No templates found.</p> : null}
+          {items.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{t.noTemplates}</p> : null}
         </CardContent>
       </Card>
 
       {wantsNew || templateId ? (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <Link href={closeDrawerHref} className="absolute inset-0 bg-background/60 backdrop-blur" aria-label="Close" />
+          <Link href={closeDrawerHref} className="absolute inset-0 bg-background/60 backdrop-blur" aria-label={t.close} />
           <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l bg-background shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background/95 p-6">
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">{wantsNew ? "Create" : "Edit"} message template</p>
-                <h2 className="truncate text-lg font-semibold">{wantsNew ? "New message" : detail?.name ?? "Message template"}</h2>
+                <p className="text-xs text-muted-foreground">{wantsNew ? t.createLabel : t.editLabel}</p>
+                <h2 className="truncate text-lg font-semibold">{wantsNew ? t.newMessage : detail?.name ?? t.messageTemplate}</h2>
                 {detail ? <p className="truncate text-xs text-muted-foreground font-mono">{detail.id}</p> : null}
               </div>
               <Button variant="outline" asChild>
-                <Link href={closeDrawerHref}>Close</Link>
+                <Link href={closeDrawerHref}>{t.close}</Link>
               </Button>
             </div>
 
@@ -438,7 +651,7 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
 
               {searchParams?.saved ? (
                 <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                  Saved ({searchParams.saved}).
+                  {t.saved} ({searchParams.saved}).
                 </p>
               ) : null}
 
@@ -446,38 +659,38 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                 canManage ? (
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Create template</CardTitle>
-                      <CardDescription>Channel, status, and multilingual content.</CardDescription>
+                      <CardTitle className="text-base">{t.createTemplateTitle}</CardTitle>
+                      <CardDescription>{t.createTemplateDescription}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <form action={createTemplate} className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="mt-name">Name</Label>
-                          <Input id="mt-name" name="name" placeholder="Check in now" required />
+                          <Label htmlFor="mt-name">{t.name}</Label>
+                          <Input id="mt-name" name="name" placeholder={t.placeholders.name} required />
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="mt-description">Description</Label>
-                          <Input id="mt-description" name="description" placeholder="Optional description" />
+                          <Label htmlFor="mt-description">{t.description}</Label>
+                          <Input id="mt-description" name="description" placeholder={t.placeholders.description} />
                         </div>
 
                         <div className="grid gap-3 sm:grid-cols-3">
                           <div className="space-y-2 sm:col-span-2">
-                            <Label htmlFor="mt-channel">Channel</Label>
+                            <Label htmlFor="mt-channel">{t.channel}</Label>
                             <select id="mt-channel" name="channel" className={nativeSelectClassName} defaultValue="email">
                               {channels.map((channel) => (
                                 <option key={channel} value={channel}>
-                                  {channel.toUpperCase()}
+                                  {channelLabel(channel, t)}
                                 </option>
                               ))}
                             </select>
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="mt-status">Status</Label>
+                            <Label htmlFor="mt-status">{t.status}</Label>
                             <select id="mt-status" name="status" className={nativeSelectClassName} defaultValue="draft">
                               {statuses.map((status) => (
                                 <option key={status} value={status}>
-                                  {status.replaceAll("_", " ")}
+                                  {statusLabel(status, t)}
                                 </option>
                               ))}
                             </select>
@@ -485,7 +698,7 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="mt-default-locale">Default language</Label>
+                          <Label htmlFor="mt-default-locale">{t.defaultLanguage}</Label>
                           <select id="mt-default-locale" name="defaultLocale" className={nativeSelectClassName} defaultValue="en">
                             <option value="en">EN</option>
                             <option value="fr">FR</option>
@@ -494,40 +707,40 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
 
                         <Card>
                           <CardHeader className="space-y-1 pb-3">
-                            <CardTitle className="text-sm">English</CardTitle>
-                            <CardDescription>Subject and message.</CardDescription>
+                            <CardTitle className="text-sm">{t.english}</CardTitle>
+                            <CardDescription>{t.subjectAndMessage}</CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div className="space-y-2">
-                              <Label htmlFor="mt-subject-en">Subject</Label>
-                              <Input id="mt-subject-en" name="subject_en" placeholder="Check in now" />
+                              <Label htmlFor="mt-subject-en">{t.subject}</Label>
+                              <Input id="mt-subject-en" name="subject_en" placeholder={t.placeholders.subjectEn} />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="mt-body-en">Body</Label>
-                              <Textarea id="mt-body-en" name="body_en" className="min-h-[140px]" placeholder="Write a message..." />
+                              <Label htmlFor="mt-body-en">{t.body}</Label>
+                              <Textarea id="mt-body-en" name="body_en" className="min-h-[140px]" placeholder={t.writeMessage} />
                             </div>
                           </CardContent>
                         </Card>
 
                         <Card>
                           <CardHeader className="space-y-1 pb-3">
-                            <CardTitle className="text-sm">Français</CardTitle>
-                            <CardDescription>Objet et message.</CardDescription>
+                            <CardTitle className="text-sm">{t.french}</CardTitle>
+                            <CardDescription>{t.subjectAndMessage}</CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div className="space-y-2">
-                              <Label htmlFor="mt-subject-fr">Subject</Label>
-                              <Input id="mt-subject-fr" name="subject_fr" placeholder="Check in maintenant" />
+                              <Label htmlFor="mt-subject-fr">{t.subject}</Label>
+                              <Input id="mt-subject-fr" name="subject_fr" placeholder={t.placeholders.subjectFr} />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="mt-body-fr">Body</Label>
-                              <Textarea id="mt-body-fr" name="body_fr" className="min-h-[140px]" placeholder="Écrivez un message..." />
+                              <Label htmlFor="mt-body-fr">{t.body}</Label>
+                              <Textarea id="mt-body-fr" name="body_fr" className="min-h-[140px]" placeholder={t.writeMessageFr} />
                             </div>
                           </CardContent>
                         </Card>
 
                         <Button type="submit" className="w-full">
-                          Create template
+                          {t.createTemplateAction}
                         </Button>
                       </form>
                     </CardContent>
@@ -535,8 +748,8 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                 ) : (
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Read-only</CardTitle>
-                      <CardDescription>Ask a manager to create or edit message templates.</CardDescription>
+                      <CardTitle className="text-base">{t.readOnly}</CardTitle>
+                      <CardDescription>{t.readOnlyDescription}</CardDescription>
                     </CardHeader>
                   </Card>
                 )
@@ -544,25 +757,25 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                 <>
                   <Card>
                     <CardHeader className="space-y-1 pb-3">
-                      <CardTitle className="text-base">Details</CardTitle>
-                      <CardDescription>Edit fields, languages, and status.</CardDescription>
+                      <CardTitle className="text-base">{t.detailsTitle}</CardTitle>
+                      <CardDescription>{t.detailsDescription}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <form action={updateTemplate} className="space-y-4">
                         <input type="hidden" name="templateId" value={detail.id} />
                         <div className="space-y-2">
-                          <Label htmlFor="mt-name-edit">Name</Label>
+                          <Label htmlFor="mt-name-edit">{t.name}</Label>
                           <Input id="mt-name-edit" name="name" defaultValue={detail.name} disabled={!canManage} required />
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="mt-description-edit">Description</Label>
+                          <Label htmlFor="mt-description-edit">{t.description}</Label>
                           <Input id="mt-description-edit" name="description" defaultValue={detail.description ?? ""} disabled={!canManage} />
                         </div>
 
                         <div className="grid gap-3 sm:grid-cols-3">
                           <div className="space-y-2 sm:col-span-2">
-                            <Label htmlFor="mt-channel-edit">Channel</Label>
+                            <Label htmlFor="mt-channel-edit">{t.channel}</Label>
                             <select
                               id="mt-channel-edit"
                               name="channel"
@@ -572,17 +785,17 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                             >
                               {channels.map((channel) => (
                                 <option key={channel} value={channel}>
-                                  {channel.toUpperCase()}
+                                  {channelLabel(channel, t)}
                                 </option>
                               ))}
                             </select>
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="mt-status-edit">Status</Label>
+                            <Label htmlFor="mt-status-edit">{t.status}</Label>
                             <select id="mt-status-edit" name="status" className={nativeSelectClassName} defaultValue={detail.status} disabled={!canManage}>
                               {statuses.map((status) => (
                                 <option key={status} value={status}>
-                                  {status.replaceAll("_", " ")}
+                                  {statusLabel(status, t)}
                                 </option>
                               ))}
                             </select>
@@ -590,7 +803,7 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="mt-default-locale-edit">Default language</Label>
+                          <Label htmlFor="mt-default-locale-edit">{t.defaultLanguage}</Label>
                           <select
                             id="mt-default-locale-edit"
                             name="defaultLocale"
@@ -605,12 +818,12 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
 
                         <Card>
                           <CardHeader className="space-y-1 pb-3">
-                            <CardTitle className="text-sm">English</CardTitle>
-                            <CardDescription>Preview and edit.</CardDescription>
+                            <CardTitle className="text-sm">{t.english}</CardTitle>
+                            <CardDescription>{t.previewAndEdit}</CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div className="space-y-2">
-                              <Label htmlFor="mt-subject-en-edit">Subject</Label>
+                              <Label htmlFor="mt-subject-en-edit">{t.subject}</Label>
                               <Input
                                 id="mt-subject-en-edit"
                                 name="subject_en"
@@ -619,7 +832,7 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="mt-body-en-edit">Body</Label>
+                              <Label htmlFor="mt-body-en-edit">{t.body}</Label>
                               <Textarea
                                 id="mt-body-en-edit"
                                 name="body_en"
@@ -633,12 +846,12 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
 
                         <Card>
                           <CardHeader className="space-y-1 pb-3">
-                            <CardTitle className="text-sm">Français</CardTitle>
-                            <CardDescription>Prévisualiser et modifier.</CardDescription>
+                            <CardTitle className="text-sm">{t.french}</CardTitle>
+                            <CardDescription>{t.previewAndEdit}</CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div className="space-y-2">
-                              <Label htmlFor="mt-subject-fr-edit">Subject</Label>
+                              <Label htmlFor="mt-subject-fr-edit">{t.subject}</Label>
                               <Input
                                 id="mt-subject-fr-edit"
                                 name="subject_fr"
@@ -647,7 +860,7 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="mt-body-fr-edit">Body</Label>
+                              <Label htmlFor="mt-body-fr-edit">{t.body}</Label>
                               <Textarea
                                 id="mt-body-fr-edit"
                                 name="body_fr"
@@ -661,7 +874,7 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
 
                         {canManage ? (
                           <Button type="submit" className="w-full">
-                            Save changes
+                            {t.saveChanges}
                           </Button>
                         ) : null}
                       </form>
@@ -673,13 +886,13 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
                       <form action={duplicateTemplate} className="flex-1">
                         <input type="hidden" name="templateId" value={detail.id} />
                         <Button type="submit" variant="outline" className="w-full">
-                          Duplicate
+                          {t.duplicate}
                         </Button>
                       </form>
                       <form action={archiveTemplate} className="flex-1">
                         <input type="hidden" name="templateId" value={detail.id} />
                         <Button type="submit" variant="destructive" className="w-full">
-                          Archive
+                          {t.archive}
                         </Button>
                       </form>
                     </div>
@@ -688,8 +901,8 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
               ) : (
                 <Card>
                   <CardHeader className="space-y-1 pb-3">
-                    <CardTitle className="text-base">Template not available</CardTitle>
-                    <CardDescription>Refresh to see latest templates.</CardDescription>
+                    <CardTitle className="text-base">{t.unavailableTitle}</CardTitle>
+                    <CardDescription>{t.unavailableDescription}</CardDescription>
                   </CardHeader>
                 </Card>
               )}
@@ -700,4 +913,3 @@ export default async function MessageTemplatesPage({ searchParams }: MessageTemp
     </div>
   );
 }
-

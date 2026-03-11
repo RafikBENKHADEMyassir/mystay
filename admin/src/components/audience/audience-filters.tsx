@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
 
 function setParam(next: URLSearchParams, key: string, value: string) {
   const trimmed = value.trim();
@@ -13,9 +14,32 @@ function setParam(next: URLSearchParams, key: string, value: string) {
   else next.delete(key);
 }
 
+const audienceFiltersCopy = {
+  en: {
+    optInDate: "Opt-in date",
+    search: "Search",
+    searchPlaceholder: "Search name or email",
+    reset: "Reset",
+  },
+  fr: {
+    optInDate: "Date d'opt-in",
+    search: "Recherche",
+    searchPlaceholder: "Rechercher nom ou email",
+    reset: "Reinitialiser",
+  },
+  es: {
+    optInDate: "Fecha de opt-in",
+    search: "Buscar",
+    searchPlaceholder: "Buscar nombre o correo",
+    reset: "Restablecer",
+  },
+} as const;
+
 export function AudienceFilters() {
   const router = useRouter();
   const pathname = usePathname() ?? "/audience";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = audienceFiltersCopy[locale];
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams?.get("search") ?? "");
@@ -55,7 +79,7 @@ export function AudienceFilters() {
   return (
     <div className="grid gap-3 md:grid-cols-[200px,1fr,auto] md:items-end">
       <div className="space-y-2">
-        <Label htmlFor="aud-optin-date">Opt-in date</Label>
+        <Label htmlFor="aud-optin-date">{t.optInDate}</Label>
         <Input
           id="aud-optin-date"
           type="date"
@@ -65,19 +89,18 @@ export function AudienceFilters() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="aud-search">Search</Label>
+        <Label htmlFor="aud-search">{t.search}</Label>
         <Input
           id="aud-search"
-          placeholder="Search name or email"
+          placeholder={t.searchPlaceholder}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
 
       <Button type="button" variant="outline" onClick={reset}>
-        Reset
+        {t.reset}
       </Button>
     </div>
   );
 }
-

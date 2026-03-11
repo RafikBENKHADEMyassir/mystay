@@ -34,11 +34,12 @@ function stripLocale(pathname: string): string {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for static files, API routes, and admin
+  // Skip middleware for static files, API routes, admin, and public payment pages
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/admin") ||
+    pathname.startsWith("/pay") ||
     publicFile.test(pathname)
   ) {
     return NextResponse.next();
