@@ -49,6 +49,7 @@ type ReservationDetail = {
     checkIn: string;
     checkOut: string;
     guests: { adults: number; children: number };
+    priceCents: number | null;
     status: string;
     journeyStatus: string | null;
   };
@@ -89,6 +90,31 @@ type ReservationsPageProps = {
 };
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+function formatDate(raw: string): string {
+  if (!raw) return "—";
+  const dateOnly = raw.includes("T") ? raw.split("T")[0] : raw;
+  const parts = dateOnly.split("-");
+  if (parts.length !== 3) return raw;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function toDateInputValue(raw: string): string {
+  if (!raw) return "";
+  return raw.includes("T") ? raw.split("T")[0] : raw;
+}
+
+function getTomorrow(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
+}
+
+function getDayAfterTomorrow(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  return d.toISOString().split("T")[0];
+}
 
 function buildSearchParams(current: ReservationsPageProps["searchParams"], patch: Record<string, string | null | undefined>) {
   const next = new URLSearchParams();
@@ -223,6 +249,9 @@ export default async function ReservationsPage({ searchParams }: ReservationsPag
     const adults = Number.isFinite(adultsRaw) && adultsRaw > 0 ? Math.floor(adultsRaw) : 1;
     const children = Number.isFinite(childrenRaw) && childrenRaw >= 0 ? Math.floor(childrenRaw) : 0;
 
+    const priceRaw = parseFloat(String(formData.get("price") ?? "").trim());
+    const priceCents = Number.isFinite(priceRaw) && priceRaw >= 0 ? Math.round(priceRaw * 100) : null;
+
     const response = await fetch(`${backendUrl}/api/v1/staff/reservations`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -235,7 +264,8 @@ export default async function ReservationsPage({ searchParams }: ReservationsPag
         departureDate,
         roomNumber: roomNumber || null,
         adults,
-        children
+        children,
+        ...(priceCents !== null ? { priceCents } : {})
       }),
       cache: "no-store"
     });
@@ -452,8 +482,8 @@ export default async function ReservationsPage({ searchParams }: ReservationsPag
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm">{reservation.phone ?? "—"}</TableCell>
                   <TableCell className="hidden lg:table-cell text-sm">{reservation.email ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{reservation.arrivalDate}</TableCell>
-                  <TableCell className="text-sm">{reservation.departureDate}</TableCell>
+                  <TableCell className="text-sm">{formatDate(reservation.arrivalDate)}</TableCell>
+                  <TableCell className="text-sm">{formatDate(reservation.departureDate)}</TableCell>
                   <TableCell className="hidden sm:table-cell text-sm">{reservation.roomNumber ?? "—"}</TableCell>
                   <TableCell>
                     {reservation.journeyStatus ? (
@@ -533,18 +563,18 @@ export default async function ReservationsPage({ searchParams }: ReservationsPag
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label htmlFor="res-arrival">Arrival date</Label>
-                          <Input id="res-arrival" name="arrivalDate" type="date" required />
+                          <Input id="res-arrival" name="arrivalDate" type="date" required defaultValue={getTomorrow()} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="res-departure">Departure date</Label>
-                          <Input id="res-departure" name="departureDate" type="date" required />
+                          <Input id="res-departure" name="departureDate" type="date" required defaultValue={getDayAfterTomorrow()} />
                         </div>
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-3">
                         <div className="space-y-2">
                           <Label htmlFor="res-room">Room</Label>
-                          <Input id="res-room" name="roomNumber" placeholder="optional" />
+                          <Input id="res-room" name="roomNumber" required placeholder="e.g. 101" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="res-adults">Adults</Label>
@@ -554,6 +584,11 @@ export default async function ReservationsPage({ searchParams }: ReservationsPag
                           <Label htmlFor="res-children">Children</Label>
                           <Input id="res-children" name="children" type="number" min="0" defaultValue="0" />
                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="res-price">Price (EUR)</Label>
+                        <Input id="res-price" name="price" type="number" min="0" step="0.01" placeholder="e.g. 250.00" />
                       </div>
 
                       <Button type="submit" className="w-full">
@@ -639,11 +674,19 @@ export default async function ReservationsPage({ searchParams }: ReservationsPag
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground">Arrival</p>
-                      <p className="text-sm">{reservationDetail.stay.checkIn}</p>
+                      <p className="text-sm">{formatDate(reservationDetail.stay.checkIn)}</p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground">Departure</p>
-                      <p className="text-sm">{reservationDetail.stay.checkOut}</p>
+                      <p className="text-sm">{formatDate(reservationDetail.stay.checkOut)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground">Price</p>
+                      <p className="text-sm">
+                        {reservationDetail.stay.priceCents != null
+                          ? `${(reservationDetail.stay.priceCents / 100).toFixed(2)} €`
+                          : "—"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground">Journey</p>
@@ -715,11 +758,11 @@ export default async function ReservationsPage({ searchParams }: ReservationsPag
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-2">
                             <Label htmlFor="edit-arrival">Arrival date</Label>
-                            <Input id="edit-arrival" name="arrivalDate" type="date" defaultValue={reservationDetail.stay.checkIn} />
+                            <Input id="edit-arrival" name="arrivalDate" type="date" defaultValue={toDateInputValue(reservationDetail.stay.checkIn)} />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="edit-departure">Departure date</Label>
-                            <Input id="edit-departure" name="departureDate" type="date" defaultValue={reservationDetail.stay.checkOut} />
+                            <Input id="edit-departure" name="departureDate" type="date" defaultValue={toDateInputValue(reservationDetail.stay.checkOut)} />
                           </div>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">

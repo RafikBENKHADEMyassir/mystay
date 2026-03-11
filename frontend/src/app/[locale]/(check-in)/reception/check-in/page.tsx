@@ -48,6 +48,7 @@ type StayLookupResponse = {
     checkIn: string;
     checkOut: string;
     guests: { adults: number; children: number };
+    priceCents?: number | null;
   };
 };
 
@@ -235,7 +236,8 @@ export default function CheckInPage() {
           roomNumber: data.stay.roomNumber,
           checkIn: data.stay.checkIn,
           checkOut: data.stay.checkOut,
-          guests: data.stay.guests
+          guests: data.stay.guests,
+          priceCents: data.stay.priceCents ?? null
         });
         setSession(getDemoSession());
       })
@@ -271,8 +273,15 @@ export default function CheckInPage() {
   const identityDisplayError = identityPickError ?? identityError;
 
   const baseLineItems = useMemo(
-    () => (strings ? strings.baseLineItems.map((item) => ({ label: item.label, amountCents: item.amountCents })) : []),
-    [strings]
+    () => {
+      if (!strings) return [];
+      const sessionPrice = session?.priceCents;
+      return strings.baseLineItems.map((item) => ({
+        label: item.label,
+        amountCents: item.id === "room" && typeof sessionPrice === "number" ? sessionPrice : item.amountCents
+      }));
+    },
+    [strings, session?.priceCents]
   );
 
   const extraCatalog = useMemo(
@@ -417,10 +426,10 @@ export default function CheckInPage() {
   }
 
   return (
-    <div>
+    <div className="min-h-screen overflow-y-auto">
       <Topbar title={strings.topbarTitle} subtitle={topbarHotelName} backHref={withLocale(locale, "/")} />
 
-      <main className="mx-auto max-w-md space-y-4 px-4 pb-10 pt-4">
+      <main className="mx-auto max-w-md space-y-4 px-4 pb-32 pt-4">
         {sessionError ? <p className="text-xs text-muted-foreground">{strings.sessionError}</p> : null}
 
         {step === "personal" ? (

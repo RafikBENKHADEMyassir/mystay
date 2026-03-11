@@ -364,6 +364,7 @@ export const stays = pgTable(
     checkOut: date("check_out").notNull(),
     adults: integer("adults").notNull().default(1),
     children: integer("children").notNull().default(0),
+    priceCents: integer("price_cents"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },

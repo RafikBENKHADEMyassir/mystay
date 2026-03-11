@@ -188,6 +188,8 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
   const roomNumber = normalizeText(reservation.roomNumber);
   const adults = typeof reservation.adults === "number" && reservation.adults > 0 ? Math.floor(reservation.adults) : 1;
   const children = typeof reservation.children === "number" && reservation.children >= 0 ? Math.floor(reservation.children) : 0;
+  const rawTotal = reservation.totalAmount ?? reservation.priceCents ?? null;
+  const priceCents = typeof rawTotal === "number" && rawTotal >= 0 ? Math.floor(rawTotal) : null;
 
   const linkedGuestId = await resolveGuestIdByEmail(guestEmail);
 
@@ -211,10 +213,11 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
         check_out,
         adults,
         children,
+        price_cents,
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14, $15, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14, $15, $16, NOW(), NOW())
       ON CONFLICT (confirmation_number) DO UPDATE
       SET
         guest_id = COALESCE(stays.guest_id, EXCLUDED.guest_id),
@@ -229,6 +232,7 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
         check_out = EXCLUDED.check_out,
         adults = EXCLUDED.adults,
         children = EXCLUDED.children,
+        price_cents = COALESCE(EXCLUDED.price_cents, stays.price_cents),
         updated_at = NOW()
       WHERE stays.hotel_id = EXCLUDED.hotel_id
       RETURNING
@@ -237,7 +241,8 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
         guest_id AS "guestId",
         confirmation_number AS "confirmationNumber",
         pms_reservation_id AS "pmsReservationId",
-        pms_status AS "pmsStatus"
+        pms_status AS "pmsStatus",
+        price_cents AS "priceCents"
     `,
     [
       stayId,
@@ -254,7 +259,8 @@ async function upsertStayFromPmsReservation(hotelId, reservation) {
       checkInDate,
       checkOutDate,
       adults,
-      children
+      children,
+      priceCents
     ]
   );
 
@@ -3422,6 +3428,7 @@ async function handleRequest(req, res) {
           s.check_out,
           s.adults,
           s.children,
+          s.price_cents,
           h.id AS hotel_id,
           h.name AS hotel_name
         FROM stays s
@@ -3492,6 +3499,7 @@ async function handleRequest(req, res) {
             s.check_out,
             s.adults,
             s.children,
+            s.price_cents,
             h.id AS hotel_id,
             h.name AS hotel_name
           FROM stays s
@@ -3523,7 +3531,8 @@ async function handleRequest(req, res) {
         roomNumber: stayRow.room_number,
         checkIn: stayRow.check_in,
         checkOut: stayRow.check_out,
-        guests: { adults: stayRow.adults, children: stayRow.children }
+        guests: { adults: stayRow.adults, children: stayRow.children },
+        priceCents: stayRow.price_cents ?? null
       }
     });
     return;
@@ -4947,6 +4956,7 @@ async function handleRequest(req, res) {
               WHEN LOWER(COALESCE(s.pms_status, '')) IN ('cancelled', 'canceled') THEN 'cancelled'
               WHEN LOWER(COALESCE(s.pms_status, '')) IN ('checked_out', 'checked-out', 'checkedout') THEN 'checked_out'
               WHEN LOWER(COALESCE(s.pms_status, '')) IN ('checked_in', 'checked-in', 'checkedin') THEN 'checked_in'
+              WHEN LOWER(COALESCE(s.pms_status, '')) IN ('confirmed', 'reserved', 'due_in') THEN 'arrivals'
               WHEN s.check_out < CURRENT_DATE THEN 'checked_out'
               WHEN s.check_in > CURRENT_DATE THEN 'arrivals'
               WHEN s.check_in = CURRENT_DATE AND (s.room_number IS NULL OR s.room_number = '') THEN 'arrivals'
@@ -4979,6 +4989,7 @@ async function handleRequest(req, res) {
               WHEN LOWER(COALESCE(s.pms_status, '')) IN ('cancelled', 'canceled') THEN 'cancelled'
               WHEN LOWER(COALESCE(s.pms_status, '')) IN ('checked_out', 'checked-out', 'checkedout') THEN 'checked_out'
               WHEN LOWER(COALESCE(s.pms_status, '')) IN ('checked_in', 'checked-in', 'checkedin') THEN 'checked_in'
+              WHEN LOWER(COALESCE(s.pms_status, '')) IN ('confirmed', 'reserved', 'due_in') THEN 'arrivals'
               WHEN s.check_out < CURRENT_DATE THEN 'checked_out'
               WHEN s.check_in > CURRENT_DATE THEN 'arrivals'
               WHEN s.check_in = CURRENT_DATE AND (s.room_number IS NULL OR s.room_number = '') THEN 'arrivals'
@@ -5082,6 +5093,7 @@ async function handleRequest(req, res) {
     const roomNumber = normalizeText(body.roomNumber);
     const adults = typeof body.adults === "number" && body.adults > 0 ? Math.floor(body.adults) : 1;
     const children = typeof body.children === "number" && body.children >= 0 ? Math.floor(body.children) : 0;
+    const priceCents = typeof body.priceCents === "number" && body.priceCents >= 0 ? Math.floor(body.priceCents) : null;
 
     const confirmationNumber = normalizeText(body.confirmationNumber);
 
@@ -5127,6 +5139,7 @@ async function handleRequest(req, res) {
       return;
     }
 
+    if (priceCents !== null) created.priceCents = priceCents;
     const stay = await upsertStayFromPmsReservation(principal.hotelId, created);
     sendJson(res, 201, { stay });
     return;
@@ -5165,6 +5178,7 @@ async function handleRequest(req, res) {
           s.check_out AS "checkOut",
           s.adults,
           s.children,
+          s.price_cents AS "priceCents",
           s.created_at AS "createdAt",
           s.updated_at AS "updatedAt",
           g.first_name AS "guestFirstName",
@@ -5202,6 +5216,7 @@ async function handleRequest(req, res) {
     if (["cancelled", "canceled"].includes(pmsStatus)) status = "cancelled";
     else if (["checked_out", "checked-out", "checkedout"].includes(pmsStatus)) status = "checked_out";
     else if (["checked_in", "checked-in", "checkedin"].includes(pmsStatus)) status = "checked_in";
+    else if (["confirmed", "reserved", "due_in"].includes(pmsStatus)) status = "arrivals";
     else if (checkOutIso < todayIso) status = "checked_out";
     else if (checkInIso > todayIso) status = "arrivals";
     else if (checkInIso === todayIso && (!stay.roomNumber || !String(stay.roomNumber).trim())) status = "arrivals";
@@ -5286,6 +5301,7 @@ async function handleRequest(req, res) {
         checkIn: stay.checkIn,
         checkOut: stay.checkOut,
         guests: { adults: stay.adults, children: stay.children },
+        priceCents: stay.priceCents ?? null,
         status,
         journeyStatus
       },

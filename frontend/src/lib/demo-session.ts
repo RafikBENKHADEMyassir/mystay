@@ -11,7 +11,7 @@ export type DemoSession = {
     adults: number;
     children: number;
   } | null;
-  // Guest personal info
+  priceCents?: number | null;
   guestFirstName?: string | null;
   guestLastName?: string | null;
   guestEmail?: string | null;
@@ -61,6 +61,7 @@ export function getDemoSession(): DemoSession | null {
                   : 0
             }
           : null,
+      priceCents: typeof parsed.priceCents === "number" ? parsed.priceCents : null,
       guestFirstName: parsed.guestFirstName ?? null,
       guestLastName: parsed.guestLastName ?? null,
       guestEmail: parsed.guestEmail ?? null,

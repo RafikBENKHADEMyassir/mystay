@@ -1,4 +1,4 @@
-import { isValidPhoneNumber, type CountryCode } from "libphonenumber-js";
+import { isValidPhoneNumber, getCountryCallingCode, type CountryCode } from "libphonenumber-js";
 import type { SignupFormState, SignupStep, SignupStrings } from "./types";
 
 export function isValidEmail(value: string) {
@@ -7,13 +7,16 @@ export function isValidEmail(value: string) {
 
 /**
  * Validate a phone number against its ISO country code using libphonenumber-js.
- * Returns false if the phone is empty (phone is required) or the number is invalid.
+ * Accepts numbers entered without the trunk prefix (e.g. "663667397" for FR)
+ * by attempting international format validation as a fallback.
  */
 export function isPhoneValid(phone: string, countryIso: string): boolean {
   const trimmed = phone.trim();
-  if (!trimmed) return false; // phone is required
+  if (!trimmed) return false;
   try {
-    return isValidPhoneNumber(trimmed, countryIso as CountryCode);
+    if (isValidPhoneNumber(trimmed, countryIso as CountryCode)) return true;
+    const callingCode = getCountryCallingCode(countryIso as CountryCode);
+    return isValidPhoneNumber(`+${callingCode}${trimmed}`);
   } catch {
     return false;
   }

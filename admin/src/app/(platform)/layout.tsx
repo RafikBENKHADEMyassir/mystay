@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Building2, Settings, LayoutDashboard, Mail, Gauge, FileCheck, Database } from "lucide-react";
 
 import { getStaffToken } from "@/lib/staff-token";
+import { LanguageSelector } from "@/components/language-selector";
 import { LogoutButton } from "@/components/logout-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 async function verifyPlatformAdmin(token: string) {
   // Decode JWT to check if it's a platform admin token
@@ -106,10 +108,19 @@ export default async function PlatformLayout({
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8">{children}</div>
-      </main>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur">
+          <div className="flex items-center justify-end gap-2 px-6 py-3">
+            <LanguageSelector />
+            <ThemeToggle />
+            <LogoutButton />
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-8">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -191,9 +191,18 @@ export default function SignupPage() {
   // Render
   // ---------------------------------------------------------------------------
 
+  const handleBack = () => {
+    setSubmitted(false);
+    setError(null);
+    if (step === "password") { setStep("profile"); return; }
+    if (step === "link") { setStep("created"); return; }
+    if (step === "welcome") { setStep("link"); return; }
+    router.push(withLocale(locale, "/"));
+  };
+
   return (
     <div className="mt-6">
-      <Topbar backHref={withLocale(locale, "/")} />
+      <Topbar onBack={handleBack} />
 
       <main className="mx-auto max-w-md space-y-4 px-4 pb-10 pt-6">
         {error && (

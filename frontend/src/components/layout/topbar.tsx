@@ -12,15 +12,18 @@ type TopbarProps = {
   title?: string;
   subtitle?: string;
   backHref?: string;
+  onBack?: () => void;
   leading?: React.ReactNode;
   right?: React.ReactNode;
   className?: string;
 };
 
-export function Topbar({ title, subtitle, backHref, leading, right, className }: TopbarProps) {
+export function Topbar({ title, subtitle, backHref, onBack, leading, right, className }: TopbarProps) {
   const locale = useLocale();
   const { content } = useGuestContent(locale, getDemoSession()?.hotelId ?? null);
   const backAriaLabel = content?.navigation.backAriaLabel ?? "";
+
+  const showBack = backHref || onBack;
 
   return (
     <header
@@ -30,14 +33,25 @@ export function Topbar({ title, subtitle, backHref, leading, right, className }:
       )}
     >
       <div className="mx-auto grid max-w-md grid-cols-[auto,1fr,auto] items-start gap-3 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)]">
-        {backHref ? (
-          <AppLink
-            href={backHref}
-            className="mt-2 inline-flex h-10 w-10 items-start justify-start rounded-xl text-foreground hover:bg-muted/20"
-            aria-label={backAriaLabel}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </AppLink>
+        {showBack ? (
+          onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mt-2 inline-flex h-10 w-10 items-start justify-start rounded-xl text-foreground hover:bg-muted/20"
+              aria-label={backAriaLabel}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          ) : (
+            <AppLink
+              href={backHref!}
+              className="mt-2 inline-flex h-10 w-10 items-start justify-start rounded-xl text-foreground hover:bg-muted/20"
+              aria-label={backAriaLabel}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </AppLink>
+          )
         ) : (
           <div className="h-10 w-10" />
         )}

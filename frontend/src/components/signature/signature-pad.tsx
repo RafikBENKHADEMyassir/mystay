@@ -24,7 +24,7 @@ export function SignaturePad({
 }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const drawingRef = useRef(false);
   const [hasStrokes, setHasStrokes] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -59,46 +59,72 @@ export function SignaturePad({
     return () => window.removeEventListener("resize", resizeCanvas);
   }, [resizeCanvas]);
 
-  function getPos(e: React.TouchEvent | React.MouseEvent) {
+  function getPosFromNative(e: TouchEvent | MouseEvent) {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
 
-    if ("touches" in e) {
+    if ("touches" in e && e.touches.length > 0) {
       const touch = e.touches[0];
       return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
     }
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    if ("clientX" in e) {
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+    return { x: 0, y: 0 };
   }
 
-  function startStroke(e: React.TouchEvent | React.MouseEvent) {
-    e.preventDefault();
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    setIsDrawing(true);
-    const { x, y } = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineWidth = 3;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "#000";
-  }
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  function continueStroke(e: React.TouchEvent | React.MouseEvent) {
-    if (!isDrawing) return;
-    e.preventDefault();
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    const { x, y } = getPos(e);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    setHasStrokes(true);
-  }
+    function handleStart(e: TouchEvent | MouseEvent) {
+      e.preventDefault();
+      const ctx = canvasRef.current?.getContext("2d");
+      if (!ctx) return;
+      drawingRef.current = true;
+      const { x, y } = getPosFromNative(e);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "#000";
+    }
 
-  function endStroke() {
-    setIsDrawing(false);
-  }
+    function handleMove(e: TouchEvent | MouseEvent) {
+      if (!drawingRef.current) return;
+      e.preventDefault();
+      const ctx = canvasRef.current?.getContext("2d");
+      if (!ctx) return;
+      const { x, y } = getPosFromNative(e);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      setHasStrokes(true);
+    }
+
+    function handleEnd() {
+      drawingRef.current = false;
+    }
+
+    canvas.addEventListener("mousedown", handleStart);
+    canvas.addEventListener("mousemove", handleMove);
+    canvas.addEventListener("mouseup", handleEnd);
+    canvas.addEventListener("mouseleave", handleEnd);
+    canvas.addEventListener("touchstart", handleStart, { passive: false });
+    canvas.addEventListener("touchmove", handleMove, { passive: false });
+    canvas.addEventListener("touchend", handleEnd);
+
+    return () => {
+      canvas.removeEventListener("mousedown", handleStart);
+      canvas.removeEventListener("mousemove", handleMove);
+      canvas.removeEventListener("mouseup", handleEnd);
+      canvas.removeEventListener("mouseleave", handleEnd);
+      canvas.removeEventListener("touchstart", handleStart);
+      canvas.removeEventListener("touchmove", handleMove);
+      canvas.removeEventListener("touchend", handleEnd);
+    };
+  }, []);
 
   function clearCanvas() {
     const canvas = canvasRef.current;
@@ -122,7 +148,6 @@ export function SignaturePad({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
@@ -133,7 +158,6 @@ export function SignaturePad({
         )}
       </div>
 
-      {/* Canvas */}
       <div
         ref={containerRef}
         className={
@@ -144,13 +168,6 @@ export function SignaturePad({
         <canvas
           ref={canvasRef}
           className="absolute inset-0 touch-none"
-          onMouseDown={startStroke}
-          onMouseMove={continueStroke}
-          onMouseUp={endStroke}
-          onMouseLeave={endStroke}
-          onTouchStart={startStroke}
-          onTouchMove={continueStroke}
-          onTouchEnd={endStroke}
         />
 
         {/* Baseline hint */}

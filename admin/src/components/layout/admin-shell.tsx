@@ -1,4 +1,5 @@
 import { AdminNav } from "@/components/layout/admin-nav";
+import { LanguageSelector } from "@/components/language-selector";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,7 @@ export function AdminShell({ children }: AdminShellProps) {
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
             <p className="text-sm font-semibold md:hidden">MyStay Admin</p>
             <div className="ml-auto flex items-center gap-2">
+              <LanguageSelector />
               <ThemeToggle />
               <LogoutButton />
             </div>
