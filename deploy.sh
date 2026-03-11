@@ -824,6 +824,8 @@ if [[ -f "${BACKEND_ENV}" ]]; then
 fi
 
 if [[ -f "${FRONTEND_ENV}" ]]; then
+  # Server-side URL for Next.js API routes to reach the backend
+  set_env_value "${FRONTEND_ENV}" "BACKEND_URL" "http://127.0.0.1:4000"
   if [[ -n "${FRONTEND_DOMAIN}" ]]; then
     set_env_value "${FRONTEND_ENV}" "NEXT_PUBLIC_APP_URL" "${SCHEME}://${FRONTEND_DOMAIN}"
   fi
