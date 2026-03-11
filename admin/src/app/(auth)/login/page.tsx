@@ -1,9 +1,10 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import type { AdminLocale } from "@/lib/admin-locale";
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,9 +12,89 @@ import { Label } from "@/components/ui/label";
 
 type LoginType = "staff" | "platform";
 
+const loginCopy: Record<
+  AdminLocale,
+  {
+    appName: string;
+    signIn: string;
+    loading: string;
+    hotelStaff: string;
+    platformAdmin: string;
+    staffLoginTitle: string;
+    platformLoginTitle: string;
+    staffAccessDescription: string;
+    platformAccessDescription: string;
+    platformLoginDescription: string;
+    staffLoginDescription: string;
+    email: string;
+    password: string;
+    signingIn: string;
+    loginFailed: string;
+    backendUnreachable: string;
+  }
+> = {
+  en: {
+    appName: "MyStay Admin",
+    signIn: "Sign in",
+    loading: "Loading...",
+    hotelStaff: "Hotel Staff",
+    platformAdmin: "Platform Admin",
+    staffLoginTitle: "Hotel Staff Login",
+    platformLoginTitle: "Platform Admin Login",
+    staffAccessDescription: "Hotel staff access to manage your hotel's operations.",
+    platformAccessDescription: "Platform admin access to manage hotels and system settings.",
+    platformLoginDescription: "Access hotel management and system configuration.",
+    staffLoginDescription: "Demo user is prefilled for local development.",
+    email: "Email",
+    password: "Password",
+    signingIn: "Signing in...",
+    loginFailed: "Login failed.",
+    backendUnreachable: "Backend unreachable. Start `npm run dev:backend` then try again.",
+  },
+  fr: {
+    appName: "MyStay Admin",
+    signIn: "Se connecter",
+    loading: "Chargement...",
+    hotelStaff: "Personnel hotel",
+    platformAdmin: "Admin plateforme",
+    staffLoginTitle: "Connexion personnel hotel",
+    platformLoginTitle: "Connexion admin plateforme",
+    staffAccessDescription: "Acces personnel hotel pour gerer les operations de votre hotel.",
+    platformAccessDescription: "Acces admin plateforme pour gerer les hotels et la configuration systeme.",
+    platformLoginDescription: "Acces a la gestion hoteliere et a la configuration systeme.",
+    staffLoginDescription: "Un compte demo est pre-rempli pour le developpement local.",
+    email: "Email",
+    password: "Mot de passe",
+    signingIn: "Connexion...",
+    loginFailed: "Echec de connexion.",
+    backendUnreachable: "Backend inaccessible. Lancez `npm run dev:backend` puis reessayez.",
+  },
+  es: {
+    appName: "MyStay Admin",
+    signIn: "Iniciar sesion",
+    loading: "Cargando...",
+    hotelStaff: "Personal del hotel",
+    platformAdmin: "Admin de plataforma",
+    staffLoginTitle: "Inicio de sesion del personal",
+    platformLoginTitle: "Inicio de sesion admin",
+    staffAccessDescription: "Acceso del personal para gestionar las operaciones del hotel.",
+    platformAccessDescription: "Acceso admin de plataforma para gestionar hoteles y configuracion del sistema.",
+    platformLoginDescription: "Acceso a la gestion de hoteles y configuracion del sistema.",
+    staffLoginDescription: "Usuario demo prellenado para desarrollo local.",
+    email: "Correo",
+    password: "Contrasena",
+    signingIn: "Iniciando sesion...",
+    loginFailed: "Error de inicio de sesion.",
+    backendUnreachable: "Backend inaccesible. Inicia `npm run dev:backend` y vuelve a intentar.",
+  },
+};
+
 function LoginPageInner() {
   const router = useRouter();
+  const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = loginCopy[locale];
   const typeParam = searchParams?.get("type");
   const initialType: LoginType = typeParam === "platform" ? "platform" : "staff";
 
@@ -50,7 +131,7 @@ function LoginPageInner() {
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        setError(payload?.error ?? "Login failed.");
+        setError(payload?.error ?? t.loginFailed);
         return;
       }
 
@@ -62,7 +143,7 @@ function LoginPageInner() {
       }
       router.refresh();
     } catch {
-      setError("Backend unreachable. Start `npm run dev:backend` then try again.");
+      setError(t.backendUnreachable);
     } finally {
       setIsLoading(false);
     }
@@ -71,12 +152,10 @@ function LoginPageInner() {
   return (
     <main className="mx-auto max-w-md space-y-6 px-6 py-10">
       <header className="space-y-1">
-        <p className="text-sm text-muted-foreground">MyStay Admin</p>
-        <h1 className="text-2xl font-semibold">Sign in</h1>
+        <p className="text-sm text-muted-foreground">{t.appName}</p>
+        <h1 className="text-2xl font-semibold">{t.signIn}</h1>
         <p className="text-sm text-muted-foreground">
-          {loginType === "platform" 
-            ? "Platform admin access to manage hotels and system settings."
-            : "Hotel staff access to manage your hotel's operations."}
+          {loginType === "platform" ? t.platformAccessDescription : t.staffAccessDescription}
         </p>
       </header>
 
@@ -91,7 +170,7 @@ function LoginPageInner() {
               : "text-muted-foreground hover:bg-muted"
           }`}
         >
-          Hotel Staff
+          {t.hotelStaff}
         </button>
         <button
           type="button"
@@ -102,25 +181,23 @@ function LoginPageInner() {
               : "text-muted-foreground hover:bg-muted"
           }`}
         >
-          Platform Admin
+          {t.platformAdmin}
         </button>
       </div>
 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">
-            {loginType === "platform" ? "Platform Admin Login" : "Hotel Staff Login"}
+            {loginType === "platform" ? t.platformLoginTitle : t.staffLoginTitle}
           </CardTitle>
           <CardDescription>
-            {loginType === "platform" 
-              ? "Access hotel management and system configuration."
-              : "Demo user is prefilled for local development."}
+            {loginType === "platform" ? t.platformLoginDescription : t.staffLoginDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t.email}</Label>
               <Input
                 id="email"
                 value={email}
@@ -129,7 +206,7 @@ function LoginPageInner() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t.password}</Label>
               <Input
                 id="password"
                 value={password}
@@ -142,7 +219,7 @@ function LoginPageInner() {
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in…" : "Sign in"}
+              {isLoading ? t.signingIn : t.signIn}
             </Button>
           </form>
         </CardContent>
@@ -162,7 +239,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <main className="mx-auto max-w-md px-6 py-10 text-sm text-muted-foreground">
-          Loading…
+          {loginCopy.en.loading}
         </main>
       }
     >

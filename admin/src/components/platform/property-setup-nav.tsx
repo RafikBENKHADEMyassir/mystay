@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ClipboardList, CreditCard, FileText, HandCoins, PlugZap, RefreshCw, UtensilsCrossed } from "lucide-react";
 
+import { stripAdminLocaleFromPathname } from "@/lib/admin-locale";
 import { cn } from "@/lib/utils";
 
 type SetupItem = {
@@ -29,7 +30,7 @@ type PropertySetupNavProps = {
 };
 
 export function PropertySetupNav({ hotelId }: PropertySetupNavProps) {
-  const pathname = usePathname() ?? "";
+  const pathname = stripAdminLocaleFromPathname(usePathname() ?? "");
 
   return (
     <nav className="space-y-1">
@@ -55,4 +56,3 @@ export function PropertySetupNav({ hotelId }: PropertySetupNavProps) {
     </nav>
   );
 }
-

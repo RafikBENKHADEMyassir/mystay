@@ -1,4 +1,7 @@
+import { cookies } from "next/headers";
+
 import { requireStaffToken } from "@/lib/staff-auth";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,13 +48,130 @@ const team: TeamMember[] = [
   { name: "Sarah Chen", assigned: 3, completed: 2, floor: "2" },
 ];
 
-const statusConfig: Record<RoomStatus, { color: string; label: string }> = {
-  clean: { color: "bg-emerald-500", label: "Clean" },
-  cleaning: { color: "bg-amber-500", label: "In Progress" },
-  dirty: { color: "bg-red-500", label: "Needs Cleaning" },
-  inspection: { color: "bg-blue-500", label: "Inspection" },
-  maintenance: { color: "bg-slate-400", label: "Maintenance" },
-  checkout: { color: "bg-orange-500", label: "Check-out" },
+const housekeepingCopy = {
+  en: {
+    title: "Housekeeping",
+    subtitle: "Room status board and task management",
+    stats: {
+      clean: "Clean",
+      cleaning: "In Progress",
+      dirty: "Dirty",
+      inspection: "Inspection",
+      checkout: "Check-out",
+      maintenance: "Maintenance",
+    },
+    statusLabels: {
+      clean: "Clean",
+      cleaning: "In Progress",
+      dirty: "Needs Cleaning",
+      inspection: "Inspection",
+      maintenance: "Maintenance",
+      checkout: "Check-out",
+    },
+    priorityRooms: "Priority Rooms",
+    priorityRoomsDescription: "VIP, high-priority, and pending check-outs",
+    checkOutShort: "C/O",
+    teamWorkload: "Team Workload",
+    teamProgress: "Today's assignments and progress",
+    floor: "Floor",
+    rooms: "rooms",
+    floorPending: "pending",
+    room: "Room",
+    guest: "Guest",
+    assigned: "Assigned",
+    checkoutAt: "Check-out at",
+    updateStatus: "Update Status",
+    priority: {
+      vip: "VIP",
+      high: "High",
+      normal: "Normal",
+    },
+  },
+  fr: {
+    title: "Menage",
+    subtitle: "Tableau d'etat des chambres et gestion des taches",
+    stats: {
+      clean: "Propre",
+      cleaning: "En cours",
+      dirty: "Sale",
+      inspection: "Inspection",
+      checkout: "Check-out",
+      maintenance: "Maintenance",
+    },
+    statusLabels: {
+      clean: "Propre",
+      cleaning: "En cours",
+      dirty: "Nettoyage requis",
+      inspection: "Inspection",
+      maintenance: "Maintenance",
+      checkout: "Check-out",
+    },
+    priorityRooms: "Chambres prioritaires",
+    priorityRoomsDescription: "VIP, haute priorite et check-outs en attente",
+    checkOutShort: "C/O",
+    teamWorkload: "Charge equipe",
+    teamProgress: "Affectations et progression du jour",
+    floor: "Etage",
+    rooms: "chambres",
+    floorPending: "en attente",
+    room: "Chambre",
+    guest: "Client",
+    assigned: "Assigne",
+    checkoutAt: "Check-out a",
+    updateStatus: "Mettre a jour le statut",
+    priority: {
+      vip: "VIP",
+      high: "Haute",
+      normal: "Normale",
+    },
+  },
+  es: {
+    title: "Limpieza",
+    subtitle: "Panel de estado de habitaciones y gestion de tareas",
+    stats: {
+      clean: "Limpia",
+      cleaning: "En progreso",
+      dirty: "Sucia",
+      inspection: "Inspeccion",
+      checkout: "Check-out",
+      maintenance: "Mantenimiento",
+    },
+    statusLabels: {
+      clean: "Limpia",
+      cleaning: "En progreso",
+      dirty: "Necesita limpieza",
+      inspection: "Inspeccion",
+      maintenance: "Mantenimiento",
+      checkout: "Check-out",
+    },
+    priorityRooms: "Habitaciones prioritarias",
+    priorityRoomsDescription: "VIP, alta prioridad y check-outs pendientes",
+    checkOutShort: "C/O",
+    teamWorkload: "Carga del equipo",
+    teamProgress: "Asignaciones y progreso de hoy",
+    floor: "Piso",
+    rooms: "habitaciones",
+    floorPending: "pendientes",
+    room: "Habitacion",
+    guest: "Huesped",
+    assigned: "Asignado",
+    checkoutAt: "Check-out a las",
+    updateStatus: "Actualizar estado",
+    priority: {
+      vip: "VIP",
+      high: "Alta",
+      normal: "Normal",
+    },
+  },
+} as const;
+
+const statusColorConfig: Record<RoomStatus, { color: string }> = {
+  clean: { color: "bg-emerald-500" },
+  cleaning: { color: "bg-amber-500" },
+  dirty: { color: "bg-red-500" },
+  inspection: { color: "bg-blue-500" },
+  maintenance: { color: "bg-slate-400" },
+  checkout: { color: "bg-orange-500" },
 };
 
 const priorityBadge: Record<string, string> = {
@@ -61,6 +181,16 @@ const priorityBadge: Record<string, string> = {
 
 export default function HousekeepingDashboard() {
   requireStaffToken();
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = housekeepingCopy[locale];
+  const statusConfig: Record<RoomStatus, { color: string; label: string }> = {
+    clean: { color: statusColorConfig.clean.color, label: t.statusLabels.clean },
+    cleaning: { color: statusColorConfig.cleaning.color, label: t.statusLabels.cleaning },
+    dirty: { color: statusColorConfig.dirty.color, label: t.statusLabels.dirty },
+    inspection: { color: statusColorConfig.inspection.color, label: t.statusLabels.inspection },
+    maintenance: { color: statusColorConfig.maintenance.color, label: t.statusLabels.maintenance },
+    checkout: { color: statusColorConfig.checkout.color, label: t.statusLabels.checkout },
+  };
 
   const counts = {
     clean: rooms.filter((r) => r.status === "clean").length,
@@ -80,28 +210,26 @@ export default function HousekeepingDashboard() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">Housekeeping</h1>
-        <p className="text-sm text-muted-foreground">
-          Room status board and task management
-        </p>
+        <h1 className="text-2xl font-semibold">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </header>
 
       {/* Stats Row */}
       <div className="grid gap-3 grid-cols-3 lg:grid-cols-6">
-        <StatCard label="Clean" count={counts.clean} color="bg-emerald-500" />
-        <StatCard label="In Progress" count={counts.cleaning} color="bg-amber-500" />
-        <StatCard label="Dirty" count={counts.dirty} color="bg-red-500" />
-        <StatCard label="Inspection" count={counts.inspection} color="bg-blue-500" />
-        <StatCard label="Check-out" count={counts.checkout} color="bg-orange-500" />
-        <StatCard label="Maintenance" count={counts.maintenance} color="bg-slate-400" />
+        <StatCard label={t.stats.clean} count={counts.clean} color="bg-emerald-500" />
+        <StatCard label={t.stats.cleaning} count={counts.cleaning} color="bg-amber-500" />
+        <StatCard label={t.stats.dirty} count={counts.dirty} color="bg-red-500" />
+        <StatCard label={t.stats.inspection} count={counts.inspection} color="bg-blue-500" />
+        <StatCard label={t.stats.checkout} count={counts.checkout} color="bg-orange-500" />
+        <StatCard label={t.stats.maintenance} count={counts.maintenance} color="bg-slate-400" />
       </div>
 
       {/* Urgent / Priority Rooms */}
       {urgentRooms.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Priority Rooms</CardTitle>
-            <CardDescription>VIP, high-priority, and pending check-outs</CardDescription>
+            <CardTitle className="text-base">{t.priorityRooms}</CardTitle>
+            <CardDescription>{t.priorityRoomsDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -112,11 +240,11 @@ export default function HousekeepingDashboard() {
                 >
                   <div className="flex items-center gap-3">
                     <div className={`h-2.5 w-2.5 rounded-full ${statusConfig[room.status].color}`} />
-                    <span className="font-medium">Room {room.number}</span>
+                    <span className="font-medium">{t.room} {room.number}</span>
                     <span className="text-sm text-muted-foreground">{room.type}</span>
                     {room.priority !== "normal" && (
                       <Badge variant="outline" className={`text-[10px] uppercase ${priorityBadge[room.priority] ?? ""}`}>
-                        {room.priority}
+                        {room.priority === "vip" ? t.priority.vip : room.priority === "high" ? t.priority.high : t.priority.normal}
                       </Badge>
                     )}
                   </div>
@@ -126,7 +254,7 @@ export default function HousekeepingDashboard() {
                     )}
                     {room.checkOut && (
                       <Badge variant="secondary" className="text-xs">
-                        C/O {room.checkOut}
+                        {t.checkOutShort} {room.checkOut}
                       </Badge>
                     )}
                     <Badge variant="outline" className="text-xs">
@@ -143,8 +271,8 @@ export default function HousekeepingDashboard() {
       {/* Team Workload */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Team Workload</CardTitle>
-          <CardDescription>Today&apos;s assignments and progress</CardDescription>
+          <CardTitle className="text-base">{t.teamWorkload}</CardTitle>
+          <CardDescription>{t.teamProgress}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -159,7 +287,7 @@ export default function HousekeepingDashboard() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{member.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        Floor {member.floor} · {member.completed}/{member.assigned} rooms
+                        {t.floor} {member.floor} · {member.completed}/{member.assigned} {t.rooms}
                       </span>
                     </div>
                     <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
@@ -182,9 +310,9 @@ export default function HousekeepingDashboard() {
         return (
           <Card key={floor}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Floor {floor}</CardTitle>
+              <CardTitle className="text-base">{t.floor} {floor}</CardTitle>
               <CardDescription>
-                {floorRooms.filter((r) => r.status === "clean").length} clean · {floorRooms.filter((r) => r.status !== "clean" && r.status !== "maintenance").length} pending
+                {floorRooms.filter((r) => r.status === "clean").length} {t.stats.clean.toLowerCase()} · {floorRooms.filter((r) => r.status !== "clean" && r.status !== "maintenance").length} {t.floorPending}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -197,11 +325,11 @@ export default function HousekeepingDashboard() {
                     <div className={`absolute left-0 top-0 h-full w-1.5 ${statusConfig[room.status].color}`} />
                     <div className="py-3 pl-5 pr-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold">Room {room.number}</span>
+                        <span className="font-semibold">{t.room} {room.number}</span>
                         <div className="flex items-center gap-1.5">
                           {room.priority !== "normal" && (
                             <Badge variant="outline" className={`text-[10px] uppercase ${priorityBadge[room.priority] ?? ""}`}>
-                              {room.priority}
+                              {room.priority === "vip" ? t.priority.vip : room.priority === "high" ? t.priority.high : t.priority.normal}
                             </Badge>
                           )}
                           <Badge
@@ -214,19 +342,19 @@ export default function HousekeepingDashboard() {
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">{room.type}</p>
                       {room.guestName && (
-                        <p className="mt-1 text-xs text-muted-foreground">Guest: {room.guestName}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{t.guest}: {room.guestName}</p>
                       )}
                       {room.assignedTo && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">Assigned: {room.assignedTo}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{t.assigned}: {room.assignedTo}</p>
                       )}
                       {room.notes && (
                         <p className="mt-1 text-xs italic text-muted-foreground">{room.notes}</p>
                       )}
                       {room.checkOut && (
-                        <p className="mt-1 text-xs font-medium text-orange-600">Check-out at {room.checkOut}</p>
+                        <p className="mt-1 text-xs font-medium text-orange-600">{t.checkoutAt} {room.checkOut}</p>
                       )}
                       <Button size="sm" variant="outline" className="mt-2.5 w-full text-xs">
-                        Update Status
+                        {t.updateStatus}
                       </Button>
                     </div>
                   </div>

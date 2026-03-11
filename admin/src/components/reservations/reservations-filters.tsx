@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,9 +14,35 @@ function setParam(next: URLSearchParams, key: string, value: string) {
   else next.delete(key);
 }
 
+const reservationsFiltersCopy = {
+  en: {
+    arrivalDate: "Arrival date",
+    departureDate: "Departure date",
+    search: "Search",
+    searchPlaceholder: "Search guest name or booking number",
+    reset: "Reset",
+  },
+  fr: {
+    arrivalDate: "Date d'arrivee",
+    departureDate: "Date de depart",
+    search: "Recherche",
+    searchPlaceholder: "Rechercher nom client ou numero de reservation",
+    reset: "Reinitialiser",
+  },
+  es: {
+    arrivalDate: "Fecha de llegada",
+    departureDate: "Fecha de salida",
+    search: "Buscar",
+    searchPlaceholder: "Buscar nombre de huesped o numero de reserva",
+    reset: "Restablecer",
+  },
+} as const;
+
 export function ReservationsFilters() {
   const router = useRouter();
   const pathname = usePathname() ?? "/reservations";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = reservationsFiltersCopy[locale];
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams?.get("search") ?? "");
@@ -54,7 +81,7 @@ export function ReservationsFilters() {
   return (
     <div className="grid gap-3 md:grid-cols-[160px,160px,1fr,auto] md:items-end">
       <div className="space-y-2">
-        <Label htmlFor="res-from">Arrival date</Label>
+        <Label htmlFor="res-from">{t.arrivalDate}</Label>
         <Input
           id="res-from"
           type="date"
@@ -64,7 +91,7 @@ export function ReservationsFilters() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="res-to">Departure date</Label>
+        <Label htmlFor="res-to">{t.departureDate}</Label>
         <Input
           id="res-to"
           type="date"
@@ -74,19 +101,18 @@ export function ReservationsFilters() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="res-search">Search</Label>
+        <Label htmlFor="res-search">{t.search}</Label>
         <Input
           id="res-search"
-          placeholder="Search guest name or booking number"
+          placeholder={t.searchPlaceholder}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
 
       <Button type="button" variant="outline" onClick={reset}>
-        Reset
+        {t.reset}
       </Button>
     </div>
   );
 }
-

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 import { LiveInboxRefresh } from "@/components/live-inbox-refresh";
 import { InboxFilters } from "@/components/inbox/inbox-filters";
@@ -6,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { requireStaffToken } from "@/lib/staff-auth";
 
 type Ticket = {
@@ -57,6 +59,81 @@ function departmentBadgeClass(department: string) {
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 
+const requestsCopy = {
+  en: {
+    appName: "MyStay Admin",
+    title: "Requests",
+    subtitle: "Structured service requests across departments.",
+    ticketSingular: "ticket",
+    ticketPlural: "tickets",
+    filtersTitle: "Filters",
+    filtersDescription: "Search and narrow down the live ticket stream.",
+    ticketsTitle: "Tickets",
+    ticketsDescription: "Sorted by most recently updated.",
+    table: {
+      ticket: "Ticket",
+      room: "Room",
+      department: "Department",
+      status: "Status",
+      updated: "Updated",
+    },
+    noTickets: "No tickets match the current filter.",
+    pageLabel: "Page",
+    ofLabel: "of",
+    previous: "Previous",
+    next: "Next",
+    backendError: "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.",
+  },
+  fr: {
+    appName: "MyStay Admin",
+    title: "Demandes",
+    subtitle: "Demandes de service structurees entre departements.",
+    ticketSingular: "ticket",
+    ticketPlural: "tickets",
+    filtersTitle: "Filtres",
+    filtersDescription: "Rechercher et affiner le flux de tickets en direct.",
+    ticketsTitle: "Tickets",
+    ticketsDescription: "Tries par mise a jour la plus recente.",
+    table: {
+      ticket: "Ticket",
+      room: "Chambre",
+      department: "Departement",
+      status: "Statut",
+      updated: "Mis a jour",
+    },
+    noTickets: "Aucun ticket ne correspond au filtre actuel.",
+    pageLabel: "Page",
+    ofLabel: "sur",
+    previous: "Precedent",
+    next: "Suivant",
+    backendError: "Backend inaccessible. Lancez `npm run dev:backend` (et `npm run db:reset` une fois), puis actualisez.",
+  },
+  es: {
+    appName: "MyStay Admin",
+    title: "Solicitudes",
+    subtitle: "Solicitudes de servicio estructuradas entre departamentos.",
+    ticketSingular: "ticket",
+    ticketPlural: "tickets",
+    filtersTitle: "Filtros",
+    filtersDescription: "Busca y reduce el flujo de tickets en vivo.",
+    ticketsTitle: "Tickets",
+    ticketsDescription: "Ordenados por actualizacion mas reciente.",
+    table: {
+      ticket: "Ticket",
+      room: "Habitacion",
+      department: "Departamento",
+      status: "Estado",
+      updated: "Actualizado",
+    },
+    noTickets: "Ningun ticket coincide con el filtro actual.",
+    pageLabel: "Pagina",
+    ofLabel: "de",
+    previous: "Anterior",
+    next: "Siguiente",
+    backendError: "Backend inaccesible. Inicia `npm run dev:backend` (y `npm run db:reset` una vez) y actualiza.",
+  },
+} as const;
+
 async function getTickets(token: string): Promise<Ticket[]> {
   const response = await fetch(`${backendUrl}/api/v1/tickets`, {
     cache: "no-store",
@@ -72,6 +149,8 @@ async function getTickets(token: string): Promise<Ticket[]> {
 
 export default async function RequestsPage({ searchParams }: RequestsPageProps) {
   const token = requireStaffToken();
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const t = requestsCopy[locale];
 
   let allTickets: Ticket[] = [];
   let error: string | null = null;
@@ -79,7 +158,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   try {
     allTickets = await getTickets(token);
   } catch {
-    error = "Backend unreachable. Start `npm run dev:backend` (and `npm run db:reset` once) then refresh.";
+    error = t.backendError;
   }
 
   const departmentFilter = searchParams?.dept?.trim() ?? "";
@@ -113,20 +192,20 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       <LiveInboxRefresh />
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">MyStay Admin</p>
-          <h1 className="text-2xl font-semibold">Requests</h1>
-          <p className="text-sm text-muted-foreground">Structured service requests across departments.</p>
+          <p className="text-sm text-muted-foreground">{t.appName}</p>
+          <h1 className="text-2xl font-semibold">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <Badge variant="secondary">
-          {filteredTickets.length} ticket{filteredTickets.length === 1 ? "" : "s"}
+          {filteredTickets.length} {filteredTickets.length === 1 ? t.ticketSingular : t.ticketPlural}
         </Badge>
       </header>
 
       <Card>
         <CardHeader className="space-y-2">
           <div className="space-y-1">
-            <CardTitle className="text-base">Filters</CardTitle>
-            <CardDescription>Search and narrow down the live ticket stream.</CardDescription>
+            <CardTitle className="text-base">{t.filtersTitle}</CardTitle>
+            <CardDescription>{t.filtersDescription}</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -138,8 +217,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       <Card>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-base">Tickets</CardTitle>
-            <CardDescription>Sorted by most recently updated.</CardDescription>
+            <CardTitle className="text-base">{t.ticketsTitle}</CardTitle>
+            <CardDescription>{t.ticketsDescription}</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {departmentFilter ? <Badge variant="outline">{departmentFilter}</Badge> : null}
@@ -155,11 +234,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Ticket</TableHead>
-                <TableHead className="hidden sm:table-cell">Room</TableHead>
-                <TableHead className="hidden md:table-cell">Department</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden lg:table-cell">Updated</TableHead>
+                <TableHead>{t.table.ticket}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t.table.room}</TableHead>
+                <TableHead className="hidden md:table-cell">{t.table.department}</TableHead>
+                <TableHead>{t.table.status}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t.table.updated}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -198,7 +277,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
               {tickets.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
-                    No tickets match the current filter.
+                    {t.noTickets}
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -210,20 +289,20 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       {totalPages > 1 ? (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Page {safePage} of {totalPages}
+            {t.pageLabel} {safePage} {t.ofLabel} {totalPages}
           </p>
           <div className="flex items-center gap-2">
             {safePage > 1 ? (
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/requests?${new URLSearchParams({ ...(departmentFilter && { dept: departmentFilter }), ...(statusFilter && { status: statusFilter }), ...(searchParams?.q && { q: searchParams.q }), page: String(safePage - 1) }).toString()}`}>
-                  Previous
+                  {t.previous}
                 </Link>
               </Button>
             ) : null}
             {safePage < totalPages ? (
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/requests?${new URLSearchParams({ ...(departmentFilter && { dept: departmentFilter }), ...(statusFilter && { status: statusFilter }), ...(searchParams?.q && { q: searchParams.q }), page: String(safePage + 1) }).toString()}`}>
-                  Next
+                  {t.next}
                 </Link>
               </Button>
             ) : null}
@@ -233,4 +312,3 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     </div>
   );
 }
-

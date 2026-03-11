@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { adminLocaleCookieName, defaultAdminLocale, getAdminLocaleFromPathname, isAdminLocale, stripAdminLocaleFromPathname, withAdminLocale } from "@/lib/admin-locale";
+
 const staffTokenCookieName = "mystay_staff_token";
+const oneYearInSeconds = 60 * 60 * 24 * 365;
 
 const restrictedRoutes = [
   "/integrations",
@@ -46,13 +49,42 @@ const departmentRoutes: Record<string, string> = {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const localeFromPath = getAdminLocaleFromPathname(pathname);
+  const normalizedPathname = localeFromPath ? stripAdminLocaleFromPathname(pathname) : pathname;
+  const storedLocale = request.cookies.get(adminLocaleCookieName)?.value;
+  const preferredLocale = isAdminLocale(storedLocale) ? storedLocale : defaultAdminLocale;
+
+  if (!localeFromPath && preferredLocale !== defaultAdminLocale) {
+    const localizedUrl = request.nextUrl.clone();
+    localizedUrl.pathname = withAdminLocale(pathname, preferredLocale);
+    return NextResponse.redirect(localizedUrl);
+  }
+
+  function passThrough() {
+    if (!localeFromPath) return NextResponse.next();
+
+    const rewrittenUrl = request.nextUrl.clone();
+    rewrittenUrl.pathname = normalizedPathname;
+    return NextResponse.rewrite(rewrittenUrl);
+  }
+
+  function persistLocale(response: NextResponse) {
+    if (!localeFromPath) return response;
+
+    response.cookies.set(adminLocaleCookieName, localeFromPath, {
+      path: "/",
+      maxAge: oneYearInSeconds,
+      sameSite: "lax",
+    });
+    return response;
+  }
 
   const isRestricted = restrictedRoutes.some(
-    (route) => pathname === route || pathname.startsWith(route + "/")
+    (route) => normalizedPathname === route || normalizedPathname.startsWith(route + "/")
   );
 
   if (!isRestricted) {
-    return NextResponse.next();
+    return persistLocale(passThrough());
   }
 
   const token = request.cookies.get(staffTokenCookieName)?.value;
@@ -60,7 +92,7 @@ export function middleware(request: NextRequest) {
   const isAdminOrManager = payload?.role === "admin" || payload?.role === "manager";
 
   if (isAdminOrManager) {
-    const response = NextResponse.next();
+    const response = persistLocale(passThrough());
     if (payload.hotelId) {
       response.headers.set("x-hotel-id", payload.hotelId);
     }
@@ -68,13 +100,13 @@ export function middleware(request: NextRequest) {
   }
 
   const deptRoute = Object.entries(departmentRoutes).find(
-    ([route]) => pathname === route || pathname.startsWith(route + "/")
+    ([route]) => normalizedPathname === route || normalizedPathname.startsWith(route + "/")
   );
   if (deptRoute) {
     const requiredDept = deptRoute[1];
     const departments = Array.isArray(payload?.departments) ? payload.departments : [];
     if (departments.includes(requiredDept)) {
-      const response = NextResponse.next();
+      const response = persistLocale(passThrough());
       if (payload?.hotelId) {
         response.headers.set("x-hotel-id", payload.hotelId);
       }
@@ -82,17 +114,12 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL("/", request.url));
+  const fallbackUrl = request.nextUrl.clone();
+  fallbackUrl.pathname = localeFromPath ? `/${localeFromPath}` : "/";
+  fallbackUrl.search = "";
+  return NextResponse.redirect(fallbackUrl);
 }
 
 export const config = {
-  matcher: [
-    "/integrations/:path*",
-    "/settings/:path*",
-    "/request-templates/:path*",
-    "/audience/:path*",
-    "/automations/:path*",
-    "/upsell-services/:path*",
-    "/housekeeping/:path*"
-  ]
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"]
 };

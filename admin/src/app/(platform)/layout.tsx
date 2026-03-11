@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Building2, Settings, LayoutDashboard, Mail, Gauge, FileCheck, Database } from "lucide-react";
 
 import { getStaffToken } from "@/lib/staff-token";
 import { LanguageSelector } from "@/components/language-selector";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
+import { getAdminMessages } from "@/lib/admin-translations";
 
 async function verifyPlatformAdmin(token: string) {
   // Decode JWT to check if it's a platform admin token
@@ -24,6 +27,8 @@ export default async function PlatformLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const locale = resolveAdminLocale(cookies().get(adminLocaleCookieName)?.value);
+  const messages = getAdminMessages(locale);
   const token = getStaffToken();
   if (!token) {
     redirect("/login?type=platform");
@@ -43,7 +48,7 @@ export default async function PlatformLayout({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Building2 className="h-4 w-4" />
             </div>
-            <span className="font-semibold">MyStay Platform</span>
+            <span className="font-semibold">{messages.app.platformName}</span>
           </Link>
         </div>
         <nav className="space-y-1 p-4">
@@ -52,26 +57,26 @@ export default async function PlatformLayout({
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <LayoutDashboard className="h-4 w-4" />
-            Dashboard
+            {messages.platformNav.dashboard}
           </Link>
           <Link
             href="/platform/hotels"
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Building2 className="h-4 w-4" />
-            Hotels
+            {messages.platformNav.hotels}
           </Link>
           <Link
             href="/platform/settings"
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Settings className="h-4 w-4" />
-            Settings
+            {messages.platformNav.settings}
           </Link>
 
           <div className="pb-1 pt-4">
             <span className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-              Configuration
+              {messages.platformNav.configuration}
             </span>
           </div>
           <Link
@@ -79,28 +84,28 @@ export default async function PlatformLayout({
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Mail className="h-4 w-4" />
-            Notifications
+            {messages.platformNav.notifications}
           </Link>
           <Link
             href="/platform/settings/rate-limits"
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Gauge className="h-4 w-4" />
-            Rate Limits
+            {messages.platformNav.rateLimits}
           </Link>
           <Link
             href="/platform/settings/audit-logs"
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <FileCheck className="h-4 w-4" />
-            Audit Logs
+            {messages.platformNav.auditLogs}
           </Link>
           <Link
             href="/platform/settings/backup"
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Database className="h-4 w-4" />
-            Backup
+            {messages.platformNav.backup}
           </Link>
         </nav>
         <div className="absolute bottom-0 w-64 border-t p-4">

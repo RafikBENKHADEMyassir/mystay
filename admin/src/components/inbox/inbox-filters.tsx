@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { defaultAdminLocale, getAdminLocaleFromPathname } from "@/lib/admin-locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,9 +14,38 @@ type InboxFiltersProps = {
   statuses: string[];
 };
 
+const inboxFiltersCopy = {
+  en: {
+    search: "Search",
+    searchPlaceholder: "Title, department, id...",
+    department: "Department",
+    status: "Status",
+    all: "All",
+    reset: "Reset",
+  },
+  fr: {
+    search: "Recherche",
+    searchPlaceholder: "Titre, departement, id...",
+    department: "Departement",
+    status: "Statut",
+    all: "Tous",
+    reset: "Reinitialiser",
+  },
+  es: {
+    search: "Buscar",
+    searchPlaceholder: "Titulo, departamento, id...",
+    department: "Departamento",
+    status: "Estado",
+    all: "Todos",
+    reset: "Restablecer",
+  },
+} as const;
+
 export function InboxFilters({ departments, statuses }: InboxFiltersProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "/inbox";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = inboxFiltersCopy[locale];
   const searchParams = useSearchParams();
 
   const dept = searchParams?.get("dept") ?? "";
@@ -58,24 +88,24 @@ export function InboxFilters({ departments, statuses }: InboxFiltersProps) {
   return (
     <div className="grid gap-3 md:grid-cols-[1fr,180px,180px,auto] md:items-end">
       <div className="space-y-2">
-        <Label htmlFor="inbox-q">Search</Label>
+        <Label htmlFor="inbox-q">{t.search}</Label>
         <Input
           id="inbox-q"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Title, department, id…"
+          placeholder={t.searchPlaceholder}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="inbox-dept">Department</Label>
+        <Label htmlFor="inbox-dept">{t.department}</Label>
         <select
           id="inbox-dept"
           className={nativeSelectClassName}
           value={dept}
           onChange={(event) => updateSelect("dept", event.target.value)}
         >
-          <option value="">All</option>
+          <option value="">{t.all}</option>
           {stableDepartments.map((department) => (
             <option key={department} value={department}>
               {department}
@@ -85,14 +115,14 @@ export function InboxFilters({ departments, statuses }: InboxFiltersProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="inbox-status">Status</Label>
+        <Label htmlFor="inbox-status">{t.status}</Label>
         <select
           id="inbox-status"
           className={nativeSelectClassName}
           value={status}
           onChange={(event) => updateSelect("status", event.target.value)}
         >
-          <option value="">All</option>
+          <option value="">{t.all}</option>
           {stableStatuses.map((status) => (
             <option key={status} value={status}>
               {status.replace("_", " ")}
@@ -102,7 +132,7 @@ export function InboxFilters({ departments, statuses }: InboxFiltersProps) {
       </div>
 
       <Button type="button" variant="outline" onClick={reset}>
-        Reset
+        {t.reset}
       </Button>
     </div>
   );

@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, FileText, Image, Inbox, Info, LayoutDashboard, LayoutGrid, Link2, Plug, PlugZap, Settings, Sparkles, Users } from "lucide-react";
 
+import type { AdminLocale } from "@/lib/admin-locale";
+import { getAdminLocaleFromPathname, stripAdminLocaleFromPathname } from "@/lib/admin-locale";
+import { getAdminMessages } from "@/lib/admin-translations";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type NavItem = {
-  title: string;
+  titleKey: keyof ReturnType<typeof getAdminMessages>["nav"];
   href: string;
   icon: typeof LayoutDashboard;
   roles?: string[];
@@ -17,30 +20,34 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  { title: "Reservations", href: "/reservations", icon: CalendarDays, departments: ["reception"] },
-  { title: "Inbox", href: "/inbox", icon: Inbox },
-  { title: "Housekeeping", href: "/housekeeping", icon: Sparkles, departments: ["housekeeping"] },
-  { title: "Pay by link", href: "/payment-links", icon: Link2, roles: ["admin", "manager"], departments: ["reception"] },
-  { title: "Message templates", href: "/message-templates", icon: FileText, roles: ["admin", "manager"] },
-  { title: "Room Images", href: "/room-images", icon: Image, roles: ["admin", "manager"] },
-  { title: "Upselling", href: "/home-carousels", icon: LayoutGrid, roles: ["admin", "manager"] },
-  { title: "Useful informations", href: "/useful-informations", icon: Info, roles: ["admin", "manager"] },
-  { title: "Upsell services", href: "/upsell-services", icon: PlugZap, roles: ["admin", "manager"] },
-  { title: "Requests", href: "/requests", icon: FileText },
-  { title: "Integrations", href: "/integrations", icon: Plug, roles: ["admin", "manager"] },
-  { title: "Staff", href: "/settings/staff", icon: Users, roles: ["admin", "manager"] },
-  { title: "Settings", href: "/settings", icon: Settings, roles: ["admin", "manager"] }
+  { titleKey: "dashboard", href: "/", icon: LayoutDashboard },
+  { titleKey: "reservations", href: "/reservations", icon: CalendarDays, departments: ["reception"] },
+  { titleKey: "inbox", href: "/inbox", icon: Inbox },
+  { titleKey: "housekeeping", href: "/housekeeping", icon: Sparkles, departments: ["housekeeping"] },
+  { titleKey: "payByLink", href: "/payment-links", icon: Link2, roles: ["admin", "manager"], departments: ["reception"] },
+  { titleKey: "messageTemplates", href: "/message-templates", icon: FileText, roles: ["admin", "manager"] },
+  { titleKey: "roomImages", href: "/room-images", icon: Image, roles: ["admin", "manager"] },
+  { titleKey: "upselling", href: "/home-carousels", icon: LayoutGrid, roles: ["admin", "manager"] },
+  { titleKey: "usefulInformations", href: "/useful-informations", icon: Info, roles: ["admin", "manager"] },
+  { titleKey: "upsellServices", href: "/upsell-services", icon: PlugZap, roles: ["admin", "manager"] },
+  { titleKey: "requests", href: "/requests", icon: FileText },
+  { titleKey: "integrations", href: "/integrations", icon: Plug, roles: ["admin", "manager"] },
+  { titleKey: "staff", href: "/settings/staff", icon: Users, roles: ["admin", "manager"] },
+  { titleKey: "settings", href: "/settings", icon: Settings, roles: ["admin", "manager"] }
 ];
 
 type AdminNavProps = {
   role?: string;
   departments?: string[];
+  locale: AdminLocale;
 };
 
-export function AdminNav({ role, departments = [] }: AdminNavProps) {
-  const pathname = usePathname() ?? "/";
+export function AdminNav({ role, departments = [], locale }: AdminNavProps) {
+  const rawPathname = usePathname() ?? "/";
+  const pathname = stripAdminLocaleFromPathname(rawPathname);
   const isAdminOrManager = role === "admin" || role === "manager";
+  const activeLocale = getAdminLocaleFromPathname(rawPathname) ?? locale;
+  const labels = getAdminMessages(activeLocale).nav;
 
   const visibleItems = navItems.filter((item) => {
     if (item.roles && (!role || !item.roles.includes(role))) return false;
@@ -71,7 +78,7 @@ export function AdminNav({ role, departments = [] }: AdminNavProps) {
           >
             <Link href={item.href}>
               <Icon className="h-4 w-4" />
-              {item.title}
+              {labels[item.titleKey]}
             </Link>
           </Button>
         );

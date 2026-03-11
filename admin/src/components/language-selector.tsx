@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Globe } from "lucide-react";
 
+import { adminLocaleCookieName, defaultAdminLocale, isAdminLocale, withAdminLocale } from "@/lib/admin-locale";
 import { Button } from "@/components/ui/button";
 
 const LANGUAGES = [
@@ -11,22 +13,44 @@ const LANGUAGES = [
   { code: "es", label: "Español" },
 ] as const;
 
-const STORAGE_KEY = "mystay-admin-locale";
+const STORAGE_KEY = adminLocaleCookieName;
+const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
 export function LanguageSelector() {
+  const router = useRouter();
+  const pathname = usePathname() ?? "/";
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
-  const [locale, setLocale] = useState("en");
+  const [locale, setLocale] = useState(defaultAdminLocale);
 
   useEffect(() => {
+    const fromPath = pathname.split("/")[1] ?? "";
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) setLocale(stored);
-  }, []);
+    const nextLocale = isAdminLocale(fromPath)
+      ? fromPath
+      : isAdminLocale(stored)
+        ? stored
+        : defaultAdminLocale;
+
+    setLocale(nextLocale);
+    localStorage.setItem(STORAGE_KEY, nextLocale);
+    document.documentElement.lang = nextLocale;
+    document.cookie = `${STORAGE_KEY}=${nextLocale}; path=/; max-age=${ONE_YEAR_IN_SECONDS}; samesite=lax`;
+  }, [pathname]);
 
   function selectLanguage(code: string) {
+    if (!isAdminLocale(code)) return;
+
+    const query = searchParams?.toString();
+    const destination = withAdminLocale(pathname, code);
+    const nextUrl = query ? `${destination}?${query}` : destination;
+
     setLocale(code);
     localStorage.setItem(STORAGE_KEY, code);
     document.documentElement.lang = code;
+    document.cookie = `${STORAGE_KEY}=${code}; path=/; max-age=${ONE_YEAR_IN_SECONDS}; samesite=lax`;
     setOpen(false);
+    router.replace(nextUrl);
   }
 
   const current = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0];
