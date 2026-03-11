@@ -52,7 +52,6 @@ type StayLookupResponse = {
   };
 };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 const devDefaultConfirmation = "0123456789";
 
 function stripCountryCode(phone: string, countryCode: string): string {
@@ -217,7 +216,7 @@ export default function CheckInPage() {
     }
 
     function refreshFromLookup(confirmation: string) {
-      const lookupUrl = new URL("/api/v1/stays/lookup", apiBaseUrl);
+      const lookupUrl = new URL("/api/stays/lookup", window.location.origin);
       lookupUrl.searchParams.set("confirmation", confirmation);
 
       fetch(lookupUrl.toString(), { method: "GET" })
@@ -405,7 +404,7 @@ export default function CheckInPage() {
     setSubmitError(null);
 
     try {
-      const response = await fetch(new URL("/api/v1/guest/check-in", apiBaseUrl).toString(), {
+      const response = await fetch("/api/guest/check-in", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.guestToken}` },
         body: JSON.stringify({
