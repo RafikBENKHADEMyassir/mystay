@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { Mail, MessageSquare, Bell, Check, X, ChevronDown, ChevronUp, Save } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { defaultAdminLocale, getAdminLocaleFromPathname, type AdminLocale } from "@/lib/admin-locale";
 
 type HotelNotification = {
   hotelId: string;
@@ -20,25 +22,169 @@ type HotelNotification = {
   updatedAt: string | null;
 };
 
-const EMAIL_PROVIDERS = [
-  { value: "none", label: "None" },
-  { value: "mock", label: "Mock (testing)" },
-  { value: "sendgrid", label: "SendGrid" },
-  { value: "mailgun", label: "Mailgun" },
-  { value: "ses", label: "Amazon SES" }
-];
-const SMS_PROVIDERS = [
-  { value: "none", label: "None" },
-  { value: "mock", label: "Mock (testing)" },
-  { value: "twilio", label: "Twilio" },
-  { value: "messagebird", label: "MessageBird" }
-];
-const PUSH_PROVIDERS = [
-  { value: "none", label: "None" },
-  { value: "mock", label: "Mock (testing)" },
-  { value: "firebase", label: "Firebase (FCM)" },
-  { value: "onesignal", label: "OneSignal" }
-];
+const EMAIL_PROVIDERS = ["none", "mock", "sendgrid", "mailgun", "ses"] as const;
+const SMS_PROVIDERS = ["none", "mock", "twilio", "messagebird"] as const;
+const PUSH_PROVIDERS = ["none", "mock", "firebase", "onesignal"] as const;
+
+const notificationsCopy = {
+  en: {
+    providerLabels: {
+      none: "None",
+      mock: "Mock (testing)",
+      sendgrid: "SendGrid",
+      mailgun: "Mailgun",
+      ses: "Amazon SES",
+      twilio: "Twilio",
+      messagebird: "MessageBird",
+      firebase: "Firebase (FCM)",
+      onesignal: "OneSignal",
+    },
+    configLabels: {
+      apiKey: "API Key",
+      fromEmail: "From Email",
+      domain: "Domain",
+      accessKeyId: "Access Key ID",
+      secretAccessKey: "Secret Access Key",
+      region: "AWS Region",
+      accountSid: "Account SID",
+      authToken: "Auth Token",
+      fromNumber: "From Number",
+      serviceAccountJson: "Service Account JSON",
+      projectId: "Project ID",
+      appId: "App ID",
+      originator: "Originator",
+    },
+    notConfigured: "Not configured",
+    mock: "Mock",
+    inactive: "Inactive",
+    provider: "Provider",
+    enterPrefix: "Enter",
+    save: "Save",
+    saving: "Saving...",
+    saved: "Saved",
+    saveFailed: "Save failed",
+    networkError: "Network error",
+    platformDefaults: "Platform Defaults",
+    platformDefaultsDescriptionPrefix: "Fallback",
+    platformDefaultsDescriptionSuffix: "provider used when a hotel has no provider configured. Hotels can override this.",
+    defaultProvider: "Default Provider",
+    saveDefault: "Save Default",
+    tabEmail: "Email",
+    tabSms: "SMS",
+    tabPush: "Push",
+    perHotelConfiguration: "Per-Hotel Configuration",
+    hotelsConfiguredSuffix: "hotels have",
+    configured: "configured",
+    loadingHotels: "Loading hotels...",
+    noHotels: "No hotels found.",
+  },
+  fr: {
+    providerLabels: {
+      none: "Aucun",
+      mock: "Mock (test)",
+      sendgrid: "SendGrid",
+      mailgun: "Mailgun",
+      ses: "Amazon SES",
+      twilio: "Twilio",
+      messagebird: "MessageBird",
+      firebase: "Firebase (FCM)",
+      onesignal: "OneSignal",
+    },
+    configLabels: {
+      apiKey: "Cle API",
+      fromEmail: "Email expediteur",
+      domain: "Domaine",
+      accessKeyId: "Access Key ID",
+      secretAccessKey: "Secret Access Key",
+      region: "Region AWS",
+      accountSid: "Account SID",
+      authToken: "Auth Token",
+      fromNumber: "Numero expediteur",
+      serviceAccountJson: "JSON compte service",
+      projectId: "Project ID",
+      appId: "App ID",
+      originator: "Originateur",
+    },
+    notConfigured: "Non configure",
+    mock: "Mock",
+    inactive: "Inactif",
+    provider: "Fournisseur",
+    enterPrefix: "Saisir",
+    save: "Enregistrer",
+    saving: "Enregistrement...",
+    saved: "Enregistre",
+    saveFailed: "Echec d'enregistrement",
+    networkError: "Erreur reseau",
+    platformDefaults: "Valeurs plateforme par defaut",
+    platformDefaultsDescriptionPrefix: "Fournisseur de secours",
+    platformDefaultsDescriptionSuffix: "utilise quand un hotel n'a aucun fournisseur configure. Les hotels peuvent surcharger.",
+    defaultProvider: "Fournisseur par defaut",
+    saveDefault: "Enregistrer defaut",
+    tabEmail: "Email",
+    tabSms: "SMS",
+    tabPush: "Push",
+    perHotelConfiguration: "Configuration par hotel",
+    hotelsConfiguredSuffix: "hotels ont",
+    configured: "configure",
+    loadingHotels: "Chargement des hotels...",
+    noHotels: "Aucun hotel trouve.",
+  },
+  es: {
+    providerLabels: {
+      none: "Ninguno",
+      mock: "Mock (pruebas)",
+      sendgrid: "SendGrid",
+      mailgun: "Mailgun",
+      ses: "Amazon SES",
+      twilio: "Twilio",
+      messagebird: "MessageBird",
+      firebase: "Firebase (FCM)",
+      onesignal: "OneSignal",
+    },
+    configLabels: {
+      apiKey: "Clave API",
+      fromEmail: "Email remitente",
+      domain: "Dominio",
+      accessKeyId: "Access Key ID",
+      secretAccessKey: "Secret Access Key",
+      region: "Region AWS",
+      accountSid: "Account SID",
+      authToken: "Auth Token",
+      fromNumber: "Numero remitente",
+      serviceAccountJson: "JSON cuenta de servicio",
+      projectId: "Project ID",
+      appId: "App ID",
+      originator: "Originador",
+    },
+    notConfigured: "Sin configurar",
+    mock: "Mock",
+    inactive: "Inactivo",
+    provider: "Proveedor",
+    enterPrefix: "Ingresa",
+    save: "Guardar",
+    saving: "Guardando...",
+    saved: "Guardado",
+    saveFailed: "Error al guardar",
+    networkError: "Error de red",
+    platformDefaults: "Valores por defecto de plataforma",
+    platformDefaultsDescriptionPrefix: "Proveedor de respaldo",
+    platformDefaultsDescriptionSuffix: "usado cuando un hotel no tiene proveedor configurado. Los hoteles pueden sobrescribirlo.",
+    defaultProvider: "Proveedor por defecto",
+    saveDefault: "Guardar por defecto",
+    tabEmail: "Email",
+    tabSms: "SMS",
+    tabPush: "Push",
+    perHotelConfiguration: "Configuracion por hotel",
+    hotelsConfiguredSuffix: "hoteles tienen",
+    configured: "configurado",
+    loadingHotels: "Cargando hoteles...",
+    noHotels: "No se encontraron hoteles.",
+  },
+} as const;
+
+function providerLabel(provider: string, locale: AdminLocale) {
+  return notificationsCopy[locale].providerLabels[provider as keyof (typeof notificationsCopy)[AdminLocale]["providerLabels"]] ?? provider;
+}
 
 const CONFIG_TEMPLATES: Record<string, Record<string, string>> = {
   sendgrid: { apiKey: "", fromEmail: "" },
@@ -50,41 +196,28 @@ const CONFIG_TEMPLATES: Record<string, Record<string, string>> = {
   onesignal: { appId: "", apiKey: "" }
 };
 
-const CONFIG_LABELS: Record<string, string> = {
-  apiKey: "API Key",
-  fromEmail: "From Email",
-  domain: "Domain",
-  accessKeyId: "Access Key ID",
-  secretAccessKey: "Secret Access Key",
-  region: "AWS Region",
-  accountSid: "Account SID",
-  authToken: "Auth Token",
-  fromNumber: "From Number",
-  serviceAccountJson: "Service Account JSON",
-  projectId: "Project ID",
-  appId: "App ID",
-  originator: "Originator"
-};
-
 type Tab = "email" | "sms" | "push";
 
-function ProviderBadge({ provider }: { provider: string }) {
-  if (provider === "none") return <Badge variant="outline">Not configured</Badge>;
-  if (provider === "mock") return <Badge variant="secondary">Mock</Badge>;
-  return <Badge variant="default">{provider}</Badge>;
+function ProviderBadge({ provider, locale }: { provider: string; locale: AdminLocale }) {
+  if (provider === "none") return <Badge variant="outline">{notificationsCopy[locale].notConfigured}</Badge>;
+  if (provider === "mock") return <Badge variant="secondary">{notificationsCopy[locale].mock}</Badge>;
+  return <Badge variant="default">{providerLabel(provider, locale)}</Badge>;
 }
 
 function HotelConfigRow({
   hotel,
   channel,
   providers,
-  onSaved
+  onSaved,
+  locale,
 }: {
   hotel: HotelNotification;
   channel: Tab;
   providers: { value: string; label: string }[];
   onSaved: () => void;
+  locale: AdminLocale;
 }) {
+  const t = notificationsCopy[locale];
   const currentProvider = channel === "email" ? hotel.emailProvider : channel === "sms" ? hotel.smsProvider : hotel.pushProvider;
   const currentConfig = channel === "email" ? hotel.emailConfig : channel === "sms" ? hotel.smsConfig : hotel.pushConfig;
 
@@ -124,14 +257,14 @@ function HotelConfigRow({
         body: JSON.stringify({ provider, config })
       });
       if (res.ok) {
-        setMessage("Saved");
+        setMessage(t.saved);
         onSaved();
       } else {
         const data = await res.json().catch(() => null);
-        setMessage(data?.error ?? "Save failed");
+        setMessage(data?.error ?? t.saveFailed);
       }
     } catch {
-      setMessage("Network error");
+      setMessage(t.networkError);
     } finally {
       setSaving(false);
       setTimeout(() => setMessage(null), 3000);
@@ -149,17 +282,17 @@ function HotelConfigRow({
         <div className="flex items-center gap-3">
           <span className="font-medium">{hotel.hotelName}</span>
           {hotel.city && <span className="text-sm text-muted-foreground">{hotel.city}</span>}
-          {!hotel.isActive && <Badge variant="outline">Inactive</Badge>}
+          {!hotel.isActive && <Badge variant="outline">{t.inactive}</Badge>}
         </div>
         <div className="flex items-center gap-3">
-          <ProviderBadge provider={currentProvider} />
+          <ProviderBadge provider={currentProvider} locale={locale} />
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
       </button>
       {expanded && (
         <div className="space-y-4 border-t p-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Provider</label>
+            <label className="mb-1 block text-sm font-medium">{t.provider}</label>
             <select
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={provider}
@@ -175,7 +308,7 @@ function HotelConfigRow({
               {configFields.map((key) => (
                 <div key={key}>
                   <label className="mb-1 block text-sm font-medium">
-                    {CONFIG_LABELS[key] ?? key}
+                    {t.configLabels[key as keyof typeof t.configLabels] ?? key}
                   </label>
                   {key === "serviceAccountJson" ? (
                     <textarea
@@ -183,7 +316,7 @@ function HotelConfigRow({
                       rows={4}
                       value={config[key] ?? ""}
                       onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
-                      placeholder={`Enter ${CONFIG_LABELS[key] ?? key}...`}
+                      placeholder={`${t.enterPrefix} ${t.configLabels[key as keyof typeof t.configLabels] ?? key}...`}
                     />
                   ) : (
                     <input
@@ -191,7 +324,7 @@ function HotelConfigRow({
                       type={key.toLowerCase().includes("key") || key.toLowerCase().includes("secret") || key.toLowerCase().includes("token") ? "password" : "text"}
                       value={config[key] ?? ""}
                       onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
-                      placeholder={`Enter ${CONFIG_LABELS[key] ?? key}...`}
+                      placeholder={`${t.enterPrefix} ${t.configLabels[key as keyof typeof t.configLabels] ?? key}...`}
                     />
                   )}
                 </div>
@@ -205,11 +338,11 @@ function HotelConfigRow({
               disabled={saving}
             >
               <Save className="h-4 w-4" />
-              {saving ? "Saving..." : "Save"}
+              {saving ? t.saving : t.save}
             </button>
             {message && (
-              <span className={`flex items-center gap-1 text-sm ${message === "Saved" ? "text-green-600" : "text-destructive"}`}>
-                {message === "Saved" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+              <span className={`flex items-center gap-1 text-sm ${message === t.saved ? "text-green-600" : "text-destructive"}`}>
+                {message === t.saved ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
                 {message}
               </span>
             )}
@@ -229,7 +362,16 @@ type PlatformDefaults = {
   pushConfig: Record<string, string>;
 };
 
-function PlatformDefaultsCard({ tab, providers }: { tab: Tab; providers: { value: string; label: string }[] }) {
+function PlatformDefaultsCard({
+  tab,
+  providers,
+  locale,
+}: {
+  tab: Tab;
+  providers: { value: string; label: string }[];
+  locale: AdminLocale;
+}) {
+  const t = notificationsCopy[locale];
   const [defaults, setDefaults] = useState<PlatformDefaults | null>(null);
   const [provider, setProvider] = useState("none");
   const [config, setConfig] = useState<Record<string, string>>({});
@@ -291,10 +433,10 @@ function PlatformDefaultsCard({ tab, providers }: { tab: Tab; providers: { value
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value: updated })
       });
-      setMessage(res.ok ? "Saved" : "Save failed");
+      setMessage(res.ok ? t.saved : t.saveFailed);
       if (res.ok) setDefaults(updated);
     } catch {
-      setMessage("Network error");
+      setMessage(t.networkError);
     } finally {
       setSaving(false);
       setTimeout(() => setMessage(null), 3000);
@@ -306,14 +448,14 @@ function PlatformDefaultsCard({ tab, providers }: { tab: Tab; providers: { value
   return (
     <Card className="border-dashed border-primary/30 bg-primary/5">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Platform Defaults</CardTitle>
+        <CardTitle className="text-base">{t.platformDefaults}</CardTitle>
         <CardDescription>
-          Fallback {tab} provider used when a hotel has no provider configured. Hotels can override this.
+          {t.platformDefaultsDescriptionPrefix} {tab} {t.platformDefaultsDescriptionSuffix}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Default Provider</label>
+          <label className="mb-1 block text-sm font-medium">{t.defaultProvider}</label>
           <select
             className="w-full max-w-xs rounded-md border bg-background px-3 py-2 text-sm"
             value={provider}
@@ -328,13 +470,13 @@ function PlatformDefaultsCard({ tab, providers }: { tab: Tab; providers: { value
           <div className="grid gap-3 sm:grid-cols-2">
             {configFields.map((key) => (
               <div key={key}>
-                <label className="mb-1 block text-sm font-medium">{CONFIG_LABELS[key] ?? key}</label>
+                <label className="mb-1 block text-sm font-medium">{t.configLabels[key as keyof typeof t.configLabels] ?? key}</label>
                 <input
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   type={key.toLowerCase().includes("key") || key.toLowerCase().includes("secret") || key.toLowerCase().includes("token") ? "password" : "text"}
                   value={config[key] ?? ""}
                   onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
-                  placeholder={`Enter ${CONFIG_LABELS[key] ?? key}...`}
+                  placeholder={`${t.enterPrefix} ${t.configLabels[key as keyof typeof t.configLabels] ?? key}...`}
                 />
               </div>
             ))}
@@ -347,11 +489,11 @@ function PlatformDefaultsCard({ tab, providers }: { tab: Tab; providers: { value
             disabled={saving}
           >
             <Save className="h-4 w-4" />
-            {saving ? "Saving..." : "Save Default"}
+            {saving ? t.saving : t.saveDefault}
           </button>
           {message && (
-            <span className={`flex items-center gap-1 text-sm ${message === "Saved" ? "text-green-600" : "text-destructive"}`}>
-              {message === "Saved" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+            <span className={`flex items-center gap-1 text-sm ${message === t.saved ? "text-green-600" : "text-destructive"}`}>
+              {message === t.saved ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
               {message}
             </span>
           )}
@@ -362,6 +504,9 @@ function PlatformDefaultsCard({ tab, providers }: { tab: Tab; providers: { value
 }
 
 export function NotificationsClient({ initialTab }: { initialTab?: string }) {
+  const pathname = usePathname() ?? "/platform/settings/notifications";
+  const locale = getAdminLocaleFromPathname(pathname) ?? defaultAdminLocale;
+  const t = notificationsCopy[locale];
   const [tab, setTab] = useState<Tab>((initialTab as Tab) ?? "email");
   const [hotels, setHotels] = useState<HotelNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -380,16 +525,17 @@ export function NotificationsClient({ initialTab }: { initialTab?: string }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const providers = tab === "email" ? EMAIL_PROVIDERS : tab === "sms" ? SMS_PROVIDERS : PUSH_PROVIDERS;
+  const providerValues = tab === "email" ? EMAIL_PROVIDERS : tab === "sms" ? SMS_PROVIDERS : PUSH_PROVIDERS;
+  const providers = providerValues.map((value) => ({ value, label: providerLabel(value, locale) }));
   const providerKey = tab === "email" ? "emailProvider" : tab === "sms" ? "smsProvider" : "pushProvider";
 
   const configured = hotels.filter((h) => h[providerKey] !== "none").length;
   const total = hotels.length;
 
   const tabs: { key: Tab; label: string; icon: typeof Mail }[] = [
-    { key: "email", label: "Email", icon: Mail },
-    { key: "sms", label: "SMS", icon: MessageSquare },
-    { key: "push", label: "Push", icon: Bell }
+    { key: "email", label: t.tabEmail, icon: Mail },
+    { key: "sms", label: t.tabSms, icon: MessageSquare },
+    { key: "push", label: t.tabPush, icon: Bell }
   ];
 
   return (
@@ -409,13 +555,13 @@ export function NotificationsClient({ initialTab }: { initialTab?: string }) {
         ))}
       </div>
 
-      <PlatformDefaultsCard tab={tab} providers={providers} />
+      <PlatformDefaultsCard tab={tab} providers={providers} locale={locale} />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Per-Hotel Configuration</CardTitle>
+          <CardTitle className="text-base">{t.perHotelConfiguration}</CardTitle>
           <CardDescription>
-            {configured} of {total} hotels have {tab} configured
+            {configured} / {total} {t.hotelsConfiguredSuffix} {tab} {t.configured}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -429,9 +575,9 @@ export function NotificationsClient({ initialTab }: { initialTab?: string }) {
       </Card>
 
       {loading ? (
-        <div className="py-12 text-center text-muted-foreground">Loading hotels...</div>
+        <div className="py-12 text-center text-muted-foreground">{t.loadingHotels}</div>
       ) : hotels.length === 0 ? (
-        <div className="py-12 text-center text-muted-foreground">No hotels found.</div>
+        <div className="py-12 text-center text-muted-foreground">{t.noHotels}</div>
       ) : (
         <div className="space-y-2">
           {hotels.map((hotel) => (
@@ -441,6 +587,7 @@ export function NotificationsClient({ initialTab }: { initialTab?: string }) {
               channel={tab}
               providers={providers}
               onSaved={fetchData}
+              locale={locale}
             />
           ))}
         </div>

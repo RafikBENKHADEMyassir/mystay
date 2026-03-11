@@ -9,8 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { HotelDetailImage } from "./hotel-detail-image";
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+function resolveImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith("/")) return `${backendUrl}${url}`;
+  return url;
+}
 
 const hotelDetailCopy = {
   en: {
@@ -221,30 +228,13 @@ export default async function HotelDetailPage({
 
       {/* Cover Image / Branding Preview */}
       <Card className="overflow-hidden">
-        <div
-          className="flex h-48 items-center justify-center"
-          style={{
-            backgroundColor: hotel.primaryColor ?? "#1a1a2e",
-            backgroundImage: hotel.coverImageUrl ? `url(${hotel.coverImageUrl})` : undefined,
-            backgroundSize: "cover",
-            backgroundPosition: "center"
-          }}
-        >
-          {hotel.logoUrl ? (
-            <img
-              src={hotel.logoUrl}
-              alt={hotel.name}
-              className="h-24 w-auto max-w-[200px] object-contain"
-            />
-          ) : (
-            <span
-              className="text-3xl font-bold"
-              style={{ color: hotel.secondaryColor }}
-            >
-              {hotel.name}
-            </span>
-          )}
-        </div>
+        <HotelDetailImage
+          name={hotel.name}
+          logoUrl={resolveImageUrl(hotel.logoUrl)}
+          coverImageUrl={resolveImageUrl(hotel.coverImageUrl)}
+          primaryColor={hotel.primaryColor}
+          secondaryColor={hotel.secondaryColor}
+        />
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -23,6 +23,7 @@ admin/public/uploads/*
 !admin/public/uploads/.gitkeep
 backend/public/uploads/*
 !backend/public/uploads/.gitkeep
+!backend/public/uploads/seed/
 
 # Playwright E2E test artifacts
 test-results/

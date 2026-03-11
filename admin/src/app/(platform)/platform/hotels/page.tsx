@@ -7,8 +7,15 @@ import { adminLocaleCookieName, resolveAdminLocale } from "@/lib/admin-locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { HotelCardImage } from "./hotel-card-image";
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
+
+function resolveImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith("/")) return `${backendUrl}${url}`;
+  return url;
+}
 
 const hotelsListCopy = {
   en: {
@@ -120,26 +127,12 @@ export default async function HotelsListPage() {
           {hotels.map((hotel) => (
             <Link key={hotel.id} href={`/platform/hotels/${hotel.id}`}>
               <Card className="cursor-pointer overflow-hidden transition-colors hover:bg-muted/50">
-                {/* Cover Image */}
-                <div 
-                  className="h-32 w-full"
-                  style={{ 
-                    backgroundColor: hotel.primaryColor ?? "#1a1a2e",
-                    backgroundImage: hotel.coverImageUrl ? `url(${hotel.coverImageUrl})` : undefined,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center"
-                  }}
-                >
-                  {hotel.logoUrl && (
-                    <div className="flex h-full items-center justify-center">
-                      <img 
-                        src={hotel.logoUrl} 
-                        alt={hotel.name}
-                        className="h-16 w-auto max-w-[120px] object-contain"
-                      />
-                    </div>
-                  )}
-                </div>
+                <HotelCardImage
+                  name={hotel.name}
+                  logoUrl={resolveImageUrl(hotel.logoUrl)}
+                  coverImageUrl={resolveImageUrl(hotel.coverImageUrl)}
+                  primaryColor={hotel.primaryColor}
+                />
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div>

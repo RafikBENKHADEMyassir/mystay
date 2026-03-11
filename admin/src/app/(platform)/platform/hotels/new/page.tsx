@@ -170,6 +170,22 @@ const newHotelCopy = {
   },
 } as const;
 
+function looksLikeImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.toLowerCase();
+    if (/\.(jpg|jpeg|png|gif|webp|svg|ico|avif)$/.test(path)) return true;
+    if (parsed.hostname.includes("unsplash.com")) return true;
+    if (parsed.hostname.includes("cloudinary.com")) return true;
+    if (parsed.hostname.includes("imgur.com")) return true;
+    if (parsed.searchParams.has("w") || parsed.searchParams.has("fit")) return true;
+    if (path.endsWith("/") && path !== "/") return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type FormData = {
   name: string;
   description: string;
@@ -373,6 +389,14 @@ export default function NewHotelPage() {
                   onChange={(e) => handleChange("logoUrl", e.target.value)}
                   placeholder={t.placeholders.url}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Direct link to an image file (.png, .jpg, .svg). Not a web page URL.
+                </p>
+                {form.logoUrl.trim() && !looksLikeImageUrl(form.logoUrl.trim()) && (
+                  <p className="text-xs text-destructive">
+                    This URL does not look like an image. Use a direct link to an image file.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="coverImageUrl">{t.coverImageUrl}</Label>
@@ -382,6 +406,14 @@ export default function NewHotelPage() {
                   onChange={(e) => handleChange("coverImageUrl", e.target.value)}
                   placeholder={t.placeholders.url}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Direct link to a landscape image (.png, .jpg). Not a web page URL.
+                </p>
+                {form.coverImageUrl.trim() && !looksLikeImageUrl(form.coverImageUrl.trim()) && (
+                  <p className="text-xs text-destructive">
+                    This URL does not look like an image. Use a direct link to an image file.
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
