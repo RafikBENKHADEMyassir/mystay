@@ -23,6 +23,7 @@ export type LinkedStay = {
   checkIn: string;
   checkOut: string;
   guests: { adults: number; children: number };
+  priceCents?: number | null;
 };
 
 export type SignupStrings = GuestContent["pages"]["auth"]["signup"];
